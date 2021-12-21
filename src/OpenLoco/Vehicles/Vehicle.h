@@ -150,6 +150,11 @@ namespace OpenLoco::Vehicles
             : track(id, direction)
         {
         }
+
+        constexpr TrackAndDirection(uint16_t trackAndDirection)
+            : track(trackAndDirection >> 8, trackAndDirection & 0x00FF)
+        {
+        }
     };
     static_assert(sizeof(TrackAndDirection) == 2);
 

@@ -1,5 +1,6 @@
 #include "../../Types.hpp"
 #include "../Map.hpp"
+#include "../../Vehicles/Vehicle.h"
 
 namespace OpenLoco::Map::Track
 {
@@ -22,6 +23,8 @@ namespace OpenLoco::Map::Track
     };
     static_assert(sizeof(TrackConnections) == 0x24);
 
+    void getRoadConnections(const Map::Pos3& pos, TrackConnections& data, const CompanyId company, const uint8_t roadObjectId, const OpenLoco::Vehicles::TrackAndDirection& trackAndDirection);
+    void getTrackConnections(const Map::Pos3& pos, TrackConnections& data, const CompanyId company, const uint8_t trackObjectId, const OpenLoco::Vehicles::TrackAndDirection& trackAndDirection);
     void getRoadConnections(const Map::Pos3& pos, TrackConnections& data, const CompanyId company, const uint8_t roadObjectId, const uint16_t trackAndDirection);
-    void getTrackConnections(const Map::Pos3& pos, TrackConnections& data, const CompanyId company, const uint8_t trackObjectId, const uint16_t trackAndDirection);
+    void getTrackConnections(const Map::Pos3& pos, TrackConnections& data, const CompanyId company, const uint8_t trackObjectId, const uint16_t& trackAndDirection);
 }

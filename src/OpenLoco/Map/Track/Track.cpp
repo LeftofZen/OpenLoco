@@ -15,14 +15,24 @@ namespace OpenLoco::Map::Track
     static loco_global<uint16_t, 0x01136087> _1136087;
     static loco_global<uint8_t, 0x0113607D> _113607D;
 
-    // 0x00478895
     void getRoadConnections(const Map::Pos3& pos, TrackConnections& data, const CompanyId company, const uint8_t roadObjectId, const uint16_t trackAndDirection)
     {
-        const auto nextTrackPos = pos + TrackData::getUnkRoad(trackAndDirection).pos;
+        getRoadConnections(pos, data, company, roadObjectId, reinterpret_cast<const OpenLoco::Vehicles::TrackAndDirection&>(trackAndDirection));
+    }
+
+    void getTrackConnections(const Map::Pos3& pos, TrackConnections& data, const CompanyId company, const uint8_t trackObjectId, const uint16_t& trackAndDirection)
+    {
+        getTrackConnections(pos, data, company, trackObjectId, reinterpret_cast<const OpenLoco::Vehicles::TrackAndDirection&>(trackAndDirection));
+    }
+
+    // 0x00478895
+    void getRoadConnections(const Map::Pos3& pos, TrackConnections& data, const CompanyId company, const uint8_t roadObjectId, const OpenLoco::Vehicles::TrackAndDirection& trackAndDirection)
+    {
+        const auto nextTrackPos = pos + TrackData::getUnkRoad(trackAndDirection.road._data).pos;
         _1135FAE = StationId::null; // stationId
 
         uint8_t baseZ = nextTrackPos.z / 4;
-        uint8_t nextRotation = TrackData::getUnkRoad(trackAndDirection).rotationEnd;
+        uint8_t nextRotation = TrackData::getUnkRoad(trackAndDirection.road._data).rotationEnd;
         _112C2EE = nextRotation;
 
         const auto tile = Map::TileManager::get(nextTrackPos);
@@ -149,14 +159,14 @@ namespace OpenLoco::Map::Track
     }
 
     // 0x004A2604
-    void getTrackConnections(const Map::Pos3& pos, TrackConnections& data, const CompanyId company, const uint8_t trackObjectId, const uint16_t trackAndDirection)
+    void getTrackConnections(const Map::Pos3& pos, TrackConnections& data, const CompanyId company, const uint8_t trackObjectId, const OpenLoco::Vehicles::TrackAndDirection& trackAndDirection)
     {
-        const auto nextTrackPos = pos + TrackData::getUnkTrack(trackAndDirection).pos;
+        const auto nextTrackPos = pos + TrackData::getUnkTrack(trackAndDirection.track._data).pos;
         _1135FAE = StationId::null; // stationId
         _113607D = 0;
 
         uint8_t baseZ = nextTrackPos.z / 4;
-        uint8_t nextRotation = TrackData::getUnkTrack(trackAndDirection).rotationEnd;
+        uint8_t nextRotation = TrackData::getUnkTrack(trackAndDirection.track._data).rotationEnd;
 
         const auto tile = Map::TileManager::get(nextTrackPos);
         for (const auto& el : tile)

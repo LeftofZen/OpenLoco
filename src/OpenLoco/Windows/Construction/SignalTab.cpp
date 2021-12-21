@@ -1,10 +1,12 @@
 #include "../../Audio/Audio.h"
+#include "../../CompanyManager.h"
 #include "../../GameCommands/GameCommands.h"
 #include "../../Graphics/ImageIds.h"
 #include "../../Input.h"
 #include "../../Localisation/FormatArguments.hpp"
 #include "../../Localisation/StringIds.h"
 #include "../../Map/Track/TrackData.h"
+#include "../../Map/Track/Track.h"
 #include "../../Objects/ObjectManager.h"
 #include "../../Objects/TrackObject.h"
 #include "../../Objects/TrainSignalObject.h"
@@ -274,11 +276,48 @@ namespace OpenLoco::Ui::Windows::Construction::Signal
         }
 
         GameCommands::setErrorTitle(isBothDirections ? StringIds::cant_build_signals_here : StringIds::cant_build_signal_here);
+
         auto res = GameCommands::doCommand(*args, GameCommands::Flags::apply);
         if (res == GameCommands::FAILURE)
         {
             return;
         }
+
+        // repeat placement
+        loco_global<OpenLoco::Map::Track::TrackConnections, 0x0113609C> trackConnections;
+        do
+        {
+            trackConnections->size = 0;
+            OpenLoco::Map::Track::getTrackConnections(args->pos, trackConnections, CompanyManager::getControllingId(), args->trackId, OpenLoco::Vehicles::TrackAndDirection(args->trackId, args->rotation));
+
+            // copied from ConstructionTab::removeTrack
+
+            const auto trackAndDirection2 = (trackConnections->data[trackConnections->size - 1] & 0x1FF) ^ (1 << 2);
+            Map::Pos3 loc2(_x, _y, _constructionZ);
+            loc2 -= TrackData::getUnkTrack(trackAndDirection2).pos;
+            if (trackAndDirection2 & (1 << 2))
+            {
+                loc2.z += TrackData::getUnkTrack(trackAndDirection2).pos.z;
+            }
+
+            const auto& trackPiece = TrackData::getTrackPiece(trackAndDirection2 >> 3);
+            const auto i = (trackAndDirection2 & (1 << 2)) ? trackPiece.size() - 1 : 0;
+            loc2.z += trackPiece[i].z;
+
+           // GameCommands::SignalPlacementArgs rargs;
+            args->pos = loc2;
+            args->index = trackPiece[i].index;
+            args->rotation = trackAndDirection2 & 0x3;
+            args->trackId = trackAndDirection2 >> 3;
+            args->trackObjType = _trackType;
+            res = GameCommands::doCommand(*args, GameCommands::Flags::apply);
+
+            // end copied code
+
+        } while (trackConnections->size != 0);
+        // end repeat placement
+
+
         Audio::playSound(Audio::SoundId::construct, GameCommands::getPosition());
     }
 
