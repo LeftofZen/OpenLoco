@@ -292,8 +292,8 @@ namespace OpenLoco::Ui::Windows::Construction::Signal
 
             // copied from ConstructionTab::removeTrack
 
+            Map::Pos3 loc2 = args->pos;
             const auto trackAndDirection2 = (trackConnections->data[trackConnections->size - 1] & 0x1FF) ^ (1 << 2);
-            Map::Pos3 loc2(_x, _y, _constructionZ);
             loc2 -= TrackData::getUnkTrack(trackAndDirection2).pos;
             if (trackAndDirection2 & (1 << 2))
             {
