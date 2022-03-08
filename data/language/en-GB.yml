@@ -2286,9 +2286,9 @@ strings:
   2231: "{COLOUR WINDOW_2}Month:"
   2232: "{COLOUR WINDOW_2}Day:"
   2233: Set date
-  2234: "{COLOUR BLACK}{INT32}"
-  2235: "{COLOUR BLACK}{INT32}"
-  2236: "{COLOUR BLACK}{INT32}"
+  2234: "{COLOUR BLACK}{UINT16 RAW}"
+  2235: "{COLOUR BLACK}{UINT16 RAW}"
+  2236: "{COLOUR BLACK}{UINT16 RAW}"
   2237: "{DATE DMY}"
   2238: "Game speed: Normal"
   2239: "Game speed: Fast forward"
