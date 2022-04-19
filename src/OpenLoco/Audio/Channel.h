@@ -1,42 +1,39 @@
 #pragma once
-
-#include "../Core/FileSystem.hpp"
-
-struct Mix_Chunk;
+#include "OpenAL.h"
 
 namespace OpenLoco::Audio
 {
-    struct Sample;
-
     class Channel
     {
     public:
-        static constexpr int32_t undefined_id = -1;
+        static constexpr int32_t kUndefinedId = -1;
+
+        struct Attributes
+        {
+            int32_t volume{};
+            int32_t pan{};
+            int32_t freq{};
+        };
 
     private:
-        int32_t _id = undefined_id;
-        Mix_Chunk* _chunk{};
-        bool _chunk_owner{};
+        OpenAL::Source _source;
+        bool _isLoaded = false;
+        Attributes _attributes;
 
     public:
-        Channel() = default;
-        Channel(int32_t id);
-        Channel(const Channel&) = delete;
-        Channel(Channel&&);
-        Channel& operator=(Channel&& other);
-        ~Channel();
-        bool load(Sample& sample);
-        bool load(const fs::path& path);
+        Channel(OpenAL::Source source)
+            : _source(source)
+            , _attributes{}
+        {
+        }
+        bool load(uint32_t buffer);
         bool play(bool loop);
         void stop();
         void setVolume(int32_t volume);
         void setPan(int32_t pan);
         void setFrequency(int32_t freq);
         bool isPlaying() const;
-        bool isUndefined() const { return _id == undefined_id; }
-        int32_t id() { return _id; }
-
-    private:
-        void disposeChunk();
+        const OpenAL::Source& getSource() { return _source; }
+        const Attributes& getAttributes() { return _attributes; }
     };
 }

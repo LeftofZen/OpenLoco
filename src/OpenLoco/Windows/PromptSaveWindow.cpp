@@ -34,11 +34,11 @@ namespace OpenLoco::Ui::Windows::PromptSaveWindow
     static Widget _widgets[] = {
         makeWidget({ 0, 0 }, { 260, 48 }, WidgetType::panel, WindowColour::primary),
         makeWidget({ 1, 1 }, { 258, 13 }, WidgetType::caption_22, WindowColour::primary, StringIds::empty),
-        makeWidget({ 247, 2 }, { 11, 11 }, WidgetType::wt_11, WindowColour::primary, StringIds::close_window_cross, StringIds::tooltip_close_window),
+        makeWidget({ 247, 2 }, { 11, 11 }, WidgetType::button, WindowColour::primary, StringIds::close_window_cross, StringIds::tooltip_close_window),
         makeWidget({ 2, 17 }, { 256, 12 }, WidgetType::wt_13, WindowColour::primary, StringIds::empty),
-        makeWidget({ 8, 33 }, { 78, 12 }, WidgetType::wt_11, WindowColour::primary, StringIds::label_button_save),
-        makeWidget({ 91, 33 }, { 78, 12 }, WidgetType::wt_11, WindowColour::primary, StringIds::label_button_dont_save),
-        makeWidget({ 174, 33 }, { 78, 12 }, WidgetType::wt_11, WindowColour::primary, StringIds::label_button_cancel),
+        makeWidget({ 8, 33 }, { 78, 12 }, WidgetType::button, WindowColour::primary, StringIds::label_button_save),
+        makeWidget({ 91, 33 }, { 78, 12 }, WidgetType::button, WindowColour::primary, StringIds::label_button_dont_save),
+        makeWidget({ 174, 33 }, { 78, 12 }, WidgetType::button, WindowColour::primary, StringIds::label_button_cancel),
         widgetEnd(),
     };
 
@@ -54,16 +54,16 @@ namespace OpenLoco::Ui::Windows::PromptSaveWindow
             window = WindowManager::createWindowCentred(
                 WindowType::saveGamePrompt,
                 { 260, 48 },
-                WindowFlags::not_scroll_view | WindowFlags::stick_to_front,
+                WindowFlags::notScrollView | WindowFlags::stickToFront,
                 &_events);
 
             if (window == nullptr)
                 return nullptr;
 
             window->widgets = _widgets;
-            window->enabled_widgets = (1 << widx::closeButton) | (1 << widx::saveButton) | (1 << widx::dontSaveButton) | (1 << widx::cancelButton);
+            window->enabledWidgets = (1 << widx::closeButton) | (1 << widx::saveButton) | (1 << widx::dontSaveButton) | (1 << widx::cancelButton);
             window->initScrollWidgets();
-            window->setColour(WindowColour::primary, Colour::translucent(Colour::mutedDarkRed));
+            window->setColour(WindowColour::primary, AdvancedColour(Colour::mutedDarkRed).translucent());
             window->flags |= Ui::WindowFlags::transparent;
 
             setPauseFlag(1 << 1);
@@ -146,7 +146,7 @@ namespace OpenLoco::Ui::Windows::PromptSaveWindow
     static void initEvents()
     {
         _events.draw = draw;
-        _events.on_close = onClose;
-        _events.on_mouse_up = onMouseUp;
+        _events.onClose = onClose;
+        _events.onMouseUp = onMouseUp;
     }
 }

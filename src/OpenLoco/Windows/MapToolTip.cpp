@@ -82,7 +82,7 @@ namespace OpenLoco::Ui::Windows::MapToolTip
         else
         {
             initEvents();
-            window = WindowManager::createWindow(WindowType::mapTooltip, Ui::Point(x, y), Ui::Size(width, height), WindowFlags::stick_to_front | WindowFlags::transparent | WindowFlags::no_background, &events);
+            window = WindowManager::createWindow(WindowType::mapTooltip, Ui::Point(x, y), Ui::Size(width, height), WindowFlags::stickToFront | WindowFlags::transparent | WindowFlags::noBackground, &events);
             window->widgets = _widgets;
             auto* skin = ObjectManager::get<InterfaceSkinObject>();
             window->setColour(WindowColour::secondary, skin->colour_06);
@@ -138,11 +138,11 @@ namespace OpenLoco::Ui::Windows::MapToolTip
             auto right = left + 25;
             auto bottom = top + 25;
 
-            Gfx::fillRect(*context, left, top, right, bottom, Colour::darkGreen);
+            Gfx::fillRect(*context, left, top, right, bottom, enumValue(Colour::darkGreen));
 
             auto* company = CompanyManager::get(_mapTooltipOwner);
-            auto* competitor = ObjectManager::get<CompetitorObject>(company->competitor_id);
-            auto imageId = Gfx::recolour(competitor->images[company->owner_emotion], company->mainColours.primary);
+            auto* competitor = ObjectManager::get<CompetitorObject>(company->competitorId);
+            auto imageId = Gfx::recolour(competitor->images[company->ownerEmotion], company->mainColours.primary);
 
             Gfx::drawImage(context, left + 1, top + 1, imageId);
         }
@@ -150,7 +150,7 @@ namespace OpenLoco::Ui::Windows::MapToolTip
 
     static void initEvents()
     {
-        events.on_update = update;
+        events.onUpdate = update;
         events.draw = draw;
     }
 }

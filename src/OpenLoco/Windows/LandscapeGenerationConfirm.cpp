@@ -27,9 +27,9 @@ namespace OpenLoco::Ui::Windows::LandscapeGenerationConfirm
     static Widget widgets[] = {
         makeWidget({ 0, 0 }, { 280, 92 }, WidgetType::panel, WindowColour::primary),
         makeWidget({ 1, 1 }, { 278, 13 }, WidgetType::caption_22, WindowColour::primary),
-        makeWidget({ 267, 2 }, { 11, 11 }, WidgetType::wt_11, WindowColour::primary, StringIds::close_window_cross, StringIds::tooltip_close_window),
-        makeWidget({ 20, 77 }, { 100, 12 }, WidgetType::wt_11, WindowColour::primary, StringIds::label_ok),
-        makeWidget({ 160, 77 }, { 100, 12 }, WidgetType::wt_11, WindowColour::primary, StringIds::label_button_cancel),
+        makeWidget({ 267, 2 }, { 11, 11 }, WidgetType::button, WindowColour::primary, StringIds::close_window_cross, StringIds::tooltip_close_window),
+        makeWidget({ 20, 77 }, { 100, 12 }, WidgetType::button, WindowColour::primary, StringIds::label_ok),
+        makeWidget({ 160, 77 }, { 100, 12 }, WidgetType::button, WindowColour::primary, StringIds::label_button_cancel),
         widgetEnd()
     };
 
@@ -73,7 +73,7 @@ namespace OpenLoco::Ui::Windows::LandscapeGenerationConfirm
     static void init_events()
     {
         events.draw = draw;
-        events.on_mouse_up = onMouseUp;
+        events.onMouseUp = onMouseUp;
     }
 
     // 0x004C180C
@@ -84,10 +84,10 @@ namespace OpenLoco::Ui::Windows::LandscapeGenerationConfirm
         {
             window = WindowManager::createWindowCentred(WindowType::landscapeGenerationConfirm, window_size, 0, &events);
             window->widgets = widgets;
-            window->enabled_widgets = (1 << widx::close_button) | (1 << widx::button_ok) | (1 << widx::button_cancel);
+            window->enabledWidgets = (1 << widx::close_button) | (1 << widx::button_ok) | (1 << widx::button_cancel);
             window->initScrollWidgets();
-            window->setColour(WindowColour::primary, Colour::translucent(Colour::mutedDarkRed));
-            window->setColour(WindowColour::secondary, Colour::translucent(Colour::mutedDarkRed));
+            window->setColour(WindowColour::primary, AdvancedColour(Colour::mutedDarkRed).translucent());
+            window->setColour(WindowColour::secondary, AdvancedColour(Colour::mutedDarkRed).translucent());
             window->flags |= WindowFlags::transparent;
 
             // TODO(avgeffen): only needs to be called once.

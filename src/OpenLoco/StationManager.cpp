@@ -9,6 +9,7 @@
 #include "Map/TileManager.h"
 #include "Objects/IndustryObject.h"
 #include "OpenLoco.h"
+#include "ScenarioManager.h"
 #include "TownManager.h"
 #include "Ui/WindowManager.h"
 #include "Window.h"
@@ -18,6 +19,7 @@
 
 using namespace OpenLoco::Interop;
 using namespace OpenLoco::Ui;
+using namespace OpenLoco::Map;
 
 namespace OpenLoco::StationManager
 {
@@ -33,7 +35,7 @@ namespace OpenLoco::StationManager
         Ui::Windows::Station::reset();
     }
 
-    FixedVector<Station, Limits::maxStations> stations()
+    FixedVector<Station, Limits::kMaxStations> stations()
     {
         return FixedVector(rawStations());
     }
@@ -41,7 +43,7 @@ namespace OpenLoco::StationManager
     Station* get(StationId id)
     {
         auto index = (size_t)id;
-        if (index < Limits::maxStations)
+        if (index < Limits::kMaxStations)
         {
             return &rawStations()[index];
         }
@@ -53,7 +55,7 @@ namespace OpenLoco::StationManager
     {
         if (Game::hasFlags(1u << 0) && !isEditorMode())
         {
-            const auto id = StationId(scenarioTicks() & 0x3FF);
+            const auto id = StationId(ScenarioManager::getScenarioTicks() & 0x3FF);
             auto station = get(id);
             if (station != nullptr && !station->empty())
             {
@@ -74,7 +76,7 @@ namespace OpenLoco::StationManager
     // 0x00437F29
     // arg0: ah
     // arg1: al
-    static void sub_437F29(CompanyId cid, uint8_t arg1)
+    void sub_437F29(CompanyId cid, uint8_t arg1)
     {
         constexpr uint8_t byte_4F9462[] = { 0, 31, 10, 7, 31, 10, 31, 31, 11 };
         auto company = CompanyManager::get(cid);
@@ -84,7 +86,7 @@ namespace OpenLoco::StationManager
     static void sub_49E1F1(StationId id)
     {
         auto w = WindowManager::find(WindowType::construction);
-        if (w != nullptr && w->current_tab == 1)
+        if (w != nullptr && w->currentTab == 1)
         {
             if ((addr<0x00522096, uint8_t>() & 8) && StationId(addr<0x01135F70, int32_t>()) == id) // _constructingStationId
             {
@@ -463,12 +465,12 @@ namespace OpenLoco::StationManager
                     {
                         continue;
                     }
-                    if (!(station->cargo_stats[cargoType].flags & (1 << 1)))
+                    if (!(station->cargoStats[cargoType].flags & (1 << 1)))
                     {
                         continue;
                     }
 
-                    foundStations.push_back(std::make_pair(elStation->stationId(), station->cargo_stats[cargoType].rating));
+                    foundStations.push_back(std::make_pair(elStation->stationId(), station->cargoStats[cargoType].rating));
                 }
             }
             searchOffset.x = 0;
@@ -526,7 +528,7 @@ OpenLoco::StationId OpenLoco::Station::id() const
     // TODO check if this is stored in station structure
     //      otherwise add it when possible
     auto index = (size_t)(this - &StationManager::rawStations()[0]);
-    if (index > 1024)
+    if (index >= Limits::kMaxStations)
     {
         return StationId::null;
     }

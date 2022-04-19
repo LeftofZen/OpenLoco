@@ -16,11 +16,13 @@
 #include "../Vehicles/Vehicle.h"
 #include "../Widget.h"
 #include <map>
+#include <queue>
 
 using namespace OpenLoco::Interop;
 using namespace OpenLoco::Ui;
 using namespace OpenLoco::Ui::ScrollView;
 using namespace OpenLoco::Ui::ViewportInteraction;
+using namespace OpenLoco::Map;
 
 #define DROPDOWN_ITEM_UNDEFINED -1
 
@@ -117,7 +119,7 @@ namespace OpenLoco::Input
     static loco_global<uint32_t, 0x0113DC74> _dropdownRowCount;
     static loco_global<uint16_t, 0x0113DC78> _113DC78;
 
-    static std::map<Ui::ScrollView::ScrollPart, string_id> scroll_widget_tooltips = {
+    static const std::map<Ui::ScrollView::ScrollPart, string_id> kScrollWidgetTooltips = {
         { Ui::ScrollView::ScrollPart::hscrollbarButtonLeft, StringIds::tooltip_scroll_left },
         { Ui::ScrollView::ScrollPart::hscrollbarButtonRight, StringIds::tooltip_scroll_right },
         { Ui::ScrollView::ScrollPart::hscrollbarTrackLeft, StringIds::tooltip_scroll_left_fast },
@@ -528,7 +530,7 @@ namespace OpenLoco::Input
                         case InteractionItem::entity:
                         {
                             auto _thing = reinterpret_cast<EntityBase*>(interaction.object);
-                            auto veh = _thing->asVehicle();
+                            auto veh = _thing->asBase<Vehicles::VehicleBase>();
                             if (veh != nullptr)
                             {
                                 Ui::Windows::Vehicle::Main::open(veh);
@@ -562,9 +564,9 @@ namespace OpenLoco::Input
 
                                 for (auto& company : CompanyManager::companies())
                                 {
-                                    if (company.headquarters_x == pos.x
-                                        && company.headquarters_y == pos.y
-                                        && company.headquarters_z == pos.z)
+                                    if (company.headquartersX == pos.x
+                                        && company.headquartersY == pos.y
+                                        && company.headquartersZ == pos.z)
                                     {
                                         Ui::Windows::CompanyWindow::open(company.id());
                                         break;
@@ -784,7 +786,7 @@ namespace OpenLoco::Input
                     return;
                 }
 
-                if (window->flags & WindowFlags::viewport_no_scrolling)
+                if (window->flags & WindowFlags::viewportNoScrolling)
                 {
                     return;
                 }
@@ -802,8 +804,8 @@ namespace OpenLoco::Input
 
                     if (!window->viewportIsFocusedOnEntity())
                     {
-                        window->viewport_configurations[0].saved_view_x += dragOffset.x << (vp->zoom + 1);
-                        window->viewport_configurations[0].saved_view_y += dragOffset.y << (vp->zoom + 1);
+                        window->viewportConfigurations[0].saved_view_x += dragOffset.x << (vp->zoom + 1);
+                        window->viewportConfigurations[0].saved_view_y += dragOffset.y << (vp->zoom + 1);
                     }
                     else
                     {
@@ -837,12 +839,15 @@ namespace OpenLoco::Input
                         {
                             case InteractionItem::entity:
                             {
-                                auto _thing = reinterpret_cast<EntityBase*>(item2.object);
-                                auto veh = _thing->asVehicle();
+                                auto* entity = reinterpret_cast<EntityBase*>(item2.object);
+                                auto* veh = entity->asBase<Vehicles::VehicleBase>();
                                 if (veh != nullptr)
                                 {
-                                    auto head = EntityManager::get<Vehicles::VehicleHead>(veh->getHead());
-                                    Ui::Windows::VehicleList::open(head->owner, head->vehicleType);
+                                    auto* head = EntityManager::get<Vehicles::VehicleHead>(veh->getHead());
+                                    if (head != nullptr)
+                                    {
+                                        Ui::Windows::VehicleList::open(head->owner, head->vehicleType);
+                                    }
                                 }
                                 break;
                             }
@@ -1177,15 +1182,15 @@ namespace OpenLoco::Input
 
         w->invalidate();
 
-        w->width = std::clamp<uint16_t>(w->width + dx, w->min_width, w->max_width);
-        w->height = std::clamp<uint16_t>(w->height + dy, w->min_height, w->max_height);
+        w->width = std::clamp<uint16_t>(w->width + dx, w->minWidth, w->maxWidth);
+        w->height = std::clamp<uint16_t>(w->height + dy, w->minHeight, w->maxHeight);
         w->flags |= Ui::WindowFlags::flag_15;
         w->callOnResize();
         w->callPrepareDraw();
-        w->scroll_areas[0].contentWidth = -1;
-        w->scroll_areas[0].contentHeight = -1;
-        w->scroll_areas[1].contentWidth = -1;
-        w->scroll_areas[1].contentHeight = -1;
+        w->scrollAreas[0].contentWidth = -1;
+        w->scrollAreas[0].contentHeight = -1;
+        w->scrollAreas[1].contentWidth = -1;
+        w->scrollAreas[1].contentHeight = -1;
         window->updateScrollWidgets();
         w->invalidate();
 
@@ -1593,21 +1598,18 @@ namespace OpenLoco::Input
         {
             if (widget->type == Ui::WidgetType::scrollview)
             {
-                Ui::ScrollView::ScrollPart scrollArea;
-                int16_t scrollX, scrollY;
-                size_t scrollIndex;
-                Ui::ScrollView::getPart(window, widget, x, y, &scrollX, &scrollY, &scrollArea, &scrollIndex);
+                auto res = Ui::ScrollView::getPart(window, widget, x, y);
 
-                if (scrollArea == Ui::ScrollView::ScrollPart::none)
+                if (res.area == Ui::ScrollView::ScrollPart::none)
                 {
                 }
-                else if (scrollArea == Ui::ScrollView::ScrollPart::view)
+                else if (res.area == Ui::ScrollView::ScrollPart::view)
                 {
-                    window->callScrollMouseOver(scrollX, scrollY, static_cast<uint8_t>(scrollIndex));
+                    window->callScrollMouseOver(res.scrollviewLoc.x, res.scrollviewLoc.y, static_cast<uint8_t>(res.index));
                 }
                 else
                 {
-                    tooltipStringId = scroll_widget_tooltips[scrollArea];
+                    tooltipStringId = kScrollWidgetTooltips.at(res.area);
                     if (*_tooltipWindowType != Ui::WindowType::undefined)
                     {
                         if (tooltipStringId != _currentTooltipStringId)
@@ -1621,7 +1623,7 @@ namespace OpenLoco::Input
 
         if (*_tooltipWindowType != Ui::WindowType::undefined)
         {
-            if (*_tooltipWindowType == window->type && _tooltipWindowNumber == window->number && _tooltipWidgetIndex == widgetIndex)
+            if (window != nullptr && *_tooltipWindowType == window->type && _tooltipWindowNumber == window->number && _tooltipWidgetIndex == widgetIndex)
             {
                 _tooltipTimeout += time_since_last_tick;
                 if (_tooltipTimeout >= 8000)
@@ -1876,7 +1878,7 @@ namespace OpenLoco::Input
 
     static void viewportDragBegin(Window* w)
     {
-        w->flags &= ~Ui::WindowFlags::scrolling_to_location;
+        w->flags &= ~Ui::WindowFlags::scrollingToLocation;
         state(State::viewportRight);
         _dragWindowType = w->type;
         _dragWindowNumber = w->number;
@@ -1922,7 +1924,7 @@ namespace OpenLoco::Input
             oldWindow->callPrepareDraw();
 
             Ui::Widget* oldWidget = &oldWindow->widgets[widgetIdx];
-            if (oldWidget->type == Ui::WidgetType::wt_10 || oldWidget->type == Ui::WidgetType::wt_9)
+            if (oldWidget->type == Ui::WidgetType::buttonWithColour || oldWidget->type == Ui::WidgetType::buttonWithImage)
             {
                 WindowManager::invalidateWidget(windowType, windowNumber, widgetIdx);
             }
@@ -1964,7 +1966,7 @@ namespace OpenLoco::Input
                     case Ui::WidgetType::frame:
                         if (window->flags & Ui::WindowFlags::resizable)
                         {
-                            if (window->min_width != window->max_width || window->min_height != window->max_height)
+                            if (window->minWidth != window->maxWidth || window->minHeight != window->maxHeight)
                             {
                                 if (x >= window->x + window->width - 19 && y >= window->y + window->height - 19)
                                 {
@@ -1973,8 +1975,7 @@ namespace OpenLoco::Input
                                 }
                             }
                         }
-                        //fall-through
-
+                        [[fallthrough]];
                     default:
                         _5233A4 = x;
                         _5233A6 = y;
@@ -1982,29 +1983,22 @@ namespace OpenLoco::Input
                         break;
 
                     case Ui::WidgetType::scrollview:
+                    {
                         _5233A4 = x;
                         _5233A6 = y;
-                        Ui::ScrollView::ScrollPart output_scroll_area;
-                        size_t scroll_id;
-                        int16_t scroll_x, scroll_y;
-                        Ui::ScrollView::getPart(
+
+                        auto res = Ui::ScrollView::getPart(
                             window,
                             &window->widgets[widgetIdx],
                             x,
-                            y,
-                            &scroll_x,
-                            &scroll_y,
-                            &output_scroll_area,
-                            &scroll_id);
+                            y);
 
-                        if (output_scroll_area == Ui::ScrollView::ScrollPart::view)
+                        if (res.area == Ui::ScrollView::ScrollPart::view)
                         {
-
-                            cursorId = window->callCursor(widgetIdx, scroll_x, scroll_y, cursorId);
+                            cursorId = window->callCursor(widgetIdx, res.scrollviewLoc.x, res.scrollviewLoc.y, cursorId);
                         }
-
                         break;
-
+                    }
                     case Ui::WidgetType::viewport:
                         if (Input::hasFlag(Flags::toolActive))
                         {
@@ -2115,27 +2109,30 @@ namespace OpenLoco::Input
         _rightMouseButtonStatus = status;
     }
 
-#pragma pack(push, 1)
-    struct QueuedMouseInput
-    {
-        uint32_t x;
-        uint32_t y;
-        uint32_t button;
-    };
-#pragma pack(pop)
+    // 0x00113E9E0
+    static std::queue<QueuedMouseInput> _mouseQueue;
 
     // 0x00406FEC
-    void enqueueMouseButton(int32_t button)
+    void enqueueMouseButton(const QueuedMouseInput& input)
     {
-        ((void (*)(int))0x00406FEC)(button);
+        constexpr uint32_t kMouseQueueSize = 64;
+        if (_mouseQueue.size() >= kMouseQueueSize)
+        {
+            return;
+        }
+        _mouseQueue.push(input);
     }
 
     // 0x00407247
-    static QueuedMouseInput* dequeueMouseInput()
+    static std::optional<QueuedMouseInput> dequeueMouseInput()
     {
-        registers regs;
-        call(0x00407247, regs);
-        return (QueuedMouseInput*)regs.eax;
+        if (_mouseQueue.empty())
+        {
+            return std::nullopt;
+        }
+        std::optional<QueuedMouseInput> res = _mouseQueue.front();
+        _mouseQueue.pop();
+        return res;
     }
 
     // 0x004C6FCE
@@ -2175,8 +2172,8 @@ namespace OpenLoco::Input
         if (!hasFlag(Flags::flag5))
         {
             // Interrupt tutorial on mouse button input.
-            QueuedMouseInput* input = dequeueMouseInput();
-            if (Tutorial::state() == Tutorial::State::playing && input != nullptr)
+            auto input = dequeueMouseInput();
+            if (Tutorial::state() == Tutorial::State::playing && input.has_value())
             {
                 Tutorial::stop();
             }
@@ -2202,7 +2199,7 @@ namespace OpenLoco::Input
                 }
             }
             // 0x004C6F5F
-            else if (input == nullptr)
+            else if (!input)
             {
                 button = loc_4C6FCE(x, y);
                 if (x == 0x80000000)
@@ -2225,8 +2222,8 @@ namespace OpenLoco::Input
                     default:
                         button = MouseButton::rightReleased;
                 }
-                x = input->x;
-                y = input->y;
+                x = input->pos.x;
+                y = input->pos.y;
             }
 
             // 0x004C6FE4

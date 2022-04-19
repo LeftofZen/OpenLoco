@@ -40,13 +40,13 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
     static Widget _widgets[] = {
         makeWidget({ 0, 0 }, { 610, 412 }, WidgetType::frame, WindowColour::primary),
         makeWidget({ 1, 1 }, { 608, 13 }, WidgetType::caption_25, WindowColour::primary, StringIds::select_scenario_for_new_game),
-        makeWidget({ 595, 2 }, { 13, 13 }, WidgetType::wt_9, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
+        makeWidget({ 595, 2 }, { 13, 13 }, WidgetType::buttonWithImage, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
         makeWidget({ 0, 48 }, { 610, 364 }, WidgetType::wt_3, WindowColour::secondary),
-        makeRemapWidget({ 3, 15 }, { 91, 34 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::wide_tab),
-        makeRemapWidget({ 94, 15 }, { 91, 34 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::wide_tab),
-        makeRemapWidget({ 185, 15 }, { 91, 34 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::wide_tab),
-        makeRemapWidget({ 276, 15 }, { 91, 34 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::wide_tab),
-        makeRemapWidget({ 367, 15 }, { 91, 34 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::wide_tab),
+        makeRemapWidget({ 3, 15 }, { 91, 34 }, WidgetType::tab, WindowColour::secondary, ImageIds::wide_tab),
+        makeRemapWidget({ 94, 15 }, { 91, 34 }, WidgetType::tab, WindowColour::secondary, ImageIds::wide_tab),
+        makeRemapWidget({ 185, 15 }, { 91, 34 }, WidgetType::tab, WindowColour::secondary, ImageIds::wide_tab),
+        makeRemapWidget({ 276, 15 }, { 91, 34 }, WidgetType::tab, WindowColour::secondary, ImageIds::wide_tab),
+        makeRemapWidget({ 367, 15 }, { 91, 34 }, WidgetType::tab, WindowColour::secondary, ImageIds::wide_tab),
         makeWidget({ 3, 52 }, { 431, 356 }, WidgetType::scrollview, WindowColour::secondary, Scrollbars::vertical),
         widgetEnd(),
     };
@@ -66,7 +66,7 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
             Widget& widget = self->widgets[widx::tab0 + i];
             if (ScenarioManager::hasScenariosForCategory(i))
             {
-                widget.type = WidgetType::wt_8;
+                widget.type = WidgetType::tab;
                 widget.left = xPos;
                 widget.right = xPos + 90;
                 xPos += 91;
@@ -84,7 +84,7 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
 
         using namespace ScenarioManager;
         auto scenarioInfo = reinterpret_cast<ScenarioIndexEntry*>(self->info);
-        if (hasScenarioInCategory(self->current_tab, scenarioInfo))
+        if (hasScenarioInCategory(self->currentTab, scenarioInfo))
             return;
 
         // Reset currently selected scenario if it is not in the current category.
@@ -106,11 +106,11 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
             Ui::Point({ static_cast<int16_t>(width() / 2 - windowSize.width / 2),
                         std::max<int16_t>(height() / 2 - windowSize.height / 2, 28) }),
             windowSize,
-            WindowFlags::stick_to_front | WindowFlags::flag_12,
+            WindowFlags::stickToFront | WindowFlags::flag_12,
             &_events);
 
         self->widgets = _widgets;
-        self->enabled_widgets = (1 << widx::close) | (1 << widx::tab0) | (1 << widx::tab1) | (1 << widx::tab2) | (1 << widx::tab3) | (1 << widx::tab4);
+        self->enabledWidgets = (1 << widx::close) | (1 << widx::tab0) | (1 << widx::tab1) | (1 << widx::tab2) | (1 << widx::tab3) | (1 << widx::tab4);
         self->initScrollWidgets();
 
         self->setColour(WindowColour::primary, Colour::black);
@@ -122,7 +122,7 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
         initTabs(self);
 
         // Select the last tab used, or the first available one.
-        uint8_t selectedTab = Config::get().scenario_selected_tab;
+        uint8_t selectedTab = Config::get().scenarioSelectedTab;
         if (self->widgets[widx::tab0 + selectedTab].type == WidgetType::none)
         {
             selectedTab = 0;
@@ -136,7 +136,7 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
             }
         }
 
-        self->current_tab = selectedTab;
+        self->currentTab = selectedTab;
 
         initList(self);
 
@@ -146,14 +146,14 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
     // 0x00443995
     static void prepareDraw(Window* self)
     {
-        self->activated_widgets &= ~((1 << widx::tab0) | (1 << widx::tab1) | (1 << widx::tab2) | (1 << widx::tab3) | (1 << widx::tab4));
-        self->activated_widgets |= (1ULL << (self->current_tab + static_cast<uint8_t>(widx::tab0)));
+        self->activatedWidgets &= ~((1 << widx::tab0) | (1 << widx::tab1) | (1 << widx::tab2) | (1 << widx::tab3) | (1 << widx::tab4));
+        self->activatedWidgets |= (1ULL << (self->currentTab + static_cast<uint8_t>(widx::tab0)));
     }
 
     // 0x004439AF
     static void draw(Window* self, Gfx::Context* context)
     {
-        Gfx::drawRectInset(*context, self->x, self->y + 20, self->width, 41, self->getColour(WindowColour::primary), 0);
+        Gfx::drawRectInset(*context, self->x, self->y + 20, self->width, 41, self->getColour(WindowColour::primary).u8(), 0);
 
         // Draw widgets.
         self->draw(context);
@@ -173,7 +173,7 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
             if (widget.type == WidgetType::none)
                 continue;
 
-            const auto offset = self->current_tab == i ? 1 : 0;
+            const auto offset = self->currentTab == i ? 1 : 0;
             auto origin = Ui::Point(widget.mid_x() + self->x, widget.mid_y() + self->y - 3 - offset);
             const string_id caption = scenarioGroupIds[i];
 
@@ -191,15 +191,9 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
         auto isLoaded = ObjectManager::findIndex(scenarioInfo->currency);
         if (!isLoaded)
         {
-            // Unload current object
-            registers regs;
-            regs.ebp = 0x0011264A4; // currencyMeta
-            call(0x00471FF8, regs); // unload object
-
-            // Load required object
-            registers regs2;
-            regs2.ebp = X86Pointer(&scenarioInfo->currency);
-            call(0x00471BCE, regs2);
+            // Swap out the currency object and reload
+            ObjectManager::unload(ObjectManager::getHeader({ ObjectType::currency, 0 }));
+            ObjectManager::load(scenarioInfo->currency);
             ObjectManager::reloadAll();
             call(0x0046E07B); // load currency gfx
         }
@@ -227,7 +221,7 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
         // Outline for preview image
         {
             x = baseX + 20;
-            Gfx::drawRectInset(*context, x, y, 130, 130, self->getColour(WindowColour::secondary), 0x30);
+            Gfx::drawRectInset(*context, x, y, 130, 130, self->getColour(WindowColour::secondary).u8(), 0x30);
 
             x += 1;
             y += 1;
@@ -261,7 +255,7 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
             y += 1;
 
             // No preview image -- a placeholder will have to do.
-            auto image = Gfx::recolour(ImageIds::random_map_watermark, self->getColour(WindowColour::secondary));
+            auto image = Gfx::recolour(ImageIds::random_map_watermark, self->getColour(WindowColour::secondary).c());
             Gfx::drawImage(context, x, y, image);
 
             x += 64;
@@ -328,16 +322,16 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
     // 0x00443D02
     static void drawScroll(Window& self, Gfx::Context& context, const uint32_t)
     {
-        auto colour = Colour::getShade(self.getColour(WindowColour::secondary), 4);
+        auto colour = Colours::getShade(self.getColour(WindowColour::secondary).c(), 4);
         Gfx::clearSingle(context, colour);
 
         using namespace ScenarioManager;
-        auto scenarioCount = getScenarioCountByCategory(self.current_tab);
+        auto scenarioCount = getScenarioCountByCategory(self.currentTab);
 
         int16_t y = 0;
         for (auto i = 0; i < scenarioCount; i++)
         {
-            auto* scenarioInfo = getNthScenarioFromCategory(self.current_tab, i);
+            auto* scenarioInfo = getNthScenarioFromCategory(self.currentTab, i);
             if (scenarioInfo == nullptr)
                 continue;
 
@@ -419,13 +413,13 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
             case widx::tab4:
             {
                 uint8_t selectedCategory = widgetIndex - widx::tab0;
-                if (self->current_tab == selectedCategory)
+                if (self->currentTab == selectedCategory)
                     return;
 
-                self->current_tab = selectedCategory;
+                self->currentTab = selectedCategory;
 
                 auto& config = Config::get();
-                config.scenario_selected_tab = selectedCategory;
+                config.scenarioSelectedTab = selectedCategory;
                 Config::write();
 
                 self->info = 0xFFFFFFFF;
@@ -444,19 +438,19 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
     // 0x00443EF6
     static void getScrollSize(Window* self, uint32_t, uint16_t*, uint16_t* const scrollHeight)
     {
-        *scrollHeight = ScenarioManager::getScenarioCountByCategory(self->current_tab) * rowHeight;
+        *scrollHeight = ScenarioManager::getScenarioCountByCategory(self->currentTab) * rowHeight;
     }
 
     // 0x00443F32
     static void onScrollMouseDown(Window* self, int16_t x, int16_t y, uint8_t scroll_index)
     {
-        auto scenarioCount = ScenarioManager::getScenarioCountByCategory(self->current_tab);
+        auto scenarioCount = ScenarioManager::getScenarioCountByCategory(self->currentTab);
 
         auto index = y / rowHeight;
         if (index > scenarioCount)
             return;
 
-        auto* scenarioInfo = ScenarioManager::getNthScenarioFromCategory(self->current_tab, index);
+        auto* scenarioInfo = ScenarioManager::getNthScenarioFromCategory(self->currentTab, index);
         if (scenarioInfo == nullptr)
             return;
 
@@ -476,13 +470,13 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
     // 0x00443FB2
     static void onScrollMouseOver(Window* self, int16_t x, int16_t y, uint8_t scroll_index)
     {
-        auto scenarioCount = ScenarioManager::getScenarioCountByCategory(self->current_tab);
+        auto scenarioCount = ScenarioManager::getScenarioCountByCategory(self->currentTab);
 
         auto index = y / rowHeight;
         if (index > scenarioCount)
             return;
 
-        auto* scenarioEntry = ScenarioManager::getNthScenarioFromCategory(self->current_tab, index);
+        auto* scenarioEntry = ScenarioManager::getNthScenarioFromCategory(self->currentTab, index);
         if (scenarioEntry == nullptr)
             return;
 
@@ -500,14 +494,14 @@ namespace OpenLoco::Ui::Windows::ScenarioSelect
 
     static void initEvents()
     {
-        _events.prepare_draw = prepareDraw;
+        _events.prepareDraw = prepareDraw;
         _events.draw = draw;
-        _events.draw_scroll = drawScroll;
-        _events.on_mouse_up = onMouseUp;
-        _events.on_mouse_down = onMouseDown;
-        _events.get_scroll_size = getScrollSize;
-        _events.scroll_mouse_down = onScrollMouseDown;
-        _events.scroll_mouse_over = onScrollMouseOver;
+        _events.drawScroll = drawScroll;
+        _events.onMouseUp = onMouseUp;
+        _events.onMouseDown = onMouseDown;
+        _events.getScrollSize = getScrollSize;
+        _events.scrollMouseDown = onScrollMouseDown;
+        _events.scrollMouseOver = onScrollMouseOver;
         _events.tooltip = tooltip;
     }
 }

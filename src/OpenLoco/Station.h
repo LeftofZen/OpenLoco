@@ -11,8 +11,6 @@
 
 namespace OpenLoco
 {
-    using namespace OpenLoco::Map;
-
 #pragma pack(push, 1)
     struct StationCargoStats
     {
@@ -21,10 +19,10 @@ namespace OpenLoco
         uint8_t flags{};                    // 0x32
         uint8_t age{};                      // 0x33
         uint8_t rating{};                   // 0x34
-        uint8_t enroute_age{};              // 0x35
+        uint8_t enrouteAge{};               // 0x35
         Speed16 vehicleSpeed{ 0 };          // 0x36 max speed of vehicle that transported the cargo
         uint8_t vehicleAge{};               // 0x38 age of the vehicle (car) that transported the cargo
-        IndustryId industry_id{};           // 0x39
+        IndustryId industryId{};            // 0x39
         uint8_t var_40{};
 
         bool empty() const
@@ -43,7 +41,7 @@ namespace OpenLoco
         }
     };
 
-    constexpr size_t max_cargo_stats = 32;
+    constexpr size_t kMaxCargoStats = 32;
 
     enum class StationType : uint8_t
     {
@@ -80,11 +78,11 @@ namespace OpenLoco
         LabelFrame labelFrame;            // 0x08
         CompanyId owner{};                // 0x28
         uint8_t var_29{};
-        uint16_t flags{};                               // 0x2A
-        TownId town{};                                  // 0x2C
-        StationCargoStats cargo_stats[max_cargo_stats]; // 0x2E
-        uint16_t stationTileSize{};                     // 0x1CE
-        Pos3 stationTiles[80];                          // 0x1D0
+        uint16_t flags{};                             // 0x2A
+        TownId town{};                                // 0x2C
+        StationCargoStats cargoStats[kMaxCargoStats]; // 0x2E
+        uint16_t stationTileSize{};                   // 0x1CE
+        Map::Pos3 stationTiles[80];                   // 0x1D0
         uint8_t var_3B0{};
         uint8_t var_3B1{};
         uint16_t var_3B2{};
@@ -97,7 +95,7 @@ namespace OpenLoco
         bool empty() const { return name == StringIds::null; }
         StationId id() const;
         void update();
-        uint32_t calcAcceptedCargo(CargoSearchState& cargoSearchState, const Pos2& location = { -1, -1 }, const uint32_t filter = 0);
+        uint32_t calcAcceptedCargo(CargoSearchState& cargoSearchState, const Map::Pos2& location = { -1, -1 }, const uint32_t filter = 0);
         void sub_48F7D1();
         char* getStatusString(char* buffer);
         bool updateCargo();

@@ -32,6 +32,8 @@ namespace OpenLoco
 #pragma pack(push, 1)
     struct MiscBase : EntityBase
     {
+        static constexpr auto kBaseType = EntityBaseType::misc;
+
     private:
         template<typename TType, MiscEntityType TClass>
         TType* as() const
@@ -64,9 +66,9 @@ namespace OpenLoco
         int16_t var_34;
         int16_t var_36;
         uint8_t pad_38[0x49 - 0x38];
-        uint8_t object_id; // 0x49
+        uint8_t objectId; // 0x49
 
-        SteamObject* object() const;
+        const SteamObject* getObject() const;
         void update();
 
         static Exhaust* create(Map::Pos3 loc, uint8_t type);
@@ -75,11 +77,18 @@ namespace OpenLoco
 
     struct MoneyEffect : MiscBase
     {
+        static constexpr uint32_t kLifetime = 160;        // windowCurrency
+        static constexpr uint32_t kRedGreenLifetime = 55; // redGreen (RCT2 legacy) Note: due to delay it is technically 55 * 2
+
         uint8_t pad_24[0x26 - 0x24];
-        uint16_t var_26;
-        uint16_t var_28;
-        int32_t amount;   // 0x2A - currency amount in British pounds - different currencies are probably getting recalculated
-        CompanyId var_2E; // company colour?
+        union
+        {
+            uint16_t frame;     // 0x26
+            uint16_t moveDelay; // 0x26 Note: this is only used by redGreen money (RCT2 legacy)
+        };
+        uint16_t numMovements; // 0x28 Note: this is only used by redGreen money (RCT2 legacy)
+        int32_t amount;        // 0x2A - currency amount in British pounds - different currencies are probably getting recalculated
+        CompanyId var_2E;      // company colour?
         uint8_t pad_2F[0x44 - 0x2F];
         int16_t offsetX; // 0x44
         uint16_t wiggle; // 0x46
@@ -135,6 +144,8 @@ namespace OpenLoco
         uint16_t frame; // 0x28
 
         void update();
+
+        static ExplosionSmoke* create(const Map::Pos3& loc);
     };
     static_assert(sizeof(ExplosionSmoke) == 0x2A);
 

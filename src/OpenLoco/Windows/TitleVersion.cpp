@@ -26,7 +26,7 @@ namespace OpenLoco::Ui::Windows::TitleVersion
             WindowType::openLocoVersion,
             Ui::Point(8, Ui::height() - height),
             Ui::Size(width, height),
-            WindowFlags::stick_to_front | WindowFlags::transparent | WindowFlags::no_background | WindowFlags::flag_6,
+            WindowFlags::stickToFront | WindowFlags::transparent | WindowFlags::noBackground | WindowFlags::flag_6,
             &_events);
         window->widgets = widgets;
 
@@ -39,6 +39,6 @@ namespace OpenLoco::Ui::Windows::TitleVersion
     static void draw(Ui::Window* window, Gfx::Context* context)
     {
         auto versionInfo = getVersionInfo();
-        Gfx::drawString(*context, window->x, window->y, Colour::white | FormatFlags::textflag_5, (void*)versionInfo.c_str());
+        Gfx::drawString(*context, window->x, window->y, AdvancedColour(Colour::white).outline(), (void*)versionInfo.c_str());
     }
 }

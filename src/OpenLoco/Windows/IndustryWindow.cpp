@@ -42,15 +42,15 @@ namespace OpenLoco::Ui::Windows::Industry
 
         const uint64_t enabledWidgets = (1 << widx::caption) | (1 << widx::close_button) | (1 << widx::tab_industry) | (1 << widx::tab_production) | (1 << widx::tab_production_2) | (1 << widx::tab_transported);
 
-#define commonWidgets(frameWidth, frameHeight, windowCaptionId)                                                                                           \
-    makeWidget({ 0, 0 }, { frameWidth, frameHeight }, WidgetType::frame, WindowColour::primary),                                                          \
-        makeWidget({ 1, 1 }, { frameWidth - 2, 13 }, WidgetType::caption_25, WindowColour::primary, windowCaptionId),                                     \
-        makeWidget({ frameWidth - 15, 2 }, { 13, 13 }, WidgetType::wt_9, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window), \
-        makeWidget({ 0, 41 }, { frameWidth, 95 }, WidgetType::panel, WindowColour::secondary),                                                            \
-        makeRemapWidget({ 3, 15 }, { 31, 27 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_industry),                    \
-        makeRemapWidget({ 34, 15 }, { 31, 27 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_production_graph),           \
-        makeRemapWidget({ 65, 15 }, { 31, 27 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_production_graph),           \
-        makeRemapWidget({ 96, 15 }, { 31, 27 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_statistics)
+#define commonWidgets(frameWidth, frameHeight, windowCaptionId)                                                                                                      \
+    makeWidget({ 0, 0 }, { frameWidth, frameHeight }, WidgetType::frame, WindowColour::primary),                                                                     \
+        makeWidget({ 1, 1 }, { frameWidth - 2, 13 }, WidgetType::caption_25, WindowColour::primary, windowCaptionId),                                                \
+        makeWidget({ frameWidth - 15, 2 }, { 13, 13 }, WidgetType::buttonWithImage, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window), \
+        makeWidget({ 0, 41 }, { frameWidth, 95 }, WidgetType::panel, WindowColour::secondary),                                                                       \
+        makeRemapWidget({ 3, 15 }, { 31, 27 }, WidgetType::tab, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_industry),                                \
+        makeRemapWidget({ 34, 15 }, { 31, 27 }, WidgetType::tab, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_production_graph),                       \
+        makeRemapWidget({ 65, 15 }, { 31, 27 }, WidgetType::tab, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_production_graph),                       \
+        makeRemapWidget({ 96, 15 }, { 31, 27 }, WidgetType::tab, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_statistics)
 
         // Defined at the bottom of this file.
         static void prepareDraw(Window* self);
@@ -86,8 +86,8 @@ namespace OpenLoco::Ui::Windows::Industry
             commonWidgets(223, 137, StringIds::title_town),
             makeWidget({ 3, 44 }, { 195, 80 }, WidgetType::viewport, WindowColour::secondary, 0xFFFFFFFE),
             makeWidget({ 3, 115 }, { 195, 21 }, WidgetType::wt_13, WindowColour::secondary),
-            makeWidget({ 0, 0 }, { 24, 24 }, WidgetType::wt_9, WindowColour::secondary, ImageIds::null, StringIds::move_main_view_to_show_this),
-            makeWidget({ 198, 44 }, { 24, 24 }, WidgetType::wt_9, WindowColour::secondary, ImageIds::rubbish_bin, StringIds::demolish_this_industry),
+            makeWidget({ 0, 0 }, { 24, 24 }, WidgetType::buttonWithImage, WindowColour::secondary, ImageIds::null, StringIds::move_main_view_to_show_this),
+            makeWidget({ 198, 44 }, { 24, 24 }, WidgetType::buttonWithImage, WindowColour::secondary, ImageIds::rubbish_bin, StringIds::demolish_this_industry),
             widgetEnd(),
         };
 
@@ -112,7 +112,7 @@ namespace OpenLoco::Ui::Windows::Industry
 
             if (isEditorMode() || isSandboxMode())
             {
-                self->widgets[widx::demolish_industry].type = WidgetType::wt_9;
+                self->widgets[widx::demolish_industry].type = WidgetType::buttonWithImage;
             }
             else
             {
@@ -210,7 +210,7 @@ namespace OpenLoco::Ui::Windows::Industry
                     viewport->height = newHeight;
                     viewport->view_width = newWidth << viewport->zoom;
                     viewport->view_height = newHeight << viewport->zoom;
-                    self->saved_view.clear();
+                    self->savedView.clear();
                 }
             }
 
@@ -220,14 +220,14 @@ namespace OpenLoco::Ui::Windows::Industry
         // 0x00456C36
         static void initViewport(Window* self)
         {
-            if (self->current_tab != Common::widx::tab_industry - Common::widx::tab_industry)
+            if (self->currentTab != Common::widx::tab_industry - Common::widx::tab_industry)
                 return;
 
             self->callPrepareDraw();
 
             // Figure out the industry's position on the map.
             auto industry = IndustryManager::get(IndustryId(self->number));
-            int16_t tileZ = TileManager::getHeight({ industry->x, industry->y }).landHeight;
+            int16_t tileZ = Map::TileManager::getHeight({ industry->x, industry->y }).landHeight;
 
             // Compute views.
             SavedView view = {
@@ -237,12 +237,12 @@ namespace OpenLoco::Ui::Windows::Industry
                 static_cast<int8_t>(self->viewports[0]->getRotation()),
                 tileZ,
             };
-            //view.flags |= (1 << 14);
+            // view.flags |= (1 << 14);
 
             uint16_t flags = 0;
             if (self->viewports[0] != nullptr)
             {
-                if (self->saved_view == view)
+                if (self->savedView == view)
                     return;
 
                 flags = self->viewports[0]->flags;
@@ -255,7 +255,7 @@ namespace OpenLoco::Ui::Windows::Industry
                     flags |= ViewportFlags::gridlines_on_landscape;
             }
 
-            self->saved_view = view;
+            self->savedView = view;
 
             if (self->viewports[0] == nullptr)
             {
@@ -263,9 +263,9 @@ namespace OpenLoco::Ui::Windows::Industry
                 auto tile = Map::Pos3({ industry->x, industry->y, tileZ });
                 auto origin = Ui::Point(widget->left + self->x + 1, widget->top + self->y + 1);
                 auto size = Ui::Size(widget->width() - 2, widget->height() - 2);
-                ViewportManager::create(self, 0, origin, size, self->saved_view.zoomLevel, tile);
+                ViewportManager::create(self, 0, origin, size, self->savedView.zoomLevel, tile);
                 self->invalidate();
-                self->flags |= WindowFlags::viewport_no_scrolling;
+                self->flags |= WindowFlags::viewportNoScrolling;
             }
 
             if (self->viewports[0] != nullptr)
@@ -278,12 +278,12 @@ namespace OpenLoco::Ui::Windows::Industry
         static void initEvents()
         {
             events.draw = draw;
-            events.on_mouse_up = onMouseUp;
-            events.on_resize = onResize;
-            events.on_update = Common::update;
-            events.prepare_draw = prepareDraw;
-            events.text_input = Common::textInput;
-            events.viewport_rotate = initViewport;
+            events.onMouseUp = onMouseUp;
+            events.onResize = onResize;
+            events.onUpdate = Common::update;
+            events.prepareDraw = prepareDraw;
+            events.textInput = Common::textInput;
+            events.viewportRotate = initViewport;
         }
     }
 
@@ -305,10 +305,10 @@ namespace OpenLoco::Ui::Windows::Industry
             const uint32_t newFlags = WindowFlags::flag_8 | WindowFlags::resizable;
             window = WindowManager::createWindow(WindowType::industry, Industry::windowSize, newFlags, &Industry::events);
             window->number = enumValue(industryId);
-            window->min_width = 192;
-            window->min_height = 137;
-            window->max_width = 600;
-            window->max_height = 440;
+            window->minWidth = 192;
+            window->minHeight = 137;
+            window->maxWidth = 600;
+            window->maxHeight = 440;
 
             auto skin = ObjectManager::get<InterfaceSkinObject>();
             if (skin != nullptr)
@@ -318,20 +318,20 @@ namespace OpenLoco::Ui::Windows::Industry
             }
             // 0x00456DBC end
 
-            window->saved_view.clear();
+            window->savedView.clear();
         }
 
         // TODO: only needs to be called once.
         Common::initEvents();
 
-        window->current_tab = Common::widx::tab_industry - Common::widx::tab_industry;
+        window->currentTab = Common::widx::tab_industry - Common::widx::tab_industry;
         window->invalidate();
 
         window->widgets = Industry::widgets;
-        window->enabled_widgets = Industry::enabledWidgets;
-        window->holdable_widgets = 0;
-        window->event_handlers = &Industry::events;
-        window->activated_widgets = 0;
+        window->enabledWidgets = Industry::enabledWidgets;
+        window->holdableWidgets = 0;
+        window->eventHandlers = &Industry::events;
+        window->activatedWidgets = 0;
 
         Common::setDisabledWidgets(window);
 
@@ -369,11 +369,11 @@ namespace OpenLoco::Ui::Windows::Industry
         static void initEvents()
         {
             events.draw = Common::draw;
-            events.on_mouse_up = Common::onMouseUp;
-            events.on_resize = onResize;
-            events.on_update = Common::update;
-            events.prepare_draw = prepareDraw;
-            events.text_input = Common::textInput;
+            events.onMouseUp = Common::onMouseUp;
+            events.onResize = onResize;
+            events.onUpdate = Common::update;
+            events.prepareDraw = prepareDraw;
+            events.textInput = Common::textInput;
         }
     }
 
@@ -409,11 +409,11 @@ namespace OpenLoco::Ui::Windows::Industry
         static void initEvents()
         {
             events.draw = Common::draw;
-            events.on_mouse_up = Common::onMouseUp;
-            events.on_resize = onResize;
-            events.on_update = Common::update;
-            events.prepare_draw = prepareDraw;
-            events.text_input = Common::textInput;
+            events.onMouseUp = Common::onMouseUp;
+            events.onResize = onResize;
+            events.onUpdate = Common::update;
+            events.prepareDraw = prepareDraw;
+            events.textInput = Common::textInput;
         }
     }
 
@@ -443,7 +443,7 @@ namespace OpenLoco::Ui::Windows::Industry
             Common::drawTabs(self, context);
 
             auto industry = IndustryManager::get(IndustryId(self->number));
-            auto industryObj = industry->object();
+            const auto* industryObj = industry->getObject();
             int16_t xPos = self->x + 3;
             int16_t yPos = self->y + 45;
             Ui::Point origin = { xPos, yPos };
@@ -525,11 +525,11 @@ namespace OpenLoco::Ui::Windows::Industry
         static void initEvents()
         {
             events.draw = draw;
-            events.on_mouse_up = Common::onMouseUp;
-            events.on_resize = onResize;
-            events.on_update = Common::update;
-            events.prepare_draw = prepareDraw;
-            events.text_input = Common::textInput;
+            events.onMouseUp = Common::onMouseUp;
+            events.onResize = onResize;
+            events.onUpdate = Common::update;
+            events.prepareDraw = prepareDraw;
+            events.textInput = Common::textInput;
         }
     }
 
@@ -561,7 +561,7 @@ namespace OpenLoco::Ui::Windows::Industry
             if (industryObj->produced_cargo_type[1] == 0xFF)
                 disabledWidgets |= (1 << Common::widx::tab_production_2);
 
-            self->disabled_widgets = disabledWidgets;
+            self->disabledWidgets = disabledWidgets;
         }
 
         // 0x00456079
@@ -593,7 +593,7 @@ namespace OpenLoco::Ui::Windows::Industry
                 auto args = FormatArguments();
                 args.push(yTick);
 
-                Gfx::drawRect(*context, self->x + 41, yPos, 239, 1, Colour::getShade(self->getColour(WindowColour::secondary), 4));
+                Gfx::drawRect(*context, self->x + 41, yPos, 239, 1, Colours::getShade(self->getColour(WindowColour::secondary).c(), 4));
 
                 Gfx::drawString_494C78(*context, self->x + 39, yPos - 6, Colour::black, StringIds::population_graph_people, &args);
 
@@ -605,9 +605,9 @@ namespace OpenLoco::Ui::Windows::Industry
             int8_t yearSkip = 0;
             // This is either 0 or 1 depending on selected tab
             // used to select the correct history
-            const uint8_t productionTabWidx = self->current_tab + widx::tab_industry;
+            const uint8_t productionTabWidx = self->currentTab + widx::tab_industry;
             const uint8_t productionNum = productionTabWidx - widx::tab_production;
-            for (uint8_t i = industry->history_size[productionNum] - 1; i > 0; i--)
+            for (uint8_t i = industry->historySize[productionNum] - 1; i > 0; i--)
             {
                 const uint16_t xPos = self->x + 41 + i;
                 const uint16_t yPos = self->y + 56;
@@ -623,7 +623,7 @@ namespace OpenLoco::Ui::Windows::Industry
                         Gfx::drawStringCentred(*context, xPos, yPos, Colour::black, StringIds::population_graph_year, &args);
                     }
 
-                    Gfx::drawRect(*context, xPos, yPos + 11, 1, self->height - 74, Colour::getShade(self->getColour(WindowColour::secondary), 4));
+                    Gfx::drawRect(*context, xPos, yPos + 11, 1, self->height - 74, Colours::getShade(self->getColour(WindowColour::secondary).c(), 4));
                 }
 
                 const auto history = productionTabWidx == widx::tab_production ? industry->history_1 : industry->history_2;
@@ -632,13 +632,13 @@ namespace OpenLoco::Ui::Windows::Industry
                 const uint16_t yPos2 = graphBottom - history[i + 1];
 
                 // Do not draw current segment yet; it may be zeroed.
-                if (i < industry->history_size[productionNum] - 1)
+                if (i < industry->historySize[productionNum] - 1)
                 {
                     if (yPos1 <= graphBottom)
                     {
                         if (yPos2 <= graphBottom)
                         {
-                            Gfx::drawLine(*context, xPos, yPos1, xPos + 1, yPos2, Colour::getShade(self->getColour(WindowColour::secondary), 7));
+                            Gfx::drawLine(*context, xPos, yPos1, xPos + 1, yPos2, Colours::getShade(self->getColour(WindowColour::secondary).c(), 7));
                         }
                     }
                 }
@@ -684,7 +684,7 @@ namespace OpenLoco::Ui::Windows::Industry
         static void prepareDraw(Window* self)
         {
             // Reset tab widgets if needed.
-            auto tabWidgets = tabInformationByTabOffset[self->current_tab].widgets;
+            auto tabWidgets = tabInformationByTabOffset[self->currentTab].widgets;
             if (self->widgets != tabWidgets)
             {
                 self->widgets = tabWidgets;
@@ -692,9 +692,9 @@ namespace OpenLoco::Ui::Windows::Industry
             }
 
             // Activate the current tab.
-            self->activated_widgets &= ~((1ULL << widx::tab_industry) | (1ULL << widx::tab_production) | (1ULL << widx::tab_production_2) | (1ULL << widx::tab_transported));
-            widx widgetIndex = tabInformationByTabOffset[self->current_tab].widgetIndex;
-            self->activated_widgets |= (1ULL << widgetIndex);
+            self->activatedWidgets &= ~((1ULL << widx::tab_industry) | (1ULL << widx::tab_production) | (1ULL << widx::tab_production_2) | (1ULL << widx::tab_transported));
+            widx widgetIndex = tabInformationByTabOffset[self->currentTab].widgetIndex;
+            self->activatedWidgets |= (1ULL << widgetIndex);
 
             // Put industry name in place.
             auto industry = IndustryManager::get(IndustryId(self->number));
@@ -739,7 +739,7 @@ namespace OpenLoco::Ui::Windows::Industry
             WindowManager::invalidate(WindowType::industry, self->number);
         }
 
-        //0x00455D81
+        // 0x00455D81
         static void renameIndustryPrompt(Window* self, WidgetIndex_t widgetIndex)
         {
             auto industry = IndustryManager::get(IndustryId(self->number));
@@ -784,7 +784,7 @@ namespace OpenLoco::Ui::Windows::Industry
 
             TextInput::sub_4CE6C9(self->type, self->number);
 
-            self->current_tab = widgetIndex - widx::tab_industry;
+            self->currentTab = widgetIndex - widx::tab_industry;
             self->frame_no = 0;
             self->flags &= ~(WindowFlags::flag_16);
             self->var_85C = -1;
@@ -793,10 +793,10 @@ namespace OpenLoco::Ui::Windows::Industry
 
             auto tabInfo = tabInformationByTabOffset[widgetIndex - widx::tab_industry];
 
-            self->enabled_widgets = *tabInfo.enabledWidgets;
-            self->holdable_widgets = 0;
-            self->event_handlers = tabInfo.events;
-            self->activated_widgets = 0;
+            self->enabledWidgets = *tabInfo.enabledWidgets;
+            self->holdableWidgets = 0;
+            self->eventHandlers = tabInfo.events;
+            self->activatedWidgets = 0;
             self->widgets = tabInfo.widgets;
 
             Common::setDisabledWidgets(self);
@@ -840,9 +840,9 @@ namespace OpenLoco::Ui::Windows::Industry
 
             if (industryObj->produced_cargo_type[productionTabNumber] != 0xFF)
             {
-                imageId = Gfx::recolour(skin->img, self->getColour(WindowColour::secondary));
+                imageId = Gfx::recolour(skin->img, self->getColour(WindowColour::secondary).c());
 
-                if (self->current_tab == tab - widx::tab_industry)
+                if (self->currentTab == tab - widx::tab_industry)
                     imageId += productionTabImageIds[(self->frame_no / 4) % std::size(productionTabImageIds)];
                 else
                     imageId += productionTabImageIds[0];
@@ -893,7 +893,7 @@ namespace OpenLoco::Ui::Windows::Industry
                 };
 
                 uint32_t imageId = skin->img;
-                if (self->current_tab == widx::tab_transported - widx::tab_industry)
+                if (self->currentTab == widx::tab_transported - widx::tab_industry)
                     imageId += transportedTabImageIds[(self->frame_no / 4) % std::size(transportedTabImageIds)];
                 else
                     imageId += transportedTabImageIds[0];

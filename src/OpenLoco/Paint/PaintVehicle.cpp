@@ -13,7 +13,7 @@ using namespace OpenLoco::Vehicles;
 namespace OpenLoco::Paint
 {
     // 0x00500160
-    const Pitch _reversePitch[13]{
+    constexpr Pitch kReversePitch[13]{
         Pitch::flat,
         Pitch::down6deg,
         Pitch::down12deg,
@@ -37,13 +37,13 @@ namespace OpenLoco::Paint
     // 0x004B0CFC
     static void paintBogie(PaintSession& session, VehicleBogie* bogie)
     {
-        auto* vehObject = ObjectManager::get<VehicleObject>(bogie->object_id);
-        if (bogie->object_sprite_type == SpriteIndex::null)
+        auto* vehObject = ObjectManager::get<VehicleObject>(bogie->objectId);
+        if (bogie->objectSpriteType == SpriteIndex::null)
         {
             return;
         }
 
-        auto& sprite = vehObject->bogie_sprites[bogie->object_sprite_type];
+        auto& sprite = vehObject->bogie_sprites[bogie->objectSpriteType];
         uint8_t yaw = (bogie->sprite_yaw + (session.getRotation() << 4)) & 0x3F;
         auto pitch = bogie->sprite_pitch;
 
@@ -51,7 +51,7 @@ namespace OpenLoco::Paint
         {
             // Flip the highest bit to reverse the yaw
             yaw ^= (1 << 5);
-            pitch = _reversePitch[static_cast<uint8_t>(bogie->sprite_pitch)];
+            pitch = kReversePitch[static_cast<uint8_t>(bogie->sprite_pitch)];
         }
         auto yawIndex = (yaw >> 1) & 0x1F;
 
@@ -91,7 +91,7 @@ namespace OpenLoco::Paint
                 }
                 else if (bogie->var_0C & Flags0C::unk_5)
                 {
-                    imageId = Gfx::recolour(imageId, PaletteIndex::index_74);
+                    imageId = Gfx::recolour(imageId, ExtColour::unk74);
                 }
                 else if (bogie->getTransportMode() == TransportMode::air)
                 {
@@ -103,13 +103,13 @@ namespace OpenLoco::Paint
                         return;
                     }
                     session.setItemType(Ui::ViewportInteraction::InteractionItem::noInteraction);
-                    imageId = Gfx::recolourTranslucent(imageId, PaletteIndex::index_32);
+                    imageId = Gfx::recolourTranslucent(imageId, ExtColour::unk32);
                     session.addToPlotList4FD200(imageId, { 0, 0, bogie->position.z }, { 8, 8, static_cast<coord_t>(bogie->position.z + 6) }, { 48, 48, 2 });
                     return;
                 }
                 else
                 {
-                    imageId = Gfx::recolour2(imageId, bogie->colour_scheme.primary, bogie->colour_scheme.secondary);
+                    imageId = Gfx::recolour2(imageId, bogie->colourScheme);
                 }
 
                 if (sprite.flags & BogieSpriteFlags::unk_4)
@@ -137,7 +137,7 @@ namespace OpenLoco::Paint
                 }
                 else
                 {
-                    imageId = Gfx::recolour2(imageId, bogie->colour_scheme.primary, bogie->colour_scheme.secondary);
+                    imageId = Gfx::recolour2(imageId, bogie->colourScheme);
                 }
                 if (sprite.flags & BogieSpriteFlags::unk_4)
                 {
@@ -161,7 +161,7 @@ namespace OpenLoco::Paint
                 }
                 else
                 {
-                    imageId = Gfx::recolour2(imageId, bogie->colour_scheme.primary, bogie->colour_scheme.secondary);
+                    imageId = Gfx::recolour2(imageId, bogie->colourScheme);
                 }
                 session.addToPlotListAsParent(imageId, { 0, 0, bogie->position.z }, { -6, -6, static_cast<coord_t>(bogie->position.z + 3) }, { 12, 12, 1 });
                 break;
@@ -329,13 +329,13 @@ namespace OpenLoco::Paint
         static loco_global<Map::Pos2[64], 0x00503B6A> _503B6A;  // also used in vehicle.cpp
         static loco_global<int8_t[32 * 4], 0x005001B4> _5001B4; // array of 4 byte structures
 
-        auto* vehObject = ObjectManager::get<VehicleObject>(body->object_id);
-        if (body->object_sprite_type == SpriteIndex::null)
+        auto* vehObject = ObjectManager::get<VehicleObject>(body->objectId);
+        if (body->objectSpriteType == SpriteIndex::null)
         {
             return;
         }
 
-        auto& sprite = vehObject->bodySprites[body->object_sprite_type];
+        auto& sprite = vehObject->bodySprites[body->objectSpriteType];
         uint8_t yaw = (body->sprite_yaw + (session.getRotation() << 4)) & 0x3F;
         auto originalYaw = yaw; // edi
         auto pitch = body->sprite_pitch;
@@ -343,7 +343,7 @@ namespace OpenLoco::Paint
         if (body->getFlags38() & Flags38::isReversed)
         {
             yaw ^= (1 << 5);
-            pitch = _reversePitch[static_cast<uint8_t>(body->sprite_pitch)];
+            pitch = kReversePitch[static_cast<uint8_t>(body->sprite_pitch)];
         }
 
         uint32_t pitchImageId;
@@ -399,7 +399,7 @@ namespace OpenLoco::Paint
         }
         else
         {
-            auto& unk = vehObject->var_24[body->body_index];
+            auto& unk = vehObject->var_24[body->bodyIndex];
             auto offsetModifier = unk.length - unk.var_01;
             if (body->getFlags38() & Flags38::isReversed)
             {
@@ -432,11 +432,11 @@ namespace OpenLoco::Paint
         }
         else if (body->var_0C & Flags0C::unk_5)
         {
-            imageId = Gfx::recolour(bodyImage, PaletteIndex::index_74);
+            imageId = Gfx::recolour(bodyImage, ExtColour::unk74);
         }
         else
         {
-            imageId = Gfx::recolour2(bodyImage, body->colour_scheme.primary, body->colour_scheme.secondary);
+            imageId = Gfx::recolour2(bodyImage, body->colourScheme);
         }
         session.addToPlotList4FD200(imageId, offsets, boundBoxOffsets, boundBoxSize);
 

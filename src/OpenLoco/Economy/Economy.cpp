@@ -2,6 +2,7 @@
 #include "../CompanyManager.h"
 #include "../GameState.h"
 #include "../Interop/Interop.hpp"
+#include "../Objects/CargoObject.h"
 #include "../Objects/ObjectManager.h"
 #include "../Ui/WindowManager.h"
 #include "../Ui/WindowType.h"
@@ -10,7 +11,7 @@ using namespace OpenLoco::Interop;
 
 namespace OpenLoco::Economy
 {
-    static const uint32_t _inflationFactors[32] = {
+    static const uint32_t kInflationFactors[32] = {
         20,
         20,
         20,
@@ -84,7 +85,7 @@ namespace OpenLoco::Economy
         auto& factors = currencyMultiplicationFactors();
         for (uint8_t i = 0; i < 32; i++)
         {
-            factors[i] += (static_cast<uint64_t>(_inflationFactors[i]) * factors[i]) >> 12;
+            factors[i] += (static_cast<uint64_t>(kInflationFactors[i]) * factors[i]) >> 12;
         }
 
         buildDeliveredCargoPaymentsTable();

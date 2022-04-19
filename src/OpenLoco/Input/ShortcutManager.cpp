@@ -61,9 +61,12 @@ namespace OpenLoco::Input::ShortcutManager
     static void constructionBuildAtCurrentPos();
     static void constructionRemoveAtCurrentPos();
     static void constructionSelectPosition();
+    static void gameSpeedNormal();
+    static void gameSpeedFastForward();
+    static void gameSpeedExtraFastForward();
 
     // clang-format off
-    static constexpr std::array<const KeyboardShortcut, count> _shortcuts = { {
+    static constexpr std::array<const KeyboardShortcut, kCount> kShortcuts = { {
         { closeTopmostWindow,             StringIds::shortcut_close_topmost_window,               "closeTopmostWindow",             "Backspace" },
         { closeAllFloatingWindows,        StringIds::shortcut_close_all_floating_windows,         "closeAllFloatingWindows",        "Left Shift+Backspace" },
         { cancelConstructionMode,         StringIds::shortcut_cancel_construction_mode,           "cancelConstructionMode",         "Escape" },
@@ -108,22 +111,25 @@ namespace OpenLoco::Input::ShortcutManager
         { constructionBuildAtCurrentPos,  StringIds::shortcut_construction_build_at_current_pos,  "constructionBuildAtCurrentPos",  "" },
         { constructionRemoveAtCurrentPos, StringIds::shortcut_construction_remove_at_current_pos, "constructionRemoveAtCurrentPos", "" },
         { constructionSelectPosition,     StringIds::shortcut_construction_select_position,       "constructionSelectPosition",     "" },
+        { gameSpeedNormal,                StringIds::shortcut_game_speed_normal,                  "gameSpeedNormal",                "" },
+        { gameSpeedFastForward,           StringIds::shortcut_game_speed_fast_forward,            "gameSpeedFastForward",           "" },
+        { gameSpeedExtraFastForward,      StringIds::shortcut_game_speed_extra_fast_forward,      "gameSpeedExtraFastForward",      "" },
     } };
     // clang-format on
 
     void execute(Shortcut s)
     {
-        _shortcuts[s].function();
+        kShortcuts[s].function();
     }
 
     string_id getName(Shortcut s)
     {
-        return _shortcuts[s].displayName;
+        return kShortcuts[s].displayName;
     }
 
-    const std::array<const KeyboardShortcut, count>& getList()
+    const std::array<const KeyboardShortcut, kCount>& getList()
     {
-        return _shortcuts;
+        return kShortcuts;
     }
 
     // 0x004BF089
@@ -294,7 +300,7 @@ namespace OpenLoco::Input::ShortcutManager
     // 0x004BF1C6
     static void adjustLand()
     {
-        if (isEditorMode() && S5::getOptions().editorStep == 0)
+        if (isEditorMode() && S5::getOptions().editorStep == EditorController::Step::objectSelection)
             return;
 
         Windows::Terraform::openAdjustLand();
@@ -303,7 +309,7 @@ namespace OpenLoco::Input::ShortcutManager
     // 0x004BF1E1
     static void adjustWater()
     {
-        if (isEditorMode() && S5::getOptions().editorStep == 0)
+        if (isEditorMode() && S5::getOptions().editorStep == EditorController::Step::objectSelection)
             return;
 
         Windows::Terraform::openAdjustWater();
@@ -312,7 +318,7 @@ namespace OpenLoco::Input::ShortcutManager
     // 0x004BF1FC
     static void plantTrees()
     {
-        if (isEditorMode() && S5::getOptions().editorStep == 0)
+        if (isEditorMode() && S5::getOptions().editorStep == EditorController::Step::objectSelection)
             return;
 
         Windows::Terraform::openPlantTrees();
@@ -321,7 +327,7 @@ namespace OpenLoco::Input::ShortcutManager
     // 0x004BF217
     static void bulldozeArea()
     {
-        if (isEditorMode() && S5::getOptions().editorStep == 0)
+        if (isEditorMode() && S5::getOptions().editorStep == EditorController::Step::objectSelection)
             return;
 
         Windows::Terraform::openClearArea();
@@ -343,7 +349,7 @@ namespace OpenLoco::Input::ShortcutManager
     // 0x004BF24F
     static void buildRoads()
     {
-        if (isEditorMode() && S5::getOptions().editorStep == 0)
+        if (isEditorMode() && S5::getOptions().editorStep == EditorController::Step::objectSelection)
             return;
 
         loco_global<uint8_t, 0x00525FAB> last_road_option;
@@ -414,7 +420,7 @@ namespace OpenLoco::Input::ShortcutManager
     // 0x004BF308
     static void showTownsList()
     {
-        if (isEditorMode() && S5::getOptions().editorStep == 0)
+        if (isEditorMode() && S5::getOptions().editorStep == EditorController::Step::objectSelection)
             return;
 
         Windows::TownList::open();
@@ -423,7 +429,7 @@ namespace OpenLoco::Input::ShortcutManager
     // 0x004BF323
     static void showIndustriesList()
     {
-        if (isEditorMode() && S5::getOptions().editorStep == 0)
+        if (isEditorMode() && S5::getOptions().editorStep == EditorController::Step::objectSelection)
             return;
 
         Windows::IndustryList::open();
@@ -432,7 +438,7 @@ namespace OpenLoco::Input::ShortcutManager
     // 0x004BF33E
     static void showMap()
     {
-        if (isEditorMode() && S5::getOptions().editorStep == 0)
+        if (isEditorMode() && S5::getOptions().editorStep == EditorController::Step::objectSelection)
             return;
 
         Windows::MapWindow::open();
@@ -564,5 +570,20 @@ namespace OpenLoco::Input::ShortcutManager
         auto window = WindowManager::find(WindowType::construction);
         if (window != nullptr)
             Ui::Windows::Construction::Construction::selectPosition(window);
+    }
+
+    static void gameSpeedNormal()
+    {
+        GameCommands::doCommand(GameCommands::SetGameSpeedArgs{ GameSpeed::Normal }, GameCommands::Flags::apply);
+    }
+
+    static void gameSpeedFastForward()
+    {
+        GameCommands::doCommand(GameCommands::SetGameSpeedArgs{ GameSpeed::FastForward }, GameCommands::Flags::apply);
+    }
+
+    static void gameSpeedExtraFastForward()
+    {
+        GameCommands::doCommand(GameCommands::SetGameSpeedArgs{ GameSpeed::ExtraFastForward }, GameCommands::Flags::apply);
     }
 }

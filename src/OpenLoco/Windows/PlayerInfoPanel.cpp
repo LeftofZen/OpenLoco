@@ -34,7 +34,7 @@ namespace OpenLoco::Ui::Windows::PlayerInfoPanel
             inner_frame,
             player,
             company_value,
-            performance_index
+            performanceIndex
         };
     }
 
@@ -47,9 +47,9 @@ namespace OpenLoco::Ui::Windows::PlayerInfoPanel
     static Widget _widgets[] = {
         makeWidget({ 0, 0 }, { 140, 29 }, WidgetType::wt_3, WindowColour::primary),
         makeWidget({ 2, 2 }, { 136, 25 }, WidgetType::wt_3, WindowColour::primary),
-        makeWidget({ 1, 1 }, { 26, 26 }, WidgetType::wt_9, WindowColour::primary),
-        makeWidget({ 27, 2 }, { 111, 12 }, WidgetType::wt_9, WindowColour::primary, ImageIds::null, StringIds::tooltip_company_value),
-        makeWidget({ 27, 14 }, { 111, 12 }, WidgetType::wt_9, WindowColour::primary, ImageIds::null, StringIds::tooltip_performance_index),
+        makeWidget({ 1, 1 }, { 26, 26 }, WidgetType::buttonWithImage, WindowColour::primary),
+        makeWidget({ 27, 2 }, { 111, 12 }, WidgetType::buttonWithImage, WindowColour::primary, ImageIds::null, StringIds::tooltip_company_value),
+        makeWidget({ 27, 14 }, { 111, 12 }, WidgetType::buttonWithImage, WindowColour::primary, ImageIds::null, StringIds::tooltip_performance_index),
         widgetEnd(),
     };
 
@@ -57,7 +57,6 @@ namespace OpenLoco::Ui::Windows::PlayerInfoPanel
     std::vector<const Company*> _sortedCompanies;
 
     static loco_global<uint16_t, 0x0050A004> _50A004;
-    static loco_global<int32_t, 0x00e3f0b8> gCurrentRotation;
     static loco_global<uint16_t, 0x0113DC78> _113DC78; // Dropdown flags?
 
     static void prepareDraw(Window* window);
@@ -83,7 +82,7 @@ namespace OpenLoco::Ui::Windows::PlayerInfoPanel
             _sortedCompanies.begin(),
             _sortedCompanies.end(),
             [](const Company* a, const Company* b) {
-                return a->performance_index > b->performance_index;
+                return a->performanceIndex > b->performanceIndex;
             });
 
         const string_id positionArray[15] = {
@@ -108,14 +107,14 @@ namespace OpenLoco::Ui::Windows::PlayerInfoPanel
         auto highlightIndex = -1;
         for (auto company : _sortedCompanies)
         {
-            auto competitorObj = ObjectManager::get<CompetitorObject>(company->competitor_id);
+            auto competitorObj = ObjectManager::get<CompetitorObject>(company->competitorId);
 
             auto args = FormatArguments();
             args.push(positionArray[index]);
-            args.push(Gfx::recolour(competitorObj->images[company->owner_emotion], company->mainColours.primary));
+            args.push(Gfx::recolour(competitorObj->images[company->ownerEmotion], company->mainColours.primary));
             args.push(company->name);
             args.push<uint16_t>(0); // Needed after a user string id
-            formatPerformanceIndex(company->performance_index, args);
+            formatPerformanceIndex(company->performanceIndex, args);
 
             Dropdown::add(index, StringIds::dropdown_company_performance, args);
 
@@ -161,14 +160,14 @@ namespace OpenLoco::Ui::Windows::PlayerInfoPanel
 
     static void initEvents()
     {
-        _events.on_mouse_up = onMouseUp;
+        _events.onMouseUp = onMouseUp;
         _events.event_03 = onMouseDown;
-        _events.on_mouse_down = onMouseDown;
-        _events.on_dropdown = onDropdown;
-        _events.on_update = onUpdate;
+        _events.onMouseDown = onMouseDown;
+        _events.onDropdown = onDropdown;
+        _events.onUpdate = onUpdate;
         _events.tooltip = tooltip;
         _events.cursor = onCursor;
-        _events.prepare_draw = prepareDraw;
+        _events.prepareDraw = prepareDraw;
         _events.draw = draw;
     }
 
@@ -181,18 +180,18 @@ namespace OpenLoco::Ui::Windows::PlayerInfoPanel
             WindowType::playerInfoToolbar,
             Ui::Point(0, Ui::height() - window_size.height),
             Ui::Size(window_size.width, window_size.height),
-            Ui::WindowFlags::stick_to_front | Ui::WindowFlags::transparent | Ui::WindowFlags::no_background,
+            Ui::WindowFlags::stickToFront | Ui::WindowFlags::transparent | Ui::WindowFlags::noBackground,
             &_events);
         window->widgets = _widgets;
-        window->enabled_widgets = (1 << Widx::player) | (1 << Widx::company_value) | (1 << Widx::performance_index);
+        window->enabledWidgets = (1 << Widx::player) | (1 << Widx::company_value) | (1 << Widx::performanceIndex);
         window->var_854 = 0;
         window->initScrollWidgets();
 
         auto skin = ObjectManager::get<InterfaceSkinObject>();
         if (skin != nullptr)
         {
-            window->setColour(WindowColour::primary, Colour::translucent(skin->colour_16));
-            window->setColour(WindowColour::secondary, Colour::translucent(skin->colour_16));
+            window->setColour(WindowColour::primary, AdvancedColour(skin->colour_16).translucent());
+            window->setColour(WindowColour::secondary, AdvancedColour(skin->colour_16).translucent());
         }
 
         return window;
@@ -213,17 +212,17 @@ namespace OpenLoco::Ui::Windows::PlayerInfoPanel
         // Draw widgets.
         window->draw(context);
 
-        drawRectInset(*context, window->x + frame.left + 1, window->y + frame.top + 1, frame.width() - 2, frame.height() - 2, window->getColour(WindowColour::secondary), 0x30);
+        drawRectInset(*context, window->x + frame.left + 1, window->y + frame.top + 1, frame.width() - 2, frame.height() - 2, window->getColour(WindowColour::secondary).u8(), 0x30);
 
         auto playerCompany = CompanyManager::get(CompanyManager::getControllingId());
-        auto competitor = ObjectManager::get<CompetitorObject>(playerCompany->competitor_id);
-        auto image = Gfx::recolour(competitor->images[playerCompany->owner_emotion], playerCompany->mainColours.primary);
+        auto competitor = ObjectManager::get<CompetitorObject>(playerCompany->competitorId);
+        auto image = Gfx::recolour(competitor->images[playerCompany->ownerEmotion], playerCompany->mainColours.primary);
         Gfx::drawImage(context, window->x + frame.left + 2, window->y + frame.top + 2, image);
 
         auto x = window->x + frame.width() / 2 + 12;
         {
             auto companyValueString = StringIds::player_info_bankrupt;
-            if (!(playerCompany->challenge_flags & CompanyFlags::bankrupt))
+            if (!(playerCompany->challengeFlags & CompanyFlags::bankrupt))
             {
                 if (static_cast<int16_t>(playerCompany->cash.var_04) < 0)
                 {
@@ -235,7 +234,7 @@ namespace OpenLoco::Ui::Windows::PlayerInfoPanel
                 }
             }
 
-            auto colour = Colour::opaque(window->getColour(WindowColour::primary));
+            auto colour = window->getColour(WindowColour::primary).opaque();
             if (Input::isHovering(WindowType::playerInfoToolbar, 0, Widx::company_value))
             {
                 colour = Colour::white;
@@ -249,23 +248,23 @@ namespace OpenLoco::Ui::Windows::PlayerInfoPanel
         {
             auto performanceString = StringIds::player_info_performance;
 
-            if (playerCompany->challenge_flags & CompanyFlags::increasedPerformance)
+            if (playerCompany->challengeFlags & CompanyFlags::increasedPerformance)
             {
                 performanceString = StringIds::player_info_performance_increase;
             }
-            else if (playerCompany->challenge_flags & (CompanyFlags::decreasedPerformance))
+            else if (playerCompany->challengeFlags & (CompanyFlags::decreasedPerformance))
             {
                 performanceString = StringIds::player_info_performance_decrease;
             }
 
-            auto colour = window->getColour(WindowColour::primary) & 0x7F;
-            if (Input::isHovering(WindowType::playerInfoToolbar, 0, Widx::performance_index))
+            auto colour = window->getColour(WindowColour::primary).opaque();
+            if (Input::isHovering(WindowType::playerInfoToolbar, 0, Widx::performanceIndex))
             {
                 colour = Colour::white;
             }
 
             auto args = FormatArguments();
-            args.push(playerCompany->performance_index);
+            args.push(playerCompany->performanceIndex);
             Gfx::drawStringCentred(*context, x, window->y + frame.top + 14, colour, performanceString, &args);
         }
     }
@@ -278,7 +277,7 @@ namespace OpenLoco::Ui::Windows::PlayerInfoPanel
             case Widx::company_value:
                 companyValueMouseUp();
                 break;
-            case Widx::performance_index:
+            case Widx::performanceIndex:
                 performanceIndexMouseUp();
                 break;
         }
@@ -324,7 +323,7 @@ namespace OpenLoco::Ui::Windows::PlayerInfoPanel
         switch (widgetIndex)
         {
             case Widx::company_value:
-            case Widx::performance_index:
+            case Widx::performanceIndex:
                 Input::setTooltipTimeout(2000);
                 break;
         }
@@ -341,7 +340,7 @@ namespace OpenLoco::Ui::Windows::PlayerInfoPanel
                 companyValueTooltip(args);
                 break;
 
-            case Widx::performance_index:
+            case Widx::performanceIndex:
                 performanceIndexTooltip(args);
                 break;
         }
@@ -360,7 +359,7 @@ namespace OpenLoco::Ui::Windows::PlayerInfoPanel
     {
         auto playerCompany = CompanyManager::get(CompanyManager::getControllingId());
 
-        formatPerformanceIndex(playerCompany->performance_index, args);
+        formatPerformanceIndex(playerCompany->performanceIndex, args);
     }
 
     void invalidateFrame()

@@ -143,7 +143,7 @@ namespace OpenLoco::Ui::Windows::Error
                 WindowType::error,
                 Ui::Point(x, y),
                 windowSize,
-                WindowFlags::stick_to_front | WindowFlags::transparent | WindowFlags::flag_7,
+                WindowFlags::stickToFront | WindowFlags::transparent | WindowFlags::flag_7,
                 &Common::events);
 
             Common::initEvents();
@@ -214,7 +214,7 @@ namespace OpenLoco::Ui::Windows::Error
             auto skin = ObjectManager::get<InterfaceSkinObject>()->colour_09;
 
             Gfx::drawRect(*context, x + 1, y + 1, width - 2, height - 2, 0x2000000 | 45);
-            Gfx::drawRect(*context, x + 1, y + 1, width - 2, height - 2, 0x2000000 | (116 + skin));
+            Gfx::drawRect(*context, x + 1, y + 1, width - 2, height - 2, 0x2000000 | (116 + enumValue(skin)));
 
             Gfx::drawRect(*context, x, y + 2, 1, height - 4, 0x2000000 | 46);
             Gfx::drawRect(*context, x + width - 1, y + 2, 1, height - 4, 0x2000000 | 46);
@@ -236,15 +236,15 @@ namespace OpenLoco::Ui::Windows::Error
                 auto yPos = self->widgets[ErrorCompetitor::widx::innerFrame].top + self->y;
 
                 auto company = CompanyManager::get(_errorCompetitorId);
-                auto companyObj = ObjectManager::get<CompetitorObject>(company->competitor_id);
+                auto companyObj = ObjectManager::get<CompetitorObject>(company->competitorId);
 
-                auto imageId = companyObj->images[company->owner_emotion];
+                auto imageId = companyObj->images[company->ownerEmotion];
                 imageId = Gfx::recolour(imageId, company->mainColours.primary);
                 imageId++;
 
                 Gfx::drawImage(context, xPos, yPos, imageId);
 
-                if (company->jail_status != 0)
+                if (company->jailStatus != 0)
                 {
                     Gfx::drawImage(context, xPos, yPos, ImageIds::owner_jailed);
                 }
@@ -266,7 +266,7 @@ namespace OpenLoco::Ui::Windows::Error
         static void initEvents()
         {
             events.draw = Common::draw;
-            events.on_periodic_update = Common::onPeriodicUpdate;
+            events.onPeriodicUpdate = Common::onPeriodicUpdate;
         }
     }
 }

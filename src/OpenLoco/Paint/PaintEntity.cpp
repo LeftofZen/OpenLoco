@@ -18,7 +18,7 @@ namespace OpenLoco::Paint
     static void paintEntitiesWithFilter(PaintSession& session, const Map::Pos2& loc, FilterType&& filter)
     {
         auto* context = session.getContext();
-        if (Config::get().vehicles_min_scale < context->zoom_level)
+        if (Config::get().vehiclesMinScale < context->zoom_level)
         {
             return;
         }
@@ -64,10 +64,10 @@ namespace OpenLoco::Paint
             switch (entity->base_type)
             {
                 case EntityBaseType::vehicle:
-                    paintVehicleEntity(session, entity->asVehicle());
+                    paintVehicleEntity(session, entity->asBase<Vehicles::VehicleBase>());
                     break;
                 case EntityBaseType::misc:
-                    paintMiscEntity(session, entity->asMisc());
+                    paintMiscEntity(session, entity->asBase<MiscBase>());
                     break;
                 case EntityBaseType::null:
                     // Nothing to paint
@@ -84,7 +84,7 @@ namespace OpenLoco::Paint
 
     static bool isEntityFlyingOrFloating(const EntityBase* entity)
     {
-        auto* vehicle = entity->asVehicle();
+        auto* vehicle = entity->asBase<Vehicles::VehicleBase>();
         if (vehicle == nullptr)
         {
             return false;

@@ -25,9 +25,12 @@ namespace OpenLoco
         static constexpr auto kObjectType = ObjectType::industry;
 
         string_id name;
-        uint8_t pad_02[0x0A - 0x02];
-        uint16_t nameSingular; // 0x0A
-        uint16_t namePlural;   // 0x0C
+        uint8_t pad_02[0x04 - 0x02];
+        string_id nameClosingDown;    // 0x4
+        string_id nameUpProduction;   // 0x6
+        string_id nameDownProduction; // 0x8
+        uint16_t nameSingular;        // 0x0A
+        uint16_t namePlural;          // 0x0C
         uint8_t pad_0E[0xC6 - 0x0E];
         uint32_t var_C6;
         uint16_t designedYear; // 0xCA start year
@@ -51,8 +54,8 @@ namespace OpenLoco
 
         bool requiresCargo() const;
         bool producesCargo() const;
-        char* getProducedCargoString(const char* buffer);
-        char* getRequiredCargoString(const char* buffer);
+        char* getProducedCargoString(const char* buffer) const;
+        char* getRequiredCargoString(const char* buffer) const;
         void drawPreviewImage(Gfx::Context& context, const int16_t x, const int16_t y) const;
         void drawIndustry(Gfx::Context* clipped, int16_t x, int16_t y) const;
     };

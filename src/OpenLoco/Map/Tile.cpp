@@ -1,6 +1,7 @@
 #include "Tile.h"
 #include "../IndustryManager.h"
 #include "../Interop/Interop.hpp"
+#include "../Objects/BuildingObject.h"
 #include "../Objects/ObjectManager.h"
 #include "../Station.h"
 #include "../Ui/WindowManager.h"
@@ -26,7 +27,7 @@ bool TileElementBase::isLast() const
     return (_flags & ElementFlags::last) != 0;
 }
 
-BuildingObject* BuildingElement::object() const
+const BuildingObject* BuildingElement::getObject() const
 {
     return ObjectManager::get<BuildingObject>(objectId());
 }

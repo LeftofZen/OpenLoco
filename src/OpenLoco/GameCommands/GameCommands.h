@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Company.h"
 #include "../Economy/Currency.h"
 #include "../Entities/Entity.h"
 #include "../Interop/Interop.hpp"
@@ -115,6 +116,7 @@ namespace OpenLoco::GameCommands
         renameIndustry = 79,
         vehicleClone = 80,
         cheat = 81,
+        setGameSpeed = 82,
     };
 
     enum class LoadOrQuitMode : uint16_t
@@ -325,6 +327,30 @@ namespace OpenLoco::GameCommands
         {
             registers regs;
             regs.edx = newLoan;
+            return regs;
+        }
+    };
+
+    struct SetGameSpeedArgs
+    {
+        static constexpr auto command = GameCommand::setGameSpeed;
+        SetGameSpeedArgs() = default;
+        explicit SetGameSpeedArgs(const registers& regs)
+            : newSpeed(static_cast<GameSpeed>(regs.edi))
+        {
+        }
+
+        explicit SetGameSpeedArgs(const GameSpeed speed)
+        {
+            newSpeed = speed;
+        }
+
+        GameSpeed newSpeed;
+
+        explicit operator registers() const
+        {
+            registers regs;
+            regs.edi = static_cast<std::underlying_type_t<GameSpeed>>(newSpeed);
             return regs;
         }
     };
@@ -663,7 +689,7 @@ namespace OpenLoco::GameCommands
             , rotation(regs.di & 0x3)
             , type(regs.bh)
             , quadrant(regs.dl)
-            , colour(regs.dh)
+            , colour(static_cast<Colour>(regs.dh & 0x1F))
             , buildImmediately(regs.di & 0x8000)
             , requiresFullClearance(regs.di & 0x4000)
         {
@@ -673,7 +699,7 @@ namespace OpenLoco::GameCommands
         uint8_t rotation;
         uint8_t type;
         uint8_t quadrant;
-        Colour_t colour;
+        Colour colour;
         bool buildImmediately = false;
         bool requiresFullClearance = false;
 
@@ -683,25 +709,39 @@ namespace OpenLoco::GameCommands
             regs.ax = pos.x;
             regs.cx = pos.y;
             regs.dl = quadrant;
-            regs.dh = colour;
+            regs.dh = enumValue(colour);
             regs.di = rotation | (buildImmediately ? 0x8000 : 0) | (requiresFullClearance ? 0x4000 : 0);
             regs.bh = type;
             return regs;
         }
     };
 
-    // Change Land Material
-    inline void do_24(Map::Pos2 pointA, Map::Pos2 pointB, uint8_t landType, uint8_t flags)
+    struct ChangeLandMaterialArgs
     {
-        registers regs;
-        regs.ax = pointA.x;
-        regs.cx = pointA.y;
-        regs.di = pointB.x;
-        regs.bp = pointB.y;
-        regs.dl = landType;
-        regs.bl = flags;
-        doCommand(GameCommand::changeLandMaterial, regs);
-    }
+        static constexpr auto command = GameCommand::changeLandMaterial;
+        ChangeLandMaterialArgs() = default;
+        explicit ChangeLandMaterialArgs(const registers& regs)
+            : pointA(regs.ax, regs.cx)
+            , pointB(regs.di, regs.bp)
+            , landType(regs.dl)
+        {
+        }
+
+        Map::Pos2 pointA;
+        Map::Pos2 pointB;
+        uint8_t landType;
+
+        explicit operator registers() const
+        {
+            registers regs;
+            regs.ax = pointA.x;
+            regs.cx = pointA.y;
+            regs.di = pointB.x;
+            regs.bp = pointB.y;
+            regs.dl = landType;
+            return regs;
+        }
+    };
 
     // Raise Land
     inline uint32_t do_25(Map::Pos2 centre, Map::Pos2 pointA, Map::Pos2 pointB, uint16_t di, uint8_t flags)
@@ -802,8 +842,8 @@ namespace OpenLoco::GameCommands
             , rotation(regs.dl)
             , type(regs.bh)
             , unk(regs.dh)
-            , primaryColour(regs.bp & 0xFF)
-            , secondaryColour((regs.bp >> 8) & 0xFF)
+            , primaryColour(static_cast<Colour>(regs.bp & 0x1F))
+            , secondaryColour(static_cast<Colour>((regs.bp >> 8) & 0x1F))
         {
         }
 
@@ -811,8 +851,8 @@ namespace OpenLoco::GameCommands
         uint8_t rotation;
         uint8_t type;
         uint8_t unk;
-        Colour_t primaryColour;
-        Colour_t secondaryColour;
+        Colour primaryColour;
+        Colour secondaryColour;
 
         explicit operator registers() const
         {
@@ -822,7 +862,7 @@ namespace OpenLoco::GameCommands
             regs.dl = rotation;
             regs.dh = unk;
             regs.di = pos.z;
-            regs.bp = primaryColour | (secondaryColour << 8);
+            regs.bp = enumValue(primaryColour) | (enumValue(secondaryColour) << 8);
             regs.bh = type;
             return regs;
         }
@@ -1105,7 +1145,7 @@ namespace OpenLoco::GameCommands
             , rotation(regs.bh & 0x3)
             , type(regs.dl)
             , variation(regs.dh)
-            , colour(regs.edi >> 16)
+            , colour(static_cast<Colour>((regs.edi >> 16) & 0x1F))
             , buildImmediately(regs.bh & 0x80)
         {
         }
@@ -1114,14 +1154,14 @@ namespace OpenLoco::GameCommands
         uint8_t rotation;
         uint8_t type;
         uint8_t variation;
-        Colour_t colour;
+        Colour colour;
         bool buildImmediately = false; // No scaffolding required (editor mode)
         explicit operator registers() const
         {
             registers regs;
             regs.ax = pos.x;
             regs.cx = pos.y;
-            regs.edi = pos.z | (colour << 16);
+            regs.edi = pos.z | (enumValue(colour) << 16);
             regs.dl = type;
             regs.dh = variation;
             regs.bh = rotation | (buildImmediately ? 0x80 : 0);
@@ -1552,25 +1592,27 @@ namespace OpenLoco::GameCommands
         doCommand(GameCommand::multiplayerSave, regs);
     }
 
-    // Update owner status
-    inline void do_73(EntityId id)
+    struct UpdateOwnerStatusArgs
     {
-        registers regs;
-        regs.bl = Flags::apply;
-        regs.ax = -2;
-        regs.cx = enumValue(id);
-        doCommand(GameCommand::updateOwnerStatus, regs);
-    }
+        static constexpr auto command = GameCommand::updateOwnerStatus;
+        UpdateOwnerStatusArgs() = default;
+        explicit UpdateOwnerStatusArgs(const registers& regs)
+            : ownerStatus(regs.ax, regs.cx)
+        {
+        }
 
-    // Update owner status
-    inline void do_73(Map::Pos2 position)
-    {
-        registers regs;
-        regs.bl = Flags::apply;
-        regs.ax = position.x;
-        regs.cx = position.y;
-        doCommand(GameCommand::updateOwnerStatus, regs);
-    }
+        OwnerStatus ownerStatus;
+
+        explicit operator registers() const
+        {
+            registers regs;
+            int16_t res[2];
+            ownerStatus.getData(res);
+            regs.ax = res[0];
+            regs.cx = res[1];
+            return regs;
+        }
+    };
 
     inline uint32_t do_74(EntityId head, int16_t speed)
     {
@@ -1599,20 +1641,40 @@ namespace OpenLoco::GameCommands
         return doCommand(GameCommand::vehicleOrderDown, regs);
     }
 
-    inline void do_77(EntityId head)
+    struct VehicleApplyShuntCheatArgs
     {
-        registers regs;
-        regs.bl = Flags::apply;
-        regs.cx = enumValue(head);
-        doCommand(GameCommand::vehicleApplyShuntCheat, regs);
-    }
+        static constexpr auto command = GameCommand::vehicleApplyShuntCheat;
 
-    inline void do_78()
+        VehicleApplyShuntCheatArgs() = default;
+        explicit VehicleApplyShuntCheatArgs(const registers& regs)
+            : head(EntityId(regs.cx))
+        {
+        }
+
+        EntityId head;
+
+        explicit operator registers() const
+        {
+            registers regs;
+            regs.cx = enumValue(head);
+            return regs;
+        }
+    };
+
+    struct ApplyFreeCashCheatArgs
     {
-        registers regs;
-        regs.bl = Flags::apply;
-        GameCommands::doCommand(GameCommand::applyFreeCashCheat, regs);
-    }
+        static constexpr auto command = GameCommand::applyFreeCashCheat;
+
+        ApplyFreeCashCheatArgs() = default;
+        explicit ApplyFreeCashCheatArgs(const registers& regs)
+        {
+        }
+
+        explicit operator registers() const
+        {
+            return registers();
+        }
+    };
 
     // Rename industry
     inline void do_79(IndustryId cl, uint16_t ax, uint32_t edx, uint32_t ebp, uint32_t edi)
@@ -1656,6 +1718,8 @@ namespace OpenLoco::GameCommands
 
     // Defined in GameCommands/Cheat.cpp
     void cheat(registers& regs);
+    void vehicleShuntCheat(registers& regs);
+    void freeCashCheat(registers& regs);
 
     // Defined in GameCommands/LoadSaveQuit.cpp
     void loadSaveQuit(registers& regs);
@@ -1675,12 +1739,21 @@ namespace OpenLoco::GameCommands
     // Defined in GameCommands/RenameTown.cpp
     void renameTown(registers& regs);
 
+    // Defined in GameCommands/SetGameSpeed.cpp
+    void setGameSpeed(registers& regs);
+
     // Defined in GameCommands/TogglePause.cpp
     uint32_t togglePause(uint8_t flags);
     void togglePause(registers& regs);
 
     // Defined in GameCommands/VehiclePickup.cpp
     void vehiclePickup(registers& regs);
+
+    // Defined in GameCommands/UpdateOwnerStatus.cpp
+    void updateOwnerStatus(registers& regs);
+
+    // Defined in GameCommands/ChangeLandMaterial.cpp
+    void changeLandMaterial(registers& regs);
 
     const Map::Pos3& getPosition();
     void setPosition(const Map::Pos3& pos);
@@ -1689,4 +1762,6 @@ namespace OpenLoco::GameCommands
     void setErrorTitle(const string_id title);
     ExpenditureType getExpenditureType();
     void setExpenditureType(const ExpenditureType type);
+    CompanyId getUpdatingCompanyId();
+    void setUpdatingCompanyId(CompanyId companyId);
 }

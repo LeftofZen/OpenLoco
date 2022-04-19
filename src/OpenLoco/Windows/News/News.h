@@ -18,8 +18,6 @@ namespace OpenLoco::Ui::Windows::NewsWindow
     static loco_global<uint16_t, 0x00525CE0> _word_525CE0;
     static loco_global<CompanyId, 0x00525E3C> _playerCompany;
     static loco_global<uint16_t, 0x005271CE> _messageCount;
-    static loco_global<MessageId, 0x005271D0> _activeMessageIndex;
-    static loco_global<int32_t, 0x00E3F0B8> gCurrentRotation;
     static loco_global<int16_t, 0x112C876> _currentFontSpriteBase;
     static loco_global<char[512], 0x0112CC04> byte_112CC04;
     static loco_global<uint32_t, 0x011364EC> _numTrackTypeTabs;
@@ -39,13 +37,13 @@ namespace OpenLoco::Ui::Windows::NewsWindow
 
         constexpr uint64_t enabledWidgets = (1 << close_button) | (1 << viewport1Button) | (1 << viewport2Button);
 
-#define commonWidgets(frameWidth, frameHeight, frameType)                                                                                                 \
-    makeWidget({ 0, 0 }, { frameWidth, frameHeight }, frameType, WindowColour::primary),                                                                  \
-        makeWidget({ frameWidth - 15, 2 }, { 13, 13 }, WidgetType::wt_9, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window), \
-        makeWidget({ 2, frameHeight - 73 }, { 168, 64 }, WidgetType::viewport, WindowColour::primary, 0xFFFFFFFE),                                        \
-        makeWidget({ 180, frameHeight - 73 }, { 168, 64 }, WidgetType::viewport, WindowColour::primary, 0xFFFFFFFE),                                      \
-        makeWidget({ 2, frameHeight - 75 }, { 180, 75 }, WidgetType::wt_9, WindowColour::primary),                                                        \
-        makeWidget({ 2, frameHeight - 75 }, { 180, 75 }, WidgetType::wt_9, WindowColour::primary)
+#define commonWidgets(frameWidth, frameHeight, frameType)                                                                                                            \
+    makeWidget({ 0, 0 }, { frameWidth, frameHeight }, frameType, WindowColour::primary),                                                                             \
+        makeWidget({ frameWidth - 15, 2 }, { 13, 13 }, WidgetType::buttonWithImage, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window), \
+        makeWidget({ 2, frameHeight - 73 }, { 168, 64 }, WidgetType::viewport, WindowColour::primary, 0xFFFFFFFE),                                                   \
+        makeWidget({ 180, frameHeight - 73 }, { 168, 64 }, WidgetType::viewport, WindowColour::primary, 0xFFFFFFFE),                                                 \
+        makeWidget({ 2, frameHeight - 75 }, { 180, 75 }, WidgetType::buttonWithImage, WindowColour::primary),                                                        \
+        makeWidget({ 2, frameHeight - 75 }, { 180, 75 }, WidgetType::buttonWithImage, WindowColour::primary)
 
         void initEvents();
     }

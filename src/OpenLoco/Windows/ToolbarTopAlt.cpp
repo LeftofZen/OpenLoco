@@ -42,23 +42,23 @@ namespace OpenLoco::Ui::Windows::ToolbarTop::Editor
     }
 
     static Widget _widgets[] = {
-        makeWidget({ 0, 0 }, { 30, 28 }, WidgetType::wt_7, WindowColour::primary),  // 0
-        makeWidget({ 30, 0 }, { 30, 28 }, WidgetType::wt_7, WindowColour::primary), // 1
-        makeWidget({ 60, 0 }, { 30, 28 }, WidgetType::wt_7, WindowColour::primary), // 2
+        makeWidget({ 0, 0 }, { 30, 28 }, WidgetType::toolbarTab, WindowColour::primary),  // 0
+        makeWidget({ 30, 0 }, { 30, 28 }, WidgetType::toolbarTab, WindowColour::primary), // 1
+        makeWidget({ 60, 0 }, { 30, 28 }, WidgetType::toolbarTab, WindowColour::primary), // 2
 
-        makeWidget({ 104, 0 }, { 30, 28 }, WidgetType::wt_7, WindowColour::secondary), // 3
-        makeWidget({ 134, 0 }, { 30, 28 }, WidgetType::wt_7, WindowColour::secondary), // 4
-        makeWidget({ 164, 0 }, { 30, 28 }, WidgetType::wt_7, WindowColour::secondary), // 5
+        makeWidget({ 104, 0 }, { 30, 28 }, WidgetType::toolbarTab, WindowColour::secondary), // 3
+        makeWidget({ 134, 0 }, { 30, 28 }, WidgetType::toolbarTab, WindowColour::secondary), // 4
+        makeWidget({ 164, 0 }, { 30, 28 }, WidgetType::toolbarTab, WindowColour::secondary), // 5
 
-        makeWidget({ 267, 0 }, { 30, 28 }, WidgetType::wt_7, WindowColour::tertiary), // 6
-        makeWidget({ 0, 0 }, { 1, 1 }, WidgetType::none, WindowColour::primary),      // 7
-        makeWidget({ 357, 0 }, { 30, 28 }, WidgetType::wt_7, WindowColour::tertiary), // 8
-        makeWidget({ 0, 0 }, { 1, 1 }, WidgetType::none, WindowColour::primary),      // 9
-        makeWidget({ 0, 0 }, { 1, 1 }, WidgetType::none, WindowColour::primary),      // 10
+        makeWidget({ 267, 0 }, { 30, 28 }, WidgetType::toolbarTab, WindowColour::tertiary), // 6
+        makeWidget({ 0, 0 }, { 1, 1 }, WidgetType::none, WindowColour::primary),            // 7
+        makeWidget({ 357, 0 }, { 30, 28 }, WidgetType::toolbarTab, WindowColour::tertiary), // 8
+        makeWidget({ 0, 0 }, { 1, 1 }, WidgetType::none, WindowColour::primary),            // 9
+        makeWidget({ 0, 0 }, { 1, 1 }, WidgetType::none, WindowColour::primary),            // 10
 
-        makeWidget({ 0, 0 }, { 1, 1 }, WidgetType::none, WindowColour::primary),        // 11
-        makeWidget({ 0, 0 }, { 1, 1 }, WidgetType::none, WindowColour::primary),        // 12
-        makeWidget({ 460, 0 }, { 30, 28 }, WidgetType::wt_7, WindowColour::quaternary), // 13
+        makeWidget({ 0, 0 }, { 1, 1 }, WidgetType::none, WindowColour::primary),              // 11
+        makeWidget({ 0, 0 }, { 1, 1 }, WidgetType::none, WindowColour::primary),              // 12
+        makeWidget({ 460, 0 }, { 30, 28 }, WidgetType::toolbarTab, WindowColour::quaternary), // 13
         widgetEnd(),
     };
 
@@ -70,12 +70,12 @@ namespace OpenLoco::Ui::Windows::ToolbarTop::Editor
 
     static void initEvents()
     {
-        _events.on_resize = Common::onResize;
+        _events.onResize = Common::onResize;
         _events.event_03 = onMouseDown;
-        _events.on_mouse_down = onMouseDown;
-        _events.on_dropdown = onDropdown;
-        _events.on_update = Common::onUpdate;
-        _events.prepare_draw = prepareDraw;
+        _events.onMouseDown = onMouseDown;
+        _events.onDropdown = onDropdown;
+        _events.onUpdate = Common::onUpdate;
+        _events.prepareDraw = prepareDraw;
         _events.draw = Common::draw;
     }
 
@@ -88,10 +88,10 @@ namespace OpenLoco::Ui::Windows::ToolbarTop::Editor
             WindowType::topToolbar,
             { 0, 0 },
             Ui::Size(Ui::width(), 28),
-            WindowFlags::stick_to_front | WindowFlags::transparent | WindowFlags::no_background,
+            WindowFlags::stickToFront | WindowFlags::transparent | WindowFlags::noBackground,
             &_events);
         window->widgets = _widgets;
-        window->enabled_widgets = (1 << Common::Widx::loadsave_menu) | (1 << Common::Widx::audio_menu) | (1 << Common::Widx::zoom_menu) | (1 << Common::Widx::rotate_menu) | (1 << Common::Widx::view_menu) | (1 << Common::Widx::terraform_menu) | (1 << Widx::map_generation_menu) | (1 << Common::Widx::road_menu) | (1 << Common::Widx::towns_menu);
+        window->enabledWidgets = (1 << Common::Widx::loadsave_menu) | (1 << Common::Widx::audio_menu) | (1 << Common::Widx::zoom_menu) | (1 << Common::Widx::rotate_menu) | (1 << Common::Widx::view_menu) | (1 << Common::Widx::terraform_menu) | (1 << Widx::map_generation_menu) | (1 << Common::Widx::road_menu) | (1 << Common::Widx::towns_menu);
         window->initScrollWidgets();
         window->setColour(WindowColour::primary, Colour::grey);
         window->setColour(WindowColour::secondary, Colour::grey);
@@ -139,7 +139,7 @@ namespace OpenLoco::Ui::Windows::ToolbarTop::Editor
 
             case 1:
             {
-                if (S5::getOptions().editorStep == 0)
+                if (S5::getOptions().editorStep == EditorController::Step::objectSelection)
                     ObjectSelectionWindow::closeWindow();
 
                 WindowManager::closeAllFloatingWindows();
@@ -147,7 +147,10 @@ namespace OpenLoco::Ui::Windows::ToolbarTop::Editor
 
                 // Save Landscape
                 if (OpenLoco::Game::saveLandscapeOpen())
+                {
+                    OpenLoco::Game::saveLandscape();
                     Gfx::invalidateScreen();
+                }
                 break;
             }
 
@@ -283,15 +286,15 @@ namespace OpenLoco::Ui::Windows::ToolbarTop::Editor
 
         if (EditorController::getCurrentStep() == EditorController::Step::landscapeEditor)
         {
-            window->widgets[Common::Widx::zoom_menu].type = WidgetType::wt_7;
-            window->widgets[Common::Widx::rotate_menu].type = WidgetType::wt_7;
-            window->widgets[Common::Widx::view_menu].type = WidgetType::wt_7;
-            window->widgets[Common::Widx::terraform_menu].type = WidgetType::wt_7;
-            window->widgets[Widx::map_generation_menu].type = WidgetType::wt_7;
-            window->widgets[Common::Widx::towns_menu].type = WidgetType::wt_7;
+            window->widgets[Common::Widx::zoom_menu].type = WidgetType::toolbarTab;
+            window->widgets[Common::Widx::rotate_menu].type = WidgetType::toolbarTab;
+            window->widgets[Common::Widx::view_menu].type = WidgetType::toolbarTab;
+            window->widgets[Common::Widx::terraform_menu].type = WidgetType::toolbarTab;
+            window->widgets[Widx::map_generation_menu].type = WidgetType::toolbarTab;
+            window->widgets[Common::Widx::towns_menu].type = WidgetType::toolbarTab;
             if (last_road_option != 0xFF)
             {
-                window->widgets[Common::Widx::road_menu].type = WidgetType::wt_7;
+                window->widgets[Common::Widx::road_menu].type = WidgetType::toolbarTab;
             }
             else
             {
@@ -312,27 +315,27 @@ namespace OpenLoco::Ui::Windows::ToolbarTop::Editor
         auto interface = ObjectManager::get<InterfaceSkinObject>();
         if (!Audio::isAudioEnabled())
         {
-            window->activated_widgets |= (1 << Common::Widx::audio_menu);
-            window->widgets[Common::Widx::audio_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_audio_inactive, window->getColour(WindowColour::primary));
+            window->activatedWidgets |= (1 << Common::Widx::audio_menu);
+            window->widgets[Common::Widx::audio_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_audio_inactive, window->getColour(WindowColour::primary).c());
         }
         else
         {
-            window->activated_widgets &= ~(1 << Common::Widx::audio_menu);
-            window->widgets[Common::Widx::audio_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_audio_active, window->getColour(WindowColour::primary));
+            window->activatedWidgets &= ~(1 << Common::Widx::audio_menu);
+            window->widgets[Common::Widx::audio_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_audio_active, window->getColour(WindowColour::primary).c());
         }
 
-        window->widgets[Common::Widx::loadsave_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_loadsave, 0);
-        window->widgets[Common::Widx::zoom_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_zoom, 0);
-        window->widgets[Common::Widx::rotate_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_rotate, 0);
-        window->widgets[Common::Widx::view_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_view, 0);
+        window->widgets[Common::Widx::loadsave_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_loadsave);
+        window->widgets[Common::Widx::zoom_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_zoom);
+        window->widgets[Common::Widx::rotate_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_rotate);
+        window->widgets[Common::Widx::view_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_view);
 
-        window->widgets[Common::Widx::terraform_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_terraform, 0);
-        window->widgets[Widx::map_generation_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_cogwheels, 0);
-        window->widgets[Common::Widx::road_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_empty_opaque, 0);
+        window->widgets[Common::Widx::terraform_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_terraform);
+        window->widgets[Widx::map_generation_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_cogwheels);
+        window->widgets[Common::Widx::road_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_empty_opaque);
 
         if (last_town_option == 0)
-            window->widgets[Common::Widx::towns_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_towns, 0);
+            window->widgets[Common::Widx::towns_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_towns);
         else
-            window->widgets[Common::Widx::towns_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_industries, 0);
+            window->widgets[Common::Widx::towns_menu].image = Gfx::recolour(interface->img + InterfaceSkin::ImageIds::toolbar_industries);
     }
 }

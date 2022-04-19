@@ -7,6 +7,7 @@
 #include "Map/TileManager.h"
 #include "Station.h"
 #include "Ui.h"
+#include "Ui/WindowManager.h"
 #include "Window.h"
 #include <algorithm>
 #include <cassert>
@@ -18,8 +19,6 @@ using namespace OpenLoco::Interop;
 namespace OpenLoco::Ui::ViewportManager
 {
     static std::vector<std::unique_ptr<Viewport>> _viewports;
-
-    static loco_global<int32_t, 0x00E3F0B8> currentRotation;
 
     static Viewport* create(registers regs, int index);
 
@@ -69,13 +68,13 @@ namespace OpenLoco::Ui::ViewportManager
         assert(index >= 0 && index < viewportsPerWindow);
         Viewport* viewport = w->viewports[index];
 
-        w->viewport_configurations[index].viewport_target_sprite = dx;
+        w->viewportConfigurations[index].viewport_target_sprite = dx;
 
         auto t = EntityManager::get<EntityBase>(dx);
 
         const auto dest = viewport->centre2dCoordinates(t->position);
-        w->viewport_configurations[index].saved_view_x = dest.x;
-        w->viewport_configurations[index].saved_view_y = dest.y;
+        w->viewportConfigurations[index].saved_view_x = dest.x;
+        w->viewportConfigurations[index].saved_view_y = dest.y;
         viewport->view_x = dest.x;
         viewport->view_y = dest.y;
     }
@@ -85,11 +84,11 @@ namespace OpenLoco::Ui::ViewportManager
         assert(index >= 0 && index < viewportsPerWindow);
         Viewport* viewport = w->viewports[index];
 
-        w->viewport_configurations[index].viewport_target_sprite = EntityId::null;
+        w->viewportConfigurations[index].viewport_target_sprite = EntityId::null;
 
         const auto dest = viewport->centre2dCoordinates(tile);
-        w->viewport_configurations[index].saved_view_x = dest.x;
-        w->viewport_configurations[index].saved_view_y = dest.y;
+        w->viewportConfigurations[index].saved_view_x = dest.x;
+        w->viewportConfigurations[index].saved_view_y = dest.y;
         viewport->view_x = dest.x;
         viewport->view_y = dest.y;
     }
@@ -170,6 +169,11 @@ namespace OpenLoco::Ui::ViewportManager
      */
     Viewport* create(Window* window, int viewportIndex, Ui::Point origin, Ui::Size size, ZoomLevel zoom, Map::Pos3 tile)
     {
+        // Viewports of 0 width are automatically removed
+        if (size.width == 0)
+        {
+            return nullptr;
+        }
         Viewport* viewport = initViewport(origin, size, zoom);
 
         if (viewport == nullptr)
@@ -293,7 +297,7 @@ namespace OpenLoco::Ui::ViewportManager
      * 0x004CBBD2 (quarter)
      * 0x004CBCAC (half)
      * 0x004CBD86 (full)
-     * 
+     *
      * @param t @<esi>
      * @param zoom
      */
@@ -308,16 +312,16 @@ namespace OpenLoco::Ui::ViewportManager
         rect.right = t->sprite_right;
         rect.bottom = t->sprite_bottom;
 
-        auto level = (ZoomLevel)std::min(Config::get().vehicles_min_scale, (uint8_t)zoom);
+        auto level = (ZoomLevel)std::min(Config::get().vehiclesMinScale, (uint8_t)zoom);
         invalidate(rect, level);
     }
 
     void invalidate(const Map::Pos2 pos, coord_t zMin, coord_t zMax, ZoomLevel zoom, int radius)
     {
-        auto axbx = Map::gameToScreen(Map::Pos3(pos.x + 16, pos.y + 16, zMax), currentRotation);
+        auto axbx = Map::gameToScreen(Map::Pos3(pos.x + 16, pos.y + 16, zMax), WindowManager::getCurrentRotation());
         axbx.x -= radius;
         axbx.y -= radius;
-        auto dxbp = Map::gameToScreen(Map::Pos3(pos.x + 16, pos.y + 16, zMin), currentRotation);
+        auto dxbp = Map::gameToScreen(Map::Pos3(pos.x + 16, pos.y + 16, zMin), WindowManager::getCurrentRotation());
         dxbp.x += radius;
         dxbp.y += radius;
 

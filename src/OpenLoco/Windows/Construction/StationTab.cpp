@@ -28,10 +28,9 @@ namespace OpenLoco::Ui::Windows::Construction::Station
 {
     Widget widgets[] = {
         commonWidgets(138, 190, StringIds::stringid_2),
-        makeWidget({ 3, 45 }, { 132, 12 }, WidgetType::wt_18, WindowColour::secondary, 0xFFFFFFFF, StringIds::tooltip_select_station_type),
-        makeWidget({ 123, 46 }, { 11, 10 }, WidgetType::wt_11, WindowColour::secondary, StringIds::dropdown, StringIds::tooltip_select_station_type),
+        makeDropdownWidgets({ 3, 45 }, { 132, 12 }, WidgetType::combobox, WindowColour::secondary, 0xFFFFFFFF, StringIds::tooltip_select_station_type),
         makeWidget({ 35, 60 }, { 68, 68 }, WidgetType::wt_3, WindowColour::secondary),
-        makeWidget({ 112, 104 }, { 24, 24 }, WidgetType::wt_9, WindowColour::secondary, ImageIds::rotate_object, StringIds::rotate_90),
+        makeWidget({ 112, 104 }, { 24, 24 }, WidgetType::buttonWithImage, WindowColour::secondary, ImageIds::rotate_object, StringIds::rotate_90),
         widgetEnd(),
     };
 
@@ -349,7 +348,7 @@ namespace OpenLoco::Ui::Windows::Construction::Station
                         }
 
                         auto* industry = elIndustry->industry();
-                        auto* industryObj = industry->object();
+                        const auto* industryObj = industry->getObject();
                         if (!(industryObj->flags & IndustryObjectFlags::built_on_water))
                         {
                             continue;
@@ -580,7 +579,7 @@ namespace OpenLoco::Ui::Windows::Construction::Station
 
         if (_byte_1136063 & (1 << 7))
         {
-            self->widgets[widx::rotate].type = WidgetType::wt_9;
+            self->widgets[widx::rotate].type = WidgetType::buttonWithImage;
 
             auto airportObj = ObjectManager::get<AirportObject>(_lastSelectedStationType);
 
@@ -652,10 +651,10 @@ namespace OpenLoco::Ui::Windows::Construction::Station
             auto imageId = Gfx::recolour(roadStationObj->image + RoadStation::ImageIds::preview_image, companyColour);
             Gfx::drawImage(context, xPos, yPos, imageId);
 
-            auto colour = _byte_5045FA[companyColour];
+            auto colour = Colours::getTranslucent(companyColour);
             if (!(roadStationObj->flags & RoadStationFlags::recolourable))
             {
-                colour = PaletteIndex::index_2E;
+                colour = ExtColour::unk2E;
             }
 
             imageId = Gfx::recolourTranslucent(roadStationObj->image + RoadStation::ImageIds::preview_image_windows, colour);
@@ -668,10 +667,10 @@ namespace OpenLoco::Ui::Windows::Construction::Station
             auto imageId = Gfx::recolour(trainStationObj->image + TrainStation::ImageIds::preview_image, companyColour);
             Gfx::drawImage(context, xPos, yPos, imageId);
 
-            auto colour = _byte_5045FA[companyColour];
+            auto colour = Colours::getTranslucent(companyColour);
             if (!(trainStationObj->flags & TrainStationFlags::recolourable))
             {
-                colour = PaletteIndex::index_2E;
+                colour = ExtColour::unk2E;
             }
 
             imageId = Gfx::recolourTranslucent(trainStationObj->image + TrainStation::ImageIds::preview_image_windows, colour);
@@ -692,7 +691,7 @@ namespace OpenLoco::Ui::Windows::Construction::Station
         xPos = self->x + 3;
         yPos = self->widgets[widx::image].bottom + self->y + 16;
         auto width = self->width - 4;
-        Gfx::drawRectInset(*context, xPos, yPos, width, 1, self->getColour(WindowColour::secondary), (1 << 5));
+        Gfx::drawRectInset(*context, xPos, yPos, width, 1, self->getColour(WindowColour::secondary).u8(), (1 << 5));
 
         if (!(_byte_522096 & (1 << 3)))
             return;
@@ -782,14 +781,14 @@ namespace OpenLoco::Ui::Windows::Construction::Station
 
     void initEvents()
     {
-        events.on_close = Common::onClose;
-        events.on_mouse_up = onMouseUp;
-        events.on_mouse_down = onMouseDown;
-        events.on_dropdown = onDropdown;
-        events.on_update = onUpdate;
-        events.on_tool_update = onToolUpdate;
-        events.on_tool_down = onToolDown;
-        events.prepare_draw = prepareDraw;
+        events.onClose = Common::onClose;
+        events.onMouseUp = onMouseUp;
+        events.onMouseDown = onMouseDown;
+        events.onDropdown = onDropdown;
+        events.onUpdate = onUpdate;
+        events.onToolUpdate = onToolUpdate;
+        events.onToolDown = onToolDown;
+        events.prepareDraw = prepareDraw;
         events.draw = draw;
     }
 }

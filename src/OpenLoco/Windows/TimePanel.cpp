@@ -21,7 +21,7 @@ using namespace OpenLoco::Interop;
 
 namespace OpenLoco::Ui::Windows::TimePanel
 {
-    static const Ui::Size window_size = { 140, 27 };
+    static const Ui::Size window_size = { 145, 27 };
 
     namespace Widx
     {
@@ -40,18 +40,16 @@ namespace OpenLoco::Ui::Windows::TimePanel
 
     static void formatChallenge(FormatArguments& args);
     static void processChatMessage(const char* str);
-    static void togglePaused();
-    static void changeGameSpeed(Window* w, uint8_t speed);
 
     static Widget _widgets[] = {
-        makeWidget({ 0, 0 }, { 140, 29 }, WidgetType::wt_3, WindowColour::primary),                                                                                        // 0,
-        makeWidget({ 2, 2 }, { 136, 25 }, WidgetType::wt_3, WindowColour::primary),                                                                                        // 1,
-        makeWidget({ 113, 1 }, { 26, 26 }, WidgetType::wt_9, WindowColour::primary),                                                                                       // 2,
-        makeWidget({ 2, 2 }, { 111, 12 }, WidgetType::wt_9, WindowColour::primary, ImageIds::null, StringIds::tooltip_daymonthyear_challenge),                             // 3,
-        makeRemapWidget({ 18, 15 }, { 20, 12 }, WidgetType::wt_9, WindowColour::primary, ImageIds::speed_pause, StringIds::tooltip_speed_pause),                           // 4,
-        makeRemapWidget({ 38, 15 }, { 20, 12 }, WidgetType::wt_9, WindowColour::primary, ImageIds::speed_normal, StringIds::tooltip_speed_normal),                         // 5,
-        makeRemapWidget({ 58, 15 }, { 20, 12 }, WidgetType::wt_9, WindowColour::primary, ImageIds::speed_fast_forward, StringIds::tooltip_speed_fast_forward),             // 6,
-        makeRemapWidget({ 78, 15 }, { 20, 12 }, WidgetType::wt_9, WindowColour::primary, ImageIds::speed_extra_fast_forward, StringIds::tooltip_speed_extra_fast_forward), // 7,
+        makeWidget({ 0, 0 }, { 140, 29 }, WidgetType::wt_3, WindowColour::primary),                                                                                                   // 0,
+        makeWidget({ 2, 2 }, { 136, 25 }, WidgetType::wt_3, WindowColour::primary),                                                                                                   // 1,
+        makeWidget({ 113, 1 }, { 26, 26 }, WidgetType::buttonWithImage, WindowColour::primary),                                                                                       // 2,
+        makeWidget({ 2, 2 }, { 111, 12 }, WidgetType::buttonWithImage, WindowColour::primary, ImageIds::null, StringIds::tooltip_daymonthyear_challenge),                             // 3,
+        makeRemapWidget({ 18, 15 }, { 20, 12 }, WidgetType::buttonWithImage, WindowColour::primary, ImageIds::speed_pause, StringIds::tooltip_speed_pause),                           // 4,
+        makeRemapWidget({ 38, 15 }, { 20, 12 }, WidgetType::buttonWithImage, WindowColour::primary, ImageIds::speed_normal, StringIds::tooltip_speed_normal),                         // 5,
+        makeRemapWidget({ 58, 15 }, { 20, 12 }, WidgetType::buttonWithImage, WindowColour::primary, ImageIds::speed_fast_forward, StringIds::tooltip_speed_fast_forward),             // 6,
+        makeRemapWidget({ 78, 15 }, { 20, 12 }, WidgetType::buttonWithImage, WindowColour::primary, ImageIds::speed_extra_fast_forward, StringIds::tooltip_speed_extra_fast_forward), // 7,
         widgetEnd(),
     };
 
@@ -69,7 +67,6 @@ namespace OpenLoco::Ui::Windows::TimePanel
 
     static loco_global<uint16_t, 0x0050A004> _50A004;
     static loco_global<uint8_t, 0x00526231> objectiveFlags;
-    static loco_global<int32_t, 0x00e3f0b8> gCurrentRotation;
 
     static loco_global<uint8_t, 0x00526240> objectiveTimeLimitYears;
     static loco_global<uint16_t, 0x00526243> objectiveMonthsInChallenge;
@@ -78,25 +75,25 @@ namespace OpenLoco::Ui::Windows::TimePanel
 
     Window* open()
     {
-        _events.on_mouse_up = onMouseUp;
+        _events.onMouseUp = onMouseUp;
         _events.event_03 = onMouseDown;
-        _events.on_mouse_down = onMouseDown;
-        _events.on_dropdown = onDropdown;
-        _events.on_update = onUpdate;
-        _events.text_input = textInput;
+        _events.onMouseDown = onMouseDown;
+        _events.onDropdown = onDropdown;
+        _events.onUpdate = onUpdate;
+        _events.textInput = textInput;
         _events.tooltip = tooltip;
         _events.cursor = onCursor;
-        _events.prepare_draw = prepareDraw;
+        _events.prepareDraw = prepareDraw;
         _events.draw = draw;
 
         auto window = WindowManager::createWindow(
             WindowType::timeToolbar,
             Ui::Point(Ui::width() - window_size.width, Ui::height() - window_size.height),
             Ui::Size(window_size.width, window_size.height),
-            Ui::WindowFlags::stick_to_front | Ui::WindowFlags::transparent | Ui::WindowFlags::no_background,
+            Ui::WindowFlags::stickToFront | Ui::WindowFlags::transparent | Ui::WindowFlags::noBackground,
             &_events);
         window->widgets = _widgets;
-        window->enabled_widgets = (1 << Widx::map_chat_menu) | (1 << Widx::date_btn) | (1 << Widx::pause_btn) | (1 << Widx::normal_speed_btn) | (1 << Widx::fast_forward_btn) | (1 << Widx::extra_fast_forward_btn);
+        window->enabledWidgets = (1 << Widx::map_chat_menu) | (1 << Widx::date_btn) | (1 << Widx::pause_btn) | (1 << Widx::normal_speed_btn) | (1 << Widx::fast_forward_btn) | (1 << Widx::extra_fast_forward_btn);
         window->var_854 = 0;
         window->var_856 = 0;
         window->initScrollWidgets();
@@ -104,8 +101,8 @@ namespace OpenLoco::Ui::Windows::TimePanel
         auto skin = ObjectManager::get<InterfaceSkinObject>();
         if (skin != nullptr)
         {
-            window->setColour(WindowColour::primary, Colour::translucent(skin->colour_17));
-            window->setColour(WindowColour::secondary, Colour::translucent(skin->colour_17));
+            window->setColour(WindowColour::primary, AdvancedColour(skin->colour_17).translucent());
+            window->setColour(WindowColour::secondary, AdvancedColour(skin->colour_17).translucent());
         }
 
         return window;
@@ -124,15 +121,15 @@ namespace OpenLoco::Ui::Windows::TimePanel
         {
             _widgets[Widx::pause_btn].image = Gfx::recolour(ImageIds::speed_pause_active);
         }
-        else if (getGameSpeed() == 0)
+        else if (getGameSpeed() == GameSpeed::Normal)
         {
             _widgets[Widx::normal_speed_btn].image = Gfx::recolour(ImageIds::speed_normal_active);
         }
-        else if (getGameSpeed() == 1)
+        else if (getGameSpeed() == GameSpeed::FastForward)
         {
             _widgets[Widx::fast_forward_btn].image = Gfx::recolour(ImageIds::speed_fast_forward_active);
         }
-        else if (getGameSpeed() == 2)
+        else if (getGameSpeed() == GameSpeed::ExtraFastForward)
         {
             _widgets[Widx::extra_fast_forward_btn].image = Gfx::recolour(ImageIds::speed_extra_fast_forward_active);
         }
@@ -149,8 +146,8 @@ namespace OpenLoco::Ui::Windows::TimePanel
         }
         else
         {
-            _widgets[Widx::fast_forward_btn].type = WidgetType::wt_9;
-            _widgets[Widx::extra_fast_forward_btn].type = WidgetType::wt_9;
+            _widgets[Widx::fast_forward_btn].type = WidgetType::buttonWithImage;
+            _widgets[Widx::extra_fast_forward_btn].type = WidgetType::buttonWithImage;
 
             _widgets[Widx::pause_btn].left = 18;
             _widgets[Widx::pause_btn].right = 37;
@@ -180,10 +177,10 @@ namespace OpenLoco::Ui::Windows::TimePanel
         // Draw widgets.
         self->draw(context);
 
-        Gfx::drawRectInset(*context, self->x + frame.left + 1, self->y + frame.top + 1, frame.width() - 2, frame.height() - 2, self->getColour(WindowColour::secondary), 0x30);
+        Gfx::drawRectInset(*context, self->x + frame.left + 1, self->y + frame.top + 1, frame.width() - 2, frame.height() - 2, self->getColour(WindowColour::secondary).u8(), 0x30);
 
         *(uint32_t*)&_common_format_args[0] = getCurrentDay();
-        string_id format = StringIds::date_monthyear;
+        string_id format = StringIds::date_daymonthyear;
 
         if (isPaused() && (getPauseFlags() & (1 << 2)) == 0)
         {
@@ -193,7 +190,7 @@ namespace OpenLoco::Ui::Windows::TimePanel
             }
         }
 
-        Colour_t c = Colour::opaque(self->getColour(WindowColour::primary));
+        auto c = self->getColour(WindowColour::primary).opaque();
         if (Input::isHovering(WindowType::timeToolbar, 0, Widx::date_btn))
         {
             c = Colour::white;
@@ -201,7 +198,7 @@ namespace OpenLoco::Ui::Windows::TimePanel
         Gfx::drawStringCentred(*context, self->x + _widgets[Widx::date_btn].mid_x(), self->y + _widgets[Widx::date_btn].top + 1, c, format, &*_common_format_args);
 
         auto skin = ObjectManager::get<InterfaceSkinObject>();
-        Gfx::drawImage(context, self->x + _widgets[Widx::map_chat_menu].left - 2, self->y + _widgets[Widx::map_chat_menu].top - 1, skin->img + map_sprites_by_rotation[gCurrentRotation]);
+        Gfx::drawImage(context, self->x + _widgets[Widx::map_chat_menu].left - 2, self->y + _widgets[Widx::map_chat_menu].top - 1, skin->img + map_sprites_by_rotation[WindowManager::getCurrentRotation()]);
     }
 
     // 0x004398FB
@@ -213,16 +210,16 @@ namespace OpenLoco::Ui::Windows::TimePanel
                 MessageWindow::open();
                 break;
             case Widx::pause_btn:
-                togglePaused();
+                GameCommands::do_20();
                 break;
             case Widx::normal_speed_btn:
-                changeGameSpeed(window, 0);
+                GameCommands::doCommand(GameCommands::SetGameSpeedArgs{ GameSpeed::Normal }, GameCommands::Flags::apply);
                 break;
             case Widx::fast_forward_btn:
-                changeGameSpeed(window, 1);
+                GameCommands::doCommand(GameCommands::SetGameSpeedArgs{ GameSpeed::FastForward }, GameCommands::Flags::apply);
                 break;
             case Widx::extra_fast_forward_btn:
-                changeGameSpeed(window, 2);
+                GameCommands::doCommand(GameCommands::SetGameSpeedArgs{ GameSpeed::ExtraFastForward }, GameCommands::Flags::apply);
                 break;
         }
     }
@@ -235,13 +232,13 @@ namespace OpenLoco::Ui::Windows::TimePanel
         if (isNetworked())
         {
             Dropdown::add(0, StringIds::menu_sprite_stringid, { (uint32_t)skin->img + InterfaceSkin::ImageIds::phone, StringIds::chat_send_message });
-            Dropdown::add(1, StringIds::menu_sprite_stringid, { (uint32_t)skin->img + map_sprites_by_rotation[gCurrentRotation], StringIds::menu_map });
+            Dropdown::add(1, StringIds::menu_sprite_stringid, { (uint32_t)skin->img + map_sprites_by_rotation[WindowManager::getCurrentRotation()], StringIds::menu_map });
             Dropdown::showBelow(self, widgetIndex, 2, 25, (1 << 6));
             Dropdown::setHighlightedItem(1);
         }
         else
         {
-            Dropdown::add(0, StringIds::menu_sprite_stringid, { (uint32_t)skin->img + map_sprites_by_rotation[gCurrentRotation], StringIds::menu_map });
+            Dropdown::add(0, StringIds::menu_sprite_stringid, { (uint32_t)skin->img + map_sprites_by_rotation[WindowManager::getCurrentRotation()], StringIds::menu_map });
             Dropdown::showBelow(self, widgetIndex, 1, 25, (1 << 6));
             Dropdown::setHighlightedItem(0);
         }
@@ -260,7 +257,7 @@ namespace OpenLoco::Ui::Windows::TimePanel
                 case 0:
                 {
                     auto opponent = CompanyManager::getOpponent();
-                    _common_format_args[4] = opponent->owner_name;
+                    _common_format_args[4] = opponent->ownerName;
                     TextInput::openTextInput(self, StringIds::chat_title, StringIds::chat_instructions, StringIds::empty, widgetIndex, &*_common_format_args);
                     break;
                 }
@@ -335,15 +332,15 @@ namespace OpenLoco::Ui::Windows::TimePanel
 
         auto playerCompany = CompanyManager::get(CompanyManager::getControllingId());
 
-        if ((playerCompany->challenge_flags & CompanyFlags::challengeCompleted) != 0)
+        if ((playerCompany->challengeFlags & CompanyFlags::challengeCompleted) != 0)
         {
             args.push(StringIds::challenge_completed);
         }
-        else if ((playerCompany->challenge_flags & CompanyFlags::challengeFailed) != 0)
+        else if ((playerCompany->challengeFlags & CompanyFlags::challengeFailed) != 0)
         {
             args.push(StringIds::challenge_failed);
         }
-        else if ((playerCompany->challenge_flags & CompanyFlags::challengeBeatenByOpponent) != 0)
+        else if ((playerCompany->challengeFlags & CompanyFlags::challengeBeatenByOpponent) != 0)
         {
             args.push(StringIds::empty);
         }
@@ -388,25 +385,6 @@ namespace OpenLoco::Ui::Windows::TimePanel
         {
             GameCommands::do_71(i, &string[i * 16]);
         }
-    }
-
-    static void togglePaused()
-    {
-        GameCommands::do_20();
-    }
-
-    // 0x00439A70 (speed: 0)
-    // 0x00439A93 (speed: 1)
-    // 0x00439AB6 (speed: 2)
-    static void changeGameSpeed(Window* w, uint8_t speed)
-    {
-        if (getPauseFlags() & 1)
-        {
-            GameCommands::do_20();
-        }
-
-        setGameSpeed(speed);
-        w->invalidate();
     }
 
     void invalidateFrame()

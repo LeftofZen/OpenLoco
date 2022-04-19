@@ -31,7 +31,7 @@ namespace OpenLoco::Ui::Windows::TitleLogo
 
     Window* open()
     {
-        _events.on_mouse_up = onMouseUp;
+        _events.onMouseUp = onMouseUp;
         _events.draw = draw;
 
         auto window = OpenLoco::Ui::WindowManager::createWindow(
@@ -42,12 +42,12 @@ namespace OpenLoco::Ui::Windows::TitleLogo
             &_events);
 
         window->widgets = _widgets;
-        window->enabled_widgets = 1 << Widx::logo;
+        window->enabledWidgets = 1 << Widx::logo;
 
         window->initScrollWidgets();
 
-        window->setColour(WindowColour::primary, Colour::translucent(Colour::grey));
-        window->setColour(WindowColour::secondary, Colour::translucent(Colour::grey));
+        window->setColour(WindowColour::primary, AdvancedColour(Colour::grey).translucent());
+        window->setColour(WindowColour::secondary, AdvancedColour(Colour::grey).translucent());
 
         return window;
     }

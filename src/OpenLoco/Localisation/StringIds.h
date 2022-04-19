@@ -380,7 +380,28 @@ namespace OpenLoco::StringIds
     constexpr string_id menu_mute = 396;
     constexpr string_id menu_play_music = 397;
     constexpr string_id player_info_bankrupt = 398;
-
+    constexpr string_id message_not_allowed_to_wait_for_full_load_at = 399;
+    constexpr string_id message_has_slipped_to_a_halt_on_incline = 400;
+    constexpr string_id message_now_accepts = 401;
+    constexpr string_id message_no_longer_accepts = 402;
+    constexpr string_id message_new_transport_company = 403;
+    constexpr string_id message_not_able_to_land_at = 404;
+    constexpr string_id message_first_string_arrive_at = 405;
+    constexpr string_id message_first_string_delivery_arives_at = 406;
+    constexpr string_id message_first_string_delivered_to = 407;
+    constexpr string_id message_new_vehicle_invented = 408;
+    constexpr string_id message_is_promoted_to = 409;
+    constexpr string_id message_new_string_under_construction_near = 410;
+    constexpr string_id message_congratulations_you_have_completed = 411;
+    constexpr string_id message_failure_you_have_failed = 412;
+    constexpr string_id message_beaten_has_completed = 413;
+    constexpr string_id message_bankruptcy_warning_6_month = 414;
+    constexpr string_id message_bankruptcy_warning_3_month = 415;
+    constexpr string_id message_bankrupt = 416;
+    constexpr string_id message_bankrupt_2 = 417;
+    constexpr string_id message_has_crashed = 418;
+    constexpr string_id message_corporate_scandal = 419;
+    constexpr string_id message_new_speed_record = 420;
     constexpr string_id dropdown_stringid = 421;
     constexpr string_id dropdown_stringid_selected = 422;
     constexpr string_id dropdown_company_select = 423;
@@ -858,10 +879,10 @@ namespace OpenLoco::StringIds
     constexpr string_id tooltip_build_new_ships = 1193;
     constexpr string_id tooltip_trains = 1194;
     constexpr string_id tooltip_buses = 1195;
-    constexpr string_id tooltip_trucks = 1194;
-    constexpr string_id tooltip_trams = 1195;
-    constexpr string_id tooltip_aircraft = 1194;
-    constexpr string_id tooltip_ships = 1195;
+    constexpr string_id tooltip_trucks = 1196;
+    constexpr string_id tooltip_trams = 1197;
+    constexpr string_id tooltip_aircraft = 1198;
+    constexpr string_id tooltip_ships = 1199;
 
     constexpr string_id tooltip_all_stations = 1200;
     constexpr string_id tooltip_rail_stations = 1201;
@@ -1093,7 +1114,7 @@ namespace OpenLoco::StringIds
     constexpr string_id prompt_enter_new_name_for_owner = 1460;
     constexpr string_id cannot_change_owner_name = 1461;
     constexpr string_id headquarters = 1462;
-    constexpr string_id stringid_headquarters = 1462;
+    constexpr string_id stringid_headquarters = 1463;
 
     constexpr string_id tooltip_select_company = 1465;
 
@@ -1278,7 +1299,9 @@ namespace OpenLoco::StringIds
     constexpr string_id industry_size_medium = 1668;
     constexpr string_id industry_size_high = 1669;
     constexpr string_id number_of_industries = 1670;
-
+    constexpr string_id at_least_one_town_be_built = 1671;
+    constexpr string_id cant_advance_to_next_editor_stage = 1672;
+    constexpr string_id str_1673 = 1673;
     constexpr string_id tooltip_scenario_options = 1674;
     constexpr string_id tooltip_scenario_challenge = 1675;
     constexpr string_id tooltip_company_options = 1676;
@@ -1540,9 +1563,16 @@ namespace OpenLoco::StringIds
     constexpr string_id title_cargo_distance_graphs = 1983;
     constexpr string_id tab_cargo_distance_graphs = 1984;
     constexpr string_id last_journey_average_speed = 1985;
-
+    constexpr string_id land = 1986;
+    constexpr string_id air = 1987;
+    constexpr string_id water = 1988;
+    constexpr string_id train_2 = 1989;
+    constexpr string_id bus_2 = 1990;
+    constexpr string_id truck_2 = 1991;
+    constexpr string_id tram_2 = 1992;
+    constexpr string_id aircraft_2 = 1993;
+    constexpr string_id ship_2 = 1994;
     constexpr string_id tab_speed_records = 1995;
-    constexpr string_id speed_records = 1995;
     constexpr string_id title_speed_records = 1996;
     constexpr string_id land_speed_record = 1997;
     constexpr string_id air_speed_record = 1998;
@@ -1755,4 +1785,27 @@ namespace OpenLoco::StringIds
     constexpr string_id shortcut_construction_remove_at_current_pos = 2225;
     constexpr string_id shortcut_construction_select_position = 2226;
     constexpr string_id trainsReverseAtSignals = 2227;
+    constexpr string_id loan_autopay = 2228;
+    constexpr string_id tooltip_loan_autopay = 2229;
+    constexpr string_id cheat_year = 2230;
+    constexpr string_id cheat_month = 2231;
+    constexpr string_id cheat_day = 2232;
+    constexpr string_id cheat_date_change_apply = 2233;
+    constexpr string_id cheat_year_value = 2234;
+    constexpr string_id cheat_month_value = 2235;
+    constexpr string_id cheat_day_value = 2236;
+    constexpr string_id date_daymonthyear = 2237;
+    constexpr string_id shortcut_game_speed_normal = 2238;
+    constexpr string_id shortcut_game_speed_fast_forward = 2239;
+    constexpr string_id shortcut_game_speed_extra_fast_forward = 2240;
+    constexpr string_id vehicle_capacity_stringid = 2241;
+    constexpr string_id stats_obsolete = 2242;
+    constexpr string_id vehicle_is_locked = 2243;
+    constexpr string_id display_locked_vehicles = 2244;
+    constexpr string_id tooltip_display_locked_vehicles = 2245;
+    constexpr string_id stats_proposed_design = 2246;
+    constexpr string_id allow_building_locked_vehicles = 2247;
+    constexpr string_id tooltip_build_locked_vehicles = 2248;
+    constexpr string_id cheat_build_vehicle_window = 2249;
+    constexpr string_id tooltip_paint_landscape_tool = 2250;
 }

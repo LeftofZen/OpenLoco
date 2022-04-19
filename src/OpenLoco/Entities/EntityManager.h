@@ -32,7 +32,8 @@ namespace OpenLoco::EntityManager
     template<typename T>
     T* get(EntityId id)
     {
-        return static_cast<T*>(get<EntityBase>(id));
+        auto* base = get<EntityBase>(id);
+        return base != nullptr ? base->asBase<T>() : nullptr;
     }
 
     EntityId firstId(EntityListType list);
@@ -52,6 +53,8 @@ namespace OpenLoco::EntityManager
 
     void updateVehicles();
     void updateMiscEntities();
+    void updateDaily();
+    void updateMonthly();
 
     uint16_t getListCount(const EntityListType list);
     void moveEntityToList(EntityBase* const entity, const EntityListType list);
@@ -99,6 +102,10 @@ namespace OpenLoco::EntityManager
         }
         TEntityType* operator*()
         {
+            if (entity == nullptr)
+            {
+                throw "Bad Entity List!";
+            }
             return entity;
         }
         // iterator traits

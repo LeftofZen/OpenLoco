@@ -32,9 +32,9 @@ namespace OpenLoco::Ui::Windows::PromptOkCancel
     static Widget _widgets[] = {
         makeWidget({ 0, 0 }, { 280, 92 }, WidgetType::panel, WindowColour::primary),
         makeWidget({ 1, 1 }, { 278, 13 }, WidgetType::caption_22, WindowColour::primary),
-        makeWidget({ 267, 2 }, { 11, 11 }, WidgetType::wt_11, WindowColour::primary, StringIds::close_window_cross, StringIds::tooltip_close_window),
-        makeWidget({ 20, 77 }, { 100, 12 }, WidgetType::wt_11, WindowColour::primary, StringIds::label_ok),
-        makeWidget({ 160, 77 }, { 100, 12 }, WidgetType::wt_11, WindowColour::primary, StringIds::label_button_cancel),
+        makeWidget({ 267, 2 }, { 11, 11 }, WidgetType::button, WindowColour::primary, StringIds::close_window_cross, StringIds::tooltip_close_window),
+        makeWidget({ 20, 77 }, { 100, 12 }, WidgetType::button, WindowColour::primary, StringIds::label_ok),
+        makeWidget({ 160, 77 }, { 100, 12 }, WidgetType::button, WindowColour::primary, StringIds::label_button_cancel),
         widgetEnd(),
     };
 
@@ -50,7 +50,7 @@ namespace OpenLoco::Ui::Windows::PromptOkCancel
         auto window = WindowManager::createWindowCentred(
             WindowType::confirmationPrompt,
             { 280, 92 },
-            Ui::WindowFlags::flag_12 | Ui::WindowFlags::stick_to_front,
+            Ui::WindowFlags::flag_12 | Ui::WindowFlags::stickToFront,
             &_events);
 
         if (window == nullptr)
@@ -63,10 +63,10 @@ namespace OpenLoco::Ui::Windows::PromptOkCancel
         // Prepare description buffer for drawing
         StringManager::formatString(_descriptionBuffer, descriptionId, &descriptionArgs);
 
-        window->enabled_widgets = (1 << widx::closeButton) | (1 << widx::okButton) | (1 << widx::cancelButton);
+        window->enabledWidgets = (1 << widx::closeButton) | (1 << widx::okButton) | (1 << widx::cancelButton);
         window->initScrollWidgets();
-        window->setColour(WindowColour::primary, Colour::translucent(Colour::mutedDarkRed));
-        window->setColour(WindowColour::secondary, Colour::translucent(Colour::mutedDarkRed));
+        window->setColour(WindowColour::primary, AdvancedColour(Colour::mutedDarkRed).translucent());
+        window->setColour(WindowColour::secondary, AdvancedColour(Colour::mutedDarkRed).translucent());
         window->flags |= Ui::WindowFlags::transparent;
 
         _result = 0;
@@ -140,7 +140,7 @@ namespace OpenLoco::Ui::Windows::PromptOkCancel
     static void initEvents()
     {
         _events.draw = draw;
-        _events.on_mouse_up = onMouseUp;
-        _events.prepare_draw = prepareDraw;
+        _events.onMouseUp = onMouseUp;
+        _events.prepareDraw = prepareDraw;
     }
 }

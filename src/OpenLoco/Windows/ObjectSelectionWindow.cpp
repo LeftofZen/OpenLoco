@@ -86,12 +86,12 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
     Widget widgets[] = {
         makeWidget({ 0, 0 }, { 600, 398 }, WidgetType::frame, WindowColour::primary),
         makeWidget({ 1, 1 }, { 598, 13 }, WidgetType::caption_25, WindowColour::primary, StringIds::title_object_selection),
-        makeWidget({ 585, 2 }, { 13, 13 }, WidgetType::wt_9, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
+        makeWidget({ 585, 2 }, { 13, 13 }, WidgetType::buttonWithImage, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
         makeWidget({ 0, 65 }, { 600, 333 }, WidgetType::panel, WindowColour::secondary),
         makeWidget({ 3, 15 }, { 589, 50 }, WidgetType::wt_5, WindowColour::secondary),
-        makeWidget({ 470, 20 }, { 122, 12 }, WidgetType::wt_11, WindowColour::primary, StringIds::object_selection_advanced, StringIds::object_selection_advanced_tooltip),
+        makeWidget({ 470, 20 }, { 122, 12 }, WidgetType::button, WindowColour::primary, StringIds::object_selection_advanced, StringIds::object_selection_advanced_tooltip),
         makeWidget({ 4, 68 }, { 288, 317 }, WidgetType::scrollview, WindowColour::secondary, Scrollbars::vertical),
-        makeWidget({ 391, 68 }, { 114, 114 }, WidgetType::wt_9, WindowColour::secondary),
+        makeWidget({ 391, 68 }, { 114, 114 }, WidgetType::buttonWithImage, WindowColour::secondary),
         widgetEnd(),
     };
 
@@ -117,7 +117,7 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
     // 0x00472BBC
     static ObjectManager::ObjIndexPair sub_472BBC(Window* self)
     {
-        const auto objects = ObjectManager::getAvailableObjects(static_cast<ObjectType>(self->current_tab));
+        const auto objects = ObjectManager::getAvailableObjects(static_cast<ObjectType>(self->currentTab));
 
         for (auto [index, object] : objects)
         {
@@ -156,10 +156,10 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
 
         window = WindowManager::createWindowCentred(WindowType::objectSelection, { windowSize }, 0, &_events);
         window->widgets = widgets;
-        window->enabled_widgets = (1ULL << widx::closeButton) | (1ULL << widx::tabArea) | (1ULL << widx::advancedButton);
+        window->enabledWidgets = (1ULL << widx::closeButton) | (1ULL << widx::tabArea) | (1ULL << widx::advancedButton);
         window->initScrollWidgets();
         window->frame_no = 0;
-        window->row_hover = -1;
+        window->rowHover = -1;
         window->var_856 = 0;
 
         initEvents();
@@ -173,7 +173,7 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
         auto objIndex = sub_472BBC(window);
         if (objIndex.index != -1)
         {
-            window->row_hover = objIndex.index;
+            window->rowHover = objIndex.index;
             window->object = reinterpret_cast<std::byte*>(objIndex.object._header);
             ObjectManager::getScenarioText(*objIndex.object._header);
         }
@@ -231,23 +231,23 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
     // 0x004733AC
     static void prepareDraw(Ui::Window* self)
     {
-        self->activated_widgets |= (1 << widx::objectImage);
-        widgets[widx::closeButton].type = WidgetType::wt_9;
+        self->activatedWidgets |= (1 << widx::objectImage);
+        widgets[widx::closeButton].type = WidgetType::buttonWithImage;
 
         if (isEditorMode())
         {
             widgets[widx::closeButton].type = WidgetType::none;
         }
 
-        self->activated_widgets &= ~(1 << widx::advancedButton);
+        self->activatedWidgets &= ~(1 << widx::advancedButton);
 
         if (self->var_856 & (1 << 0))
         {
-            self->activated_widgets |= (1 << widx::advancedButton);
+            self->activatedWidgets |= (1 << widx::advancedButton);
         }
 
         auto args = FormatArguments();
-        args.push(_tabDisplayInfo[self->current_tab].name);
+        args.push(_tabDisplayInfo[self->currentTab].name);
     }
 
     static loco_global<uint16_t[40], 0x0112C1C5> _112C1C5;
@@ -270,10 +270,10 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
                 if (_tabInformation[index].row != row)
                     continue;
 
-                auto image = Gfx::recolour(ImageIds::tab, self->getColour(WindowColour::secondary));
-                if (_tabInformation[index].index == self->current_tab)
+                auto image = Gfx::recolour(ImageIds::tab, self->getColour(WindowColour::secondary).c());
+                if (_tabInformation[index].index == self->currentTab)
                 {
-                    image = Gfx::recolour(ImageIds::selected_tab, self->getColour(WindowColour::secondary));
+                    image = Gfx::recolour(ImageIds::selected_tab, self->getColour(WindowColour::secondary).c());
                     Gfx::drawImage(context, xPos, yPos, image);
 
                     image = Gfx::recolour(_tabDisplayInfo[_tabInformation[index].index].image, Colour::mutedSeaGreen);
@@ -286,12 +286,12 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
                     image = Gfx::recolour(_tabDisplayInfo[_tabInformation[index].index].image, Colour::mutedSeaGreen);
                     Gfx::drawImage(context, xPos, yPos, image);
 
-                    image = Gfx::recolourTranslucent(ImageIds::tab, 51);
+                    image = Gfx::recolourTranslucent(ImageIds::tab, ExtColour::unk33);
                     Gfx::drawImage(context, xPos, yPos, image);
 
                     if (row < 1)
                     {
-                        auto colour = Colour::getShade(self->getColour(WindowColour::secondary), 7);
+                        auto colour = Colours::getShade(self->getColour(WindowColour::secondary).c(), 7);
                         Gfx::drawRect(*context, xPos, yPos + 26, 31, 1, colour);
                     }
                 }
@@ -501,7 +501,7 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
     // 0x004733F5
     static void draw(Window* self, Gfx::Context* context)
     {
-        Gfx::fillRectInset(*context, self->x, self->y + 20, self->x + self->width - 1, self->y + 20 + 60, self->getColour(WindowColour::primary), 0);
+        Gfx::fillRectInset(*context, self->x, self->y + 20, self->x + self->width - 1, self->y + 20 + 60, self->getColour(WindowColour::primary).u8(), 0);
         self->draw(context);
 
         drawTabs(self, context);
@@ -520,25 +520,25 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
         if (doDefault)
         {
             auto widget = widgets[widx::objectImage];
-            auto colour = Colour::getShade(self->getColour(WindowColour::secondary), 5);
+            auto colour = Colours::getShade(self->getColour(WindowColour::secondary).c(), 5);
             Gfx::drawRect(*context, self->x + widget.left, self->y + widget.top, widget.width(), widget.height(), colour);
         }
         else
         {
             auto widget = widgets[widx::objectImage];
-            auto colour = Colour::getShade(self->getColour(WindowColour::secondary), 0);
+            auto colour = Colours::getShade(self->getColour(WindowColour::secondary).c(), 0);
             Gfx::drawRect(*context, self->x + widget.left + 1, self->y + widget.top + 1, widget.width() - 2, widget.height() - 2, colour);
         }
 
-        auto type = self->current_tab;
+        auto type = self->currentTab;
 
         auto args = FormatArguments();
         args.push(_112C1C5[type]);
         args.push(ObjectManager::getMaxObjects(static_cast<ObjectType>(type)));
 
-        Gfx::drawString_494B3F(*context, self->x + 3, self->y + self->height - 12, 0, 2038, &args);
+        Gfx::drawString_494B3F(*context, self->x + 3, self->y + self->height - 12, Colour::black, 2038, &args);
 
-        if (self->row_hover == -1)
+        if (self->rowHover == -1)
             return;
 
         loco_global<void*, 0x0050D15C> _50D15C;
@@ -588,17 +588,17 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
     // 0x0047361D
     static void drawScroll(Window& self, Gfx::Context& context, const uint32_t)
     {
-        Gfx::clearSingle(context, Colour::getShade(self.getColour(WindowColour::secondary), 4));
+        Gfx::clearSingle(context, Colours::getShade(self.getColour(WindowColour::secondary).c(), 4));
 
         if (ObjectManager::getNumInstalledObjects() == 0)
             return;
 
         int y = 0;
-        auto objects = ObjectManager::getAvailableObjects(static_cast<ObjectType>(self.current_tab));
+        auto objects = ObjectManager::getAvailableObjects(static_cast<ObjectType>(self.currentTab));
         for (auto [i, object] : objects)
         {
             uint8_t flags = (1 << 7) | (1 << 6) | (1 << 5);
-            Gfx::fillRectInset(context, 2, y, 11, y + 10, self.getColour(WindowColour::secondary), flags);
+            Gfx::fillRectInset(context, 2, y, 11, y + 10, self.getColour(WindowColour::secondary).u8(), flags);
 
             uint8_t textColour = ControlCodes::colour_black;
 
@@ -623,11 +623,11 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
                     _currentFontSpriteBase = Font::m1;
                 }
 
-                auto checkColour = Colour::opaque(self.getColour(WindowColour::secondary));
+                auto checkColour = self.getColour(WindowColour::secondary).opaque();
 
                 if (_50D144[i] & 0x1C)
                 {
-                    checkColour = Colour::inset(checkColour);
+                    checkColour = checkColour.inset();
                 }
 
                 Gfx::drawString(context, x, y, checkColour, _strCheckmark);
@@ -687,18 +687,18 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
                     }
                 }
 
-                if (clickedTab != -1 && self->current_tab != clickedTab)
+                if (clickedTab != -1 && self->currentTab != clickedTab)
                 {
                     sub_4731EE(self, static_cast<ObjectType>(clickedTab));
-                    self->row_hover = -1;
+                    self->rowHover = -1;
                     self->object = nullptr;
-                    self->scroll_areas[0].contentWidth = 0;
+                    self->scrollAreas[0].contentWidth = 0;
                     ObjectManager::freeScenarioText();
                     auto objIndex = sub_472BBC(self);
 
                     if (objIndex.index != -1)
                     {
-                        self->row_hover = objIndex.index;
+                        self->rowHover = objIndex.index;
                         self->object = reinterpret_cast<std::byte*>(objIndex.object._header);
 
                         ObjectManager::getScenarioText(*objIndex.object._header);
@@ -713,7 +713,7 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
             case widx::advancedButton:
             {
                 self->var_856 ^= 1;
-                int currentTab = self->current_tab;
+                int currentTab = self->currentTab;
                 sub_473154(self);
 
                 if ((self->var_856 & 1) == 0)
@@ -734,7 +734,7 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
     // 0x004738ED
     static void getScrollSize(Window* self, uint32_t scrollIndex, uint16_t* scrollWidth, uint16_t* scrollHeight)
     {
-        *scrollHeight = _tabObjectCounts[self->current_tab] * rowHeight;
+        *scrollHeight = _tabObjectCounts[self->currentTab] * rowHeight;
     }
 
     // 0x00473900
@@ -748,7 +748,7 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
     // 0x00472B54
     static ObjectManager::ObjIndexPair getObjectFromSelection(Window* self, int16_t& y)
     {
-        const auto objects = ObjectManager::getAvailableObjects(static_cast<ObjectType>(self->current_tab));
+        const auto objects = ObjectManager::getAvailableObjects(static_cast<ObjectType>(self->currentTab));
 
         for (auto [index, object] : objects)
         {
@@ -767,10 +767,10 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
     {
         auto objIndex = getObjectFromSelection(self, y);
 
-        if (objIndex.index == self->row_hover || objIndex.index == -1)
+        if (objIndex.index == self->rowHover || objIndex.index == -1)
             return;
 
-        self->row_hover = objIndex.index;
+        self->rowHover = objIndex.index;
         self->object = reinterpret_cast<std::byte*>(objIndex.object._header);
         ObjectManager::freeScenarioText();
 
@@ -789,7 +789,7 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
         regs.bx = bx;
         regs.ebp = X86Pointer(ebp);
 
-        return call(0x00473D1D, regs) & (1 << 8);
+        return call(0x00473D1D, regs) & X86_FLAG_CARRY;
     }
 
     // 0x00473948
@@ -881,15 +881,15 @@ namespace OpenLoco::Ui::Windows::ObjectSelectionWindow
 
     static void initEvents()
     {
-        _events.on_close = onClose;
-        _events.on_mouse_up = onMouseUp;
-        _events.on_update = onUpdate;
-        _events.get_scroll_size = getScrollSize;
-        _events.scroll_mouse_down = onScrollMouseDown;
-        _events.scroll_mouse_over = onScrollMouseOver;
+        _events.onClose = onClose;
+        _events.onMouseUp = onMouseUp;
+        _events.onUpdate = onUpdate;
+        _events.getScrollSize = getScrollSize;
+        _events.scrollMouseDown = onScrollMouseDown;
+        _events.scrollMouseOver = onScrollMouseOver;
         _events.tooltip = tooltip;
-        _events.prepare_draw = prepareDraw;
+        _events.prepareDraw = prepareDraw;
         _events.draw = draw;
-        _events.draw_scroll = drawScroll;
+        _events.drawScroll = drawScroll;
     }
 }

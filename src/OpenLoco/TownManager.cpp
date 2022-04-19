@@ -3,7 +3,12 @@
 #include "Game.h"
 #include "GameState.h"
 #include "Interop/Interop.hpp"
+#include "Map/TileLoop.hpp"
+#include "Map/TileManager.h"
+#include "Objects/BuildingObject.h"
+#include "Objects/ObjectManager.h"
 #include "OpenLoco.h"
+#include "ScenarioManager.h"
 #include "Ui/WindowManager.h"
 #include "Utility/Numeric.hpp"
 
@@ -11,7 +16,108 @@ using namespace OpenLoco::Interop;
 
 namespace OpenLoco::TownManager
 {
+    static loco_global<Town*, 0x01135C38> dword_1135C38;
+
+    // 0x00497DC1
+    // The return value of this function is also being returned via dword_1135C38.
+    Town* sub_497DC1(const Map::Pos2& loc, uint32_t population, uint32_t populationCapacity, int16_t rating, int16_t numBuildings)
+    {
+        auto res = getClosestTownAndUnk(loc);
+        if (res == std::nullopt)
+        {
+            dword_1135C38 = nullptr;
+            return nullptr;
+        }
+        auto townId = res->first;
+        auto town = get(townId);
+        dword_1135C38 = town;
+        if (town != nullptr)
+        {
+            town->populationCapacity += populationCapacity;
+        }
+        if (population != 0)
+        {
+            town->population += population;
+            Ui::WindowManager::invalidate(Ui::WindowType::townList);
+            Ui::WindowManager::invalidate(Ui::WindowType::town, enumValue(town->id()));
+        }
+        if (rating != 0)
+        {
+            auto companyId = CompanyManager::getUpdatingCompanyId();
+            if (companyId != CompanyId::neutral)
+            {
+                if (!isEditorMode())
+                {
+                    town->adjustCompanyRating(companyId, rating);
+                    Ui::WindowManager::invalidate(Ui::WindowType::town, enumValue(town->id()));
+                }
+            }
+        }
+
+        if (town->numBuildings + numBuildings <= std::numeric_limits<int16_t>::max())
+        {
+            town->numBuildings += numBuildings;
+        }
+
+        return town;
+    }
+
     static auto& rawTowns() { return getGameState().towns; }
+
+    // 0x00497348
+    void resetBuildingsInfluence()
+    {
+        for (auto& town : towns())
+        {
+            town.numBuildings = 0;
+            town.population = 0;
+            town.populationCapacity = 0;
+            std::fill(std::begin(town.var_150), std::end(town.var_150), 0);
+        }
+
+        Map::TilePosRangeView tileLoop{ { 1, 1 }, { Map::map_columns - 1, Map::map_rows - 1 } };
+        for (const auto& tilePos : tileLoop)
+        {
+            auto tile = Map::TileManager::get(tilePos);
+            for (auto& element : tile)
+            {
+                auto* building = element.as<Map::BuildingElement>();
+                if (building == nullptr)
+                    continue;
+
+                if (building->isGhost())
+                    continue;
+
+                if (building->has_40())
+                    continue;
+
+                if (building->multiTileIndex() != 0)
+                    continue;
+
+                auto objectId = building->objectId();
+                auto* buildingObj = ObjectManager::get<BuildingObject>(objectId);
+                auto producedQuantity = buildingObj->producedQuantity[0];
+                uint32_t population;
+                if (!building->isConstructed())
+                {
+                    population = 0;
+                }
+                else
+                {
+                    population = producedQuantity;
+                }
+                auto* town = sub_497DC1(tilePos, population, producedQuantity, 0, 1);
+                if (town != nullptr)
+                {
+                    if (buildingObj->var_AC != 0xFF)
+                    {
+                        town->var_150[buildingObj->var_AC] += 1;
+                    }
+                }
+            }
+        }
+        Gfx::invalidateScreen();
+    }
 
     // 0x00496B38
     void reset()
@@ -23,14 +129,14 @@ namespace OpenLoco::TownManager
         Ui::Windows::TownList::reset();
     }
 
-    FixedVector<Town, Limits::maxTowns> towns()
+    FixedVector<Town, Limits::kMaxTowns> towns()
     {
         return FixedVector(rawTowns());
     }
 
     Town* get(TownId id)
     {
-        if (enumValue(id) >= Limits::maxTowns)
+        if (enumValue(id) >= Limits::kMaxTowns)
         {
             return nullptr;
         }
@@ -42,14 +148,14 @@ namespace OpenLoco::TownManager
     {
         if (Game::hasFlags(1u << 0) && !isEditorMode())
         {
-            auto ticks = scenarioTicks();
+            auto ticks = ScenarioManager::getScenarioTicks();
             if (ticks % 8 == 0)
             {
                 const auto id = TownId((ticks / 8) % 0x7F);
                 auto town = get(id);
                 if (town != nullptr && !town->empty())
                 {
-                    CompanyManager::updatingCompanyId(CompanyId::neutral);
+                    CompanyManager::setUpdatingCompanyId(CompanyId::neutral);
                     town->update();
                 }
             }
@@ -70,83 +176,7 @@ namespace OpenLoco::TownManager
     {
         for (Town& currTown : towns())
         {
-            // Scroll history
-            if (currTown.history_size == std::size(currTown.history))
-            {
-                for (size_t i = 0; i < std::size(currTown.history) - 1; i++)
-                    currTown.history[i] = currTown.history[i + 1];
-            }
-            else
-                currTown.history_size++;
-
-            // Compute population growth.
-            uint32_t popSteps = std::max<int32_t>(currTown.population - currTown.history_min_population, 0) / 50;
-            uint32_t popGrowth = 0;
-            while (popSteps > 255)
-            {
-                popSteps -= 20;
-                popGrowth += 1000;
-            }
-
-            // Any population growth to account for?
-            if (popGrowth != 0)
-            {
-                currTown.history_min_population += popGrowth;
-
-                uint8_t offset = (popGrowth / 50) & 0xFF;
-                for (uint8_t i = 0; i < currTown.history_size; i++)
-                {
-                    int16_t newHistory = currTown.history[i] - offset;
-                    currTown.history[i] = newHistory >= 0 ? static_cast<uint8_t>(newHistory) : 0;
-                }
-            }
-
-            // Write new history point.
-            auto histIndex = std::clamp<int32_t>(currTown.history_size - 1, 0, std::size(currTown.history));
-            currTown.history[histIndex] = popSteps & 0xFF;
-
-            // Find historical maximum population.
-            uint8_t maxPopulation = 0;
-            for (int i = 0; i < currTown.history_size; i++)
-                maxPopulation = std::max(maxPopulation, currTown.history[i]);
-
-            int32_t popOffset = currTown.history_min_population;
-            while (maxPopulation <= 235 && popOffset > 0)
-            {
-                maxPopulation += 20;
-                popOffset -= 1000;
-            }
-
-            popOffset -= currTown.history_min_population;
-            if (popOffset != 0)
-            {
-                popOffset = -popOffset;
-                currTown.history_min_population -= popOffset;
-                popOffset /= 50;
-
-                for (int i = 0; i < currTown.history_size; i++)
-                    currTown.history[i] += popOffset;
-            }
-
-            // Work towards computing new build speed.
-            // will be the smallest of the influence cargo delivered to the town
-            // i.e. to get maximum growth max of the influence cargo must be delivered
-            // every update. If no influence cargo the grows at max rate
-            uint16_t minCargoDelivered = std::numeric_limits<uint16_t>::max();
-            uint32_t cargoFlags = currTown.cargo_influence_flags;
-            while (cargoFlags != 0)
-            {
-                uint32_t cargoId = Utility::bitScanForward(cargoFlags);
-                cargoFlags &= ~(1 << cargoId);
-
-                minCargoDelivered = std::min(minCargoDelivered, currTown.monthly_cargo_delivered[cargoId]);
-            }
-
-            // Compute build speed (1=slow build speed, 4=fast build speed)
-            currTown.build_speed = std::clamp((minCargoDelivered / 100) + 1, 1, 4);
-
-            // Reset all monthly_cargo_delivered intermediaries to zero.
-            memset(&currTown.monthly_cargo_delivered, 0, sizeof(currTown.monthly_cargo_delivered));
+            currTown.updateMonthly();
         }
 
         Ui::WindowManager::invalidate(Ui::WindowType::town);
@@ -178,11 +208,20 @@ namespace OpenLoco::TownManager
             return std::nullopt;
         }
         const int32_t realDistance = Math::Vector::distance(Map::Pos2(town->x, town->y), loc);
-        const auto unk = std::clamp((realDistance - town->var_38 * 4 + 512) / 128, 0, 4);
-        const uint8_t invUnk = std::min(4 - unk, 3); //edx
+        const auto unk = std::clamp((realDistance - town->numBuildings * 4 + 512) / 128, 0, 4);
+        const uint8_t invUnk = std::min(4 - unk, 3); // edx
         return { std::make_pair(town->id(), invUnk) };
     }
 
+    void registerHooks()
+    {
+        registerHook(
+            0x00497348,
+            [](registers& regs) FORCE_ALIGN_ARG_POINTER -> uint8_t {
+                resetBuildingsInfluence();
+                return 0;
+            });
+    }
 }
 
 OpenLoco::TownId OpenLoco::Town::id() const
@@ -190,7 +229,7 @@ OpenLoco::TownId OpenLoco::Town::id() const
     // TODO check if this is stored in Town structure
     //      otherwise add it when possible
     auto index = static_cast<size_t>(this - &TownManager::rawTowns()[0]);
-    if (index > Limits::maxTowns)
+    if (index > Limits::kMaxTowns)
     {
         return OpenLoco::TownId::null;
     }

@@ -24,7 +24,7 @@ namespace OpenLoco::Ui::Windows::TitleOptions
     }
 
     static Widget _widgets[] = {
-        makeWidget({ 0, 0 }, window_size, WidgetType::wt_9, WindowColour::secondary, -1),
+        makeWidget({ 0, 0 }, window_size, WidgetType::buttonWithImage, WindowColour::secondary, -1),
         widgetEnd(),
     };
 
@@ -35,23 +35,23 @@ namespace OpenLoco::Ui::Windows::TitleOptions
 
     Window* open()
     {
-        _events.on_mouse_up = onMouseUp;
+        _events.onMouseUp = onMouseUp;
         _events.draw = draw;
 
         auto window = WindowManager::createWindow(
             WindowType::titleOptions,
             Ui::Point(Ui::width() - window_size.width, 0),
             window_size,
-            WindowFlags::stick_to_front | WindowFlags::transparent | WindowFlags::no_background | WindowFlags::flag_6,
+            WindowFlags::stickToFront | WindowFlags::transparent | WindowFlags::noBackground | WindowFlags::flag_6,
             &_events);
 
         window->widgets = _widgets;
-        window->enabled_widgets = (1 << Widx::options_button);
+        window->enabledWidgets = (1 << Widx::options_button);
 
         window->initScrollWidgets();
 
-        window->setColour(WindowColour::primary, Colour::translucent(Colour::mutedSeaGreen));
-        window->setColour(WindowColour::secondary, Colour::translucent(Colour::mutedSeaGreen));
+        window->setColour(WindowColour::primary, AdvancedColour(Colour::mutedSeaGreen).translucent());
+        window->setColour(WindowColour::secondary, AdvancedColour(Colour::mutedSeaGreen).translucent());
 
         return window;
     }

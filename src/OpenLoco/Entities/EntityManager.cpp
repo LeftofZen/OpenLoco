@@ -16,13 +16,13 @@ using namespace OpenLoco::Interop;
 
 namespace OpenLoco::EntityManager
 {
-    constexpr size_t _spatialEntityMapSize = (Map::map_pitch * Map::map_pitch) + 1;
-    constexpr size_t _entitySpatialIndexNull = _spatialEntityMapSize - 1;
+    constexpr size_t kSpatialEntityMapSize = (Map::map_pitch * Map::map_pitch) + 1;
+    constexpr size_t kEntitySpatialIndexNull = kSpatialEntityMapSize - 1;
 
-    static_assert(_spatialEntityMapSize == 0x40001);
-    static_assert(_entitySpatialIndexNull == 0x40000);
+    static_assert(kSpatialEntityMapSize == 0x40001);
+    static_assert(kEntitySpatialIndexNull == 0x40000);
 
-    loco_global<EntityId[_spatialEntityMapSize], 0x01025A8C> _entitySpatialIndex;
+    loco_global<EntityId[kSpatialEntityMapSize], 0x01025A8C> _entitySpatialIndex;
     loco_global<uint32_t, 0x01025A88> _entitySpatialCount;
 
     static auto& rawEntities() { return getGameState().entities; }
@@ -63,9 +63,9 @@ namespace OpenLoco::EntityManager
         }
         rawListCounts()[static_cast<uint8_t>(EntityListType::null)] = Limits::maxNormalEntities;
 
-        // Remake null money entities (size maxMoneyEntities)
+        // Remake null money entities (size kMaxMoneyEntities)
         previous = nullptr;
-        for (; id < Limits::maxEntities; ++id)
+        for (; id < Limits::kMaxEntities; ++id)
         {
             auto& ent = rawEntities()[id];
             ent.base_type = EntityBaseType::null;
@@ -84,7 +84,7 @@ namespace OpenLoco::EntityManager
             }
             previous = &ent;
         }
-        rawListCounts()[static_cast<uint8_t>(EntityListType::nullMoney)] = Limits::maxMoneyEntities;
+        rawListCounts()[static_cast<uint8_t>(EntityListType::nullMoney)] = Limits::kMaxMoneyEntities;
 
         resetSpatialIndex();
         EntityTweener::get().reset();
@@ -110,7 +110,7 @@ namespace OpenLoco::EntityManager
     EntityBase* get(EntityId id)
     {
         EntityBase* result = nullptr;
-        if (enumValue(id) < Limits::maxEntities)
+        if (enumValue(id) < Limits::kMaxEntities)
         {
             return &rawEntities()[enumValue(id)];
         }
@@ -120,13 +120,13 @@ namespace OpenLoco::EntityManager
     constexpr size_t getSpatialIndexOffset(const Map::Pos2& loc)
     {
         if (loc.x == Location::null)
-            return _entitySpatialIndexNull;
+            return kEntitySpatialIndexNull;
 
         const auto tileX = std::abs(loc.x) / Map::tile_size;
         const auto tileY = std::abs(loc.y) / Map::tile_size;
 
         if (tileX >= Map::map_pitch || tileY >= Map::map_pitch)
-            return _entitySpatialIndexNull;
+            return kEntitySpatialIndexNull;
 
         return (Map::map_pitch * tileX) + tileY;
     }
@@ -177,7 +177,7 @@ namespace OpenLoco::EntityManager
     {
         auto* quadId = &_entitySpatialIndex[index];
         _entitySpatialCount = 0;
-        while (enumValue(*quadId) < Limits::maxEntities)
+        while (enumValue(*quadId) < Limits::kMaxEntities)
         {
             auto* quadEnt = get<EntityBase>(*quadId);
             if (quadEnt == &entity)
@@ -186,7 +186,7 @@ namespace OpenLoco::EntityManager
                 return true;
             }
             _entitySpatialCount++;
-            if (_entitySpatialCount > Limits::maxEntities)
+            if (_entitySpatialCount > Limits::kMaxEntities)
             {
                 break;
             }
@@ -245,7 +245,7 @@ namespace OpenLoco::EntityManager
     // 0x004700A5
     EntityBase* createEntityMisc()
     {
-        if (getListCount(EntityListType::misc) >= Limits::maxMiscEntities)
+        if (getListCount(EntityListType::misc) >= Limits::kMaxMiscEntities)
         {
             return nullptr;
         }
@@ -320,6 +320,21 @@ namespace OpenLoco::EntityManager
             {
                 misc->update();
             }
+        }
+    }
+
+    // 0x004B94CF
+    void updateDaily()
+    {
+        call(0x004B94CF);
+    }
+
+    // 0x004C3C54
+    void updateMonthly()
+    {
+        for (auto v : VehicleList())
+        {
+            v->updateMonthly();
         }
     }
 

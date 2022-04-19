@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Span.hpp"
 #include "Map/Tile.h"
 #include "Map/TileLoop.hpp"
 #include "Types.hpp"
@@ -9,6 +10,13 @@
 namespace OpenLoco
 {
     struct IndustryObject;
+
+    struct Unk4F9274
+    {
+        Map::Pos2 pos;
+        uint8_t unk;
+    };
+    const stdx::span<const Unk4F9274> getUnk4F9274(bool type);
 
     namespace IndustryFlags
     {
@@ -36,8 +44,11 @@ namespace OpenLoco
         int16_t var_DB;
         int16_t var_DD;
         uint8_t var_DF;
-        CompanyId owner; // 0xE0
-        uint8_t pad_E1[0x189 - 0xE1];
+        CompanyId owner;     // 0xE0
+        uint32_t var_E1[32]; // 0xE1 stations bit set
+        StationId producedCargoStatsStation[2][4];
+        uint8_t producedCargoStatsRating[2][4];
+        uint8_t pad_179[0x189 - 0x179];
         uint16_t produced_cargo_quantity[2]; // 0x189
         uint16_t var_18D[3];
         uint16_t required_cargo_quantity[3]; // 0x193
@@ -45,14 +56,14 @@ namespace OpenLoco
         uint8_t pad_19F[0x1A3 - 0x19F];
         uint16_t produced_cargo_max[2];        // 0x1A3 (produced_cargo_quantity / 8)
         uint8_t produced_cargo_transported[2]; // 0x1A7 (%)
-        uint8_t history_size[2];               // 0x1A9 (<= 20 * 12)
+        uint8_t historySize[2];                // 0x1A9 (<= 20 * 12)
         uint8_t history_1[20 * 12];            // 0x1AB (20 years, 12 months)
         uint8_t history_2[20 * 12];            // 0x29B
         int32_t history_min_production[2];     // 0x38B
         uint8_t pad_393[0x453 - 0x393];
 
         IndustryId id() const;
-        IndustryObject* object() const;
+        const IndustryObject* getObject() const;
         bool empty() const;
         bool canReceiveCargo() const;
         bool canProduceCargo() const;
@@ -63,6 +74,7 @@ namespace OpenLoco
         void sub_453354();
         void sub_454A43(const Map::Pos2& pos, uint8_t bl, uint8_t bh, uint8_t dl);
         void createMapAnimations();
+        void updateProducedCargoStats();
     };
 #pragma pack(pop)
 

@@ -22,10 +22,9 @@ namespace OpenLoco::Ui::Windows::Construction::Signal
 {
     Widget widgets[] = {
         commonWidgets(138, 167, StringIds::stringid_2),
-        makeWidget({ 3, 45 }, { 132, 12 }, WidgetType::wt_18, WindowColour::secondary, 0xFFFFFFFF, StringIds::tooltip_select_signal_type),
-        makeWidget({ 123, 46 }, { 11, 10 }, WidgetType::wt_11, WindowColour::secondary, StringIds::dropdown, StringIds::tooltip_select_signal_type),
-        makeWidget({ 27, 110 }, { 40, 40 }, WidgetType::wt_9, WindowColour::secondary, 0xFFFFFFFF, StringIds::tooltip_signal_both_directions),
-        makeWidget({ 71, 110 }, { 40, 40 }, WidgetType::wt_9, WindowColour::secondary, 0xFFFFFFFF, StringIds::tooltip_signal_single_direction),
+        makeDropdownWidgets({ 3, 45 }, { 132, 12 }, WidgetType::combobox, WindowColour::secondary, 0xFFFFFFFF, StringIds::tooltip_select_signal_type),
+        makeWidget({ 27, 110 }, { 40, 40 }, WidgetType::buttonWithImage, WindowColour::secondary, 0xFFFFFFFF, StringIds::tooltip_signal_both_directions),
+        makeWidget({ 71, 110 }, { 40, 40 }, WidgetType::buttonWithImage, WindowColour::secondary, 0xFFFFFFFF, StringIds::tooltip_signal_single_direction),
         widgetEnd(),
     };
 
@@ -390,14 +389,14 @@ namespace OpenLoco::Ui::Windows::Construction::Signal
 
     void initEvents()
     {
-        events.on_close = Common::onClose;
-        events.on_mouse_up = onMouseUp;
-        events.on_mouse_down = onMouseDown;
-        events.on_dropdown = onDropdown;
-        events.on_update = onUpdate;
-        events.on_tool_update = onToolUpdate;
-        events.on_tool_down = onToolDown;
-        events.prepare_draw = prepareDraw;
+        events.onClose = Common::onClose;
+        events.onMouseUp = onMouseUp;
+        events.onMouseDown = onMouseDown;
+        events.onDropdown = onDropdown;
+        events.onUpdate = onUpdate;
+        events.onToolUpdate = onToolUpdate;
+        events.onToolDown = onToolDown;
+        events.prepareDraw = prepareDraw;
         events.draw = draw;
     }
 }

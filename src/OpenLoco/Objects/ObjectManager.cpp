@@ -1,4 +1,5 @@
 #include "ObjectManager.h"
+#include "../Audio/Audio.h"
 #include "../Core/FileSystem.hpp"
 #include "../Environment.h"
 #include "../Graphics/Colour.h"
@@ -73,43 +74,7 @@ namespace OpenLoco::ObjectManager
     assert_struct_size(ObjectRepositoryItem, 8);
 #pragma pack(pop)
 
-    loco_global<ObjectEntry2[maxObjects], 0x1125A90> objectEntries;
-    loco_global<ObjectRepositoryItem[64], 0x4FE0B8> object_repository;
-    loco_global<Object* [maxObjects], 0x0050C3D0> _allObjects;
-    loco_global<InterfaceSkinObject* [1], 0x0050C3D0> _interfaceObjects;
-    loco_global<SoundObject* [128], 0x0050C3D4> _soundObjects;
-    loco_global<CurrencyObject* [1], 0x0050C5D4> _currencyObjects;
-    loco_global<SteamObject* [32], 0x0050C5D8> _steamObjects;
-    loco_global<RockObject* [8], 0x0050C658> _rockObjects;
-    loco_global<WaterObject* [1], 0x0050C678> _waterObjects;
-    loco_global<LandObject* [32], 0x0050C67C> _landObjects;
-    loco_global<TownNamesObject* [1], 0x0050C6FC> _townNamesObjects;
-    loco_global<CargoObject* [32], 0x0050C700> _cargoObjects;
-    loco_global<WallObject* [32], 0x0050C780> _wallObjects;
-    loco_global<TrainSignalObject* [16], 0x0050C800> _trainSignalObjects;
-    loco_global<LevelCrossingObject* [4], 0x0050C840> _levelCrossingObjects;
-    loco_global<StreetLightObject* [1], 0x0050C850> _streetLightObjects;
-    loco_global<TunnelObject* [16], 0x0050C854> _tunnelObjects;
-    loco_global<BridgeObject* [8], 0x0050C894> _bridgeObjects;
-    loco_global<TrainStationObject* [16], 0x0050C8B4> _trainStationObjects;
-    loco_global<TrackExtraObject* [8], 0x0050C8F4> _trackExtraObjects;
-    loco_global<TrackObject* [8], 0x0050C914> _trackObjects;
-    loco_global<RoadStationObject* [16], 0x0050C934> _roadStationObjects;
-    loco_global<RoadExtraObject* [4], 0x0050C974> _roadExtraObjects;
-    loco_global<RoadObject* [8], 0x0050C984> _roadObjects;
-    loco_global<AirportObject* [8], 0x0050C9A4> _airportObjects;
-    loco_global<DockObject* [8], 0x0050C9C4> _dockObjects;
-    loco_global<VehicleObject* [224], 0x0050C9E4> _vehicleObjects;
-    loco_global<TreeObject* [64], 0x0050CD64> _treeObjects;
-    loco_global<SnowObject* [1], 0x0050CE64> _snowObjects;
-    loco_global<ClimateObject* [1], 0x0050CE68> _climateObjects;
-    loco_global<HillShapesObject* [1], 0x0050CE6C> _hillShapeObjects;
-    loco_global<BuildingObject* [128], 0x0050CE70> _buildingObjects;
-    loco_global<ScaffoldingObject* [1], 0x0050D070> _scaffoldingObjects;
-    loco_global<IndustryObject* [16], 0x0050D074> _industryObjects;
-    loco_global<RegionObject* [1], 0x0050D0B4> _regionObjects;
-    loco_global<CompetitorObject* [32], 0x0050D0B8> _competitorObjects;
-    loco_global<ScenarioTextObject* [1], 0x0050D138> _scenarioTextObjects;
+    loco_global<ObjectRepositoryItem[maxObjectTypes], 0x4FE0B8> object_repository;
 
     loco_global<uint32_t, 0x0050D154> _totalNumImages;
 
@@ -154,7 +119,7 @@ namespace OpenLoco::ObjectManager
     static ObjectFolderState getCurrentObjectFolderState()
     {
         ObjectFolderState currentState;
-        const auto objectPath = Environment::getPathNoWarning(Environment::path_id::objects);
+        const auto objectPath = Environment::getPathNoWarning(Environment::PathId::objects);
         for (const auto& file : fs::directory_iterator(objectPath, fs::directory_options::skip_permission_denied))
         {
             if (!file.is_regular_file())
@@ -192,7 +157,7 @@ namespace OpenLoco::ObjectManager
     static void saveIndex(const IndexHeader& header)
     {
         std::ofstream stream;
-        const auto indexPath = Environment::getPathNoWarning(Environment::path_id::plugin1);
+        const auto indexPath = Environment::getPathNoWarning(Environment::PathId::plugin1);
         stream.open(indexPath, std::ios::out | std::ios::binary);
         if (!stream.is_open())
         {
@@ -384,11 +349,12 @@ namespace OpenLoco::ObjectManager
             return;
         }
 
+        _installedObjectCount = 0;
         // Create new index by iterating all DAT files and processing
         IndexHeader header{};
         uint8_t progress = 0;      // Progress is used for the ProgressBar Ui element
         size_t usedBufferSize = 0; // Keep track of used space to allow for growth and for final sizing
-        const auto objectPath = Environment::getPathNoWarning(Environment::path_id::objects);
+        const auto objectPath = Environment::getPathNoWarning(Environment::PathId::objects);
         for (const auto& file : fs::directory_iterator(objectPath, fs::directory_options::skip_permission_denied))
         {
             if (!file.is_regular_file())
@@ -440,7 +406,7 @@ namespace OpenLoco::ObjectManager
 
     static bool tryLoadIndex(const ObjectFolderState& currentState)
     {
-        const auto indexPath = Environment::getPathNoWarning(Environment::path_id::plugin1);
+        const auto indexPath = Environment::getPathNoWarning(Environment::PathId::plugin1);
         if (!fs::exists(indexPath))
         {
             return false;
@@ -495,19 +461,19 @@ namespace OpenLoco::ObjectManager
         _customObjectsInIndex = hasCustomObjectsInIndex();
     }
 
-    ObjectHeader* getHeader(LoadedObjectIndex id)
-    {
-        return &objectEntries[id];
-    }
-
     static ObjectRepositoryItem& getRepositoryItem(ObjectType type)
     {
-        return object_repository[static_cast<uint8_t>(type)];
+        return object_repository[enumValue(type)];
     }
 
-    Object* getAny(const LoadedObjectHandle handle)
+    ObjectHeader& getHeader(const LoadedObjectHandle& handle)
     {
-        auto obj = _allObjects[getTypeOffset(handle.type) + handle.id];
+        return getRepositoryItem(handle.type).object_entry_extendeds[handle.id];
+    }
+
+    Object* getAny(const LoadedObjectHandle& handle)
+    {
+        auto obj = getRepositoryItem(handle.type).objects[handle.id];
         if (obj == (void*)-1)
         {
             obj = nullptr;
@@ -515,322 +481,6 @@ namespace OpenLoco::ObjectManager
         return obj;
     }
 
-    template<>
-    InterfaceSkinObject* get()
-    {
-        if (_interfaceObjects[0] == (void*)-1)
-        {
-            return nullptr;
-        }
-
-        return _interfaceObjects[0];
-    }
-
-    template<>
-    SoundObject* get(size_t id)
-    {
-        if (_soundObjects[id] != reinterpret_cast<SoundObject*>(-1))
-        {
-            return _soundObjects[id];
-        }
-        return nullptr;
-    }
-
-    template<>
-    SteamObject* get(size_t id)
-    {
-        if (_steamObjects[id] != reinterpret_cast<SteamObject*>(-1))
-        {
-            return _steamObjects[id];
-        }
-        return nullptr;
-    }
-
-    template<>
-    RockObject* get(size_t id)
-    {
-        if (_rockObjects[id] != reinterpret_cast<RockObject*>(-1))
-            return _rockObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    CargoObject* get(size_t id)
-    {
-        if (_cargoObjects[id] != (CargoObject*)-1)
-            return _cargoObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    TrainSignalObject* get(size_t id)
-    {
-        if (_trainSignalObjects[id] != reinterpret_cast<TrainSignalObject*>(-1))
-            return _trainSignalObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    RoadStationObject* get(size_t id)
-    {
-        if (_roadStationObjects[id] != reinterpret_cast<RoadStationObject*>(-1))
-            return _roadStationObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    VehicleObject* get(size_t id)
-    {
-        if (_vehicleObjects[id] != reinterpret_cast<VehicleObject*>(-1))
-            return _vehicleObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    TreeObject* get(size_t id)
-    {
-        if (_treeObjects[id] != reinterpret_cast<TreeObject*>(-1))
-            return _treeObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    WallObject* get(size_t id)
-    {
-        if (_wallObjects[id] != reinterpret_cast<WallObject*>(-1))
-            return _wallObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    BuildingObject* get(size_t id)
-    {
-        if (_buildingObjects[id] != reinterpret_cast<BuildingObject*>(-1))
-            return _buildingObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    IndustryObject* get(size_t id)
-    {
-        if (_industryObjects[id] != reinterpret_cast<IndustryObject*>(-1))
-            return _industryObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    CurrencyObject* get()
-    {
-        if (_currencyObjects[0] != reinterpret_cast<CurrencyObject*>(-1))
-        {
-            return _currencyObjects[0];
-        }
-        return nullptr;
-    }
-
-    template<>
-    BridgeObject* get(size_t id)
-    {
-        if (_bridgeObjects[id] != reinterpret_cast<BridgeObject*>(-1))
-            return _bridgeObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    TrainStationObject* get(size_t id)
-    {
-        if (_trainStationObjects[id] != reinterpret_cast<TrainStationObject*>(-1))
-            return _trainStationObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    TrackExtraObject* get(size_t id)
-    {
-        if (_trackExtraObjects[id] != reinterpret_cast<TrackExtraObject*>(-1))
-        {
-            return _trackExtraObjects[id];
-        }
-        return nullptr;
-    }
-
-    template<>
-    TrackObject* get(size_t id)
-    {
-        if (_trackObjects[id] != reinterpret_cast<TrackObject*>(-1))
-            return _trackObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    RoadExtraObject* get(size_t id)
-    {
-        if (_roadExtraObjects[id] != reinterpret_cast<RoadExtraObject*>(-1))
-        {
-            return _roadExtraObjects[id];
-        }
-        return nullptr;
-    }
-
-    template<>
-    RoadObject* get(size_t id)
-    {
-        if (_roadObjects[id] != reinterpret_cast<RoadObject*>(-1))
-            return _roadObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    AirportObject* get(size_t id)
-    {
-        if (_airportObjects[id] != reinterpret_cast<AirportObject*>(-1))
-            return _airportObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    DockObject* get(size_t id)
-    {
-        if (_dockObjects[id] != reinterpret_cast<DockObject*>(-1))
-            return _dockObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    LandObject* get(size_t id)
-    {
-        if (_landObjects[id] != (LandObject*)-1)
-            return _landObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    WaterObject* get()
-    {
-        if (_waterObjects[0] != reinterpret_cast<WaterObject*>(-1))
-        {
-            return _waterObjects[0];
-        }
-        return nullptr;
-    }
-
-    template<>
-    CompetitorObject* get(size_t id)
-    {
-        if (_competitorObjects[id] != reinterpret_cast<CompetitorObject*>(-1))
-        {
-            return _competitorObjects[id];
-        }
-        return nullptr;
-    }
-
-    template<>
-    ClimateObject* get()
-    {
-        if (_climateObjects[0] == (void*)-1)
-        {
-            return nullptr;
-        }
-
-        return _climateObjects[0];
-    }
-
-    template<>
-    ScenarioTextObject* get()
-    {
-        if (_scenarioTextObjects[0] != (ScenarioTextObject*)-1)
-            return _scenarioTextObjects[0];
-        else
-            return nullptr;
-    }
-
-    template<>
-    RegionObject* get()
-    {
-        if (_regionObjects[0] != reinterpret_cast<RegionObject*>(-1))
-            return _regionObjects[0];
-        else
-            return nullptr;
-    }
-
-    template<>
-    TownNamesObject* get()
-    {
-        if (_townNamesObjects[0] != reinterpret_cast<TownNamesObject*>(-1))
-            return _townNamesObjects[0];
-        else
-            return nullptr;
-    }
-
-    template<>
-    LevelCrossingObject* get(size_t id)
-    {
-        if (_levelCrossingObjects[id] != reinterpret_cast<LevelCrossingObject*>(-1))
-            return _levelCrossingObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    StreetLightObject* get()
-    {
-        if (_streetLightObjects[0] != reinterpret_cast<StreetLightObject*>(-1))
-            return _streetLightObjects[0];
-        else
-            return nullptr;
-    }
-
-    template<>
-    TunnelObject* get(size_t id)
-    {
-        if (_tunnelObjects[id] != reinterpret_cast<TunnelObject*>(-1))
-            return _tunnelObjects[id];
-        else
-            return nullptr;
-    }
-
-    template<>
-    SnowObject* get()
-    {
-        if (_snowObjects[0] != reinterpret_cast<SnowObject*>(-1))
-            return _snowObjects[0];
-        else
-            return nullptr;
-    }
-
-    template<>
-    HillShapesObject* get()
-    {
-        if (_hillShapeObjects[0] != reinterpret_cast<HillShapesObject*>(-1))
-            return _hillShapeObjects[0];
-        else
-            return nullptr;
-    }
-
-    template<>
-    ScaffoldingObject* get()
-    {
-        if (_scaffoldingObjects[0] != reinterpret_cast<ScaffoldingObject*>(-1))
-            return _scaffoldingObjects[0];
-        else
-            return nullptr;
-    }
     /*
     static void printHeader(header data)
     {
@@ -935,19 +585,10 @@ namespace OpenLoco::ObjectManager
                 if (obj != nullptr && obj != reinterpret_cast<Object*>(-1))
                 {
                     const auto& objHeader = typedObjectList.object_entry_extendeds[i];
-                    if (objHeader.isCustom())
+
+                    if (header == objHeader)
                     {
-                        if (header == objHeader)
-                        {
-                            return { LoadedObjectHandle{ objectType, i } };
-                        }
-                    }
-                    else
-                    {
-                        if (header.getType() == objHeader.getType() && header.getName() == objHeader.getName())
-                        {
-                            return { LoadedObjectHandle{ objectType, i } };
-                        }
+                        return { LoadedObjectHandle{ objectType, i } };
                     }
                 }
             }
@@ -976,18 +617,166 @@ namespace OpenLoco::ObjectManager
         drawPreview,
     };
 
-    static bool callObjectFunction(const ObjectType type, Object& obj, const ObjectProcedure proc)
+    static bool callObjectValidate(const ObjectType type, Object& obj)
     {
-        auto objectProcTable = (const uintptr_t*)0x004FE1C8;
-        auto objectProc = objectProcTable[static_cast<size_t>(type)];
+        switch (type)
+        {
+            case ObjectType::interfaceSkin:
+                return reinterpret_cast<InterfaceSkinObject*>(&obj)->validate();
+            case ObjectType::sound:
+                return reinterpret_cast<SoundObject*>(&obj)->validate();
+            case ObjectType::currency:
+                return reinterpret_cast<CurrencyObject*>(&obj)->validate();
+            case ObjectType::steam:
+                return reinterpret_cast<SteamObject*>(&obj)->validate();
+            case ObjectType::rock:
+                return reinterpret_cast<RockObject*>(&obj)->validate();
+            case ObjectType::water:
+                return reinterpret_cast<WaterObject*>(&obj)->validate();
+            case ObjectType::land:
+                return reinterpret_cast<LandObject*>(&obj)->validate();
+            case ObjectType::townNames:
+                return reinterpret_cast<TownNamesObject*>(&obj)->validate();
+            case ObjectType::cargo:
+                return reinterpret_cast<CargoObject*>(&obj)->validate();
+            case ObjectType::wall:
+                return reinterpret_cast<WallObject*>(&obj)->validate();
+            case ObjectType::trackSignal:
+                return reinterpret_cast<TrainSignalObject*>(&obj)->validate();
+            case ObjectType::levelCrossing:
+                return reinterpret_cast<LevelCrossingObject*>(&obj)->validate();
+            default:
+                auto objectProcTable = (const uintptr_t*)0x004FE1C8;
+                auto objectProc = objectProcTable[static_cast<size_t>(type)];
 
-        registers regs;
-        regs.al = static_cast<uint8_t>(proc);
-        regs.esi = X86Pointer(&obj);
-        return (call(objectProc, regs) & X86_FLAG_CARRY) == 0;
+                registers regs;
+                regs.al = enumValue(ObjectProcedure::validate);
+                regs.esi = X86Pointer(&obj);
+                return (call(objectProc, regs) & X86_FLAG_CARRY) == 0;
+        }
     }
 
-    static bool callObjectFunction(const LoadedObjectHandle handle, ObjectProcedure proc)
+    static void callObjectUnload(const ObjectType type, Object& obj)
+    {
+        switch (type)
+        {
+            case ObjectType::interfaceSkin:
+                reinterpret_cast<InterfaceSkinObject*>(&obj)->unload();
+                break;
+            case ObjectType::sound:
+                reinterpret_cast<SoundObject*>(&obj)->unload();
+                break;
+            case ObjectType::currency:
+                reinterpret_cast<CurrencyObject*>(&obj)->unload();
+                break;
+            case ObjectType::steam:
+                reinterpret_cast<SteamObject*>(&obj)->unload();
+                break;
+            case ObjectType::rock:
+                reinterpret_cast<RockObject*>(&obj)->unload();
+                break;
+            case ObjectType::water:
+                reinterpret_cast<WaterObject*>(&obj)->unload();
+                break;
+            case ObjectType::land:
+                reinterpret_cast<LandObject*>(&obj)->unload();
+                break;
+            case ObjectType::townNames:
+                reinterpret_cast<TownNamesObject*>(&obj)->unload();
+                break;
+            case ObjectType::cargo:
+                reinterpret_cast<CargoObject*>(&obj)->unload();
+                break;
+            case ObjectType::wall:
+                reinterpret_cast<WallObject*>(&obj)->unload();
+                break;
+            case ObjectType::trackSignal:
+                reinterpret_cast<TrainSignalObject*>(&obj)->unload();
+                break;
+            case ObjectType::levelCrossing:
+                reinterpret_cast<LevelCrossingObject*>(&obj)->unload();
+                break;
+            default:
+                auto objectProcTable = (const uintptr_t*)0x004FE1C8;
+                auto objectProc = objectProcTable[static_cast<size_t>(type)];
+
+                registers regs;
+                regs.al = enumValue(ObjectProcedure::unload);
+                regs.esi = X86Pointer(&obj);
+                call(objectProc, regs);
+                break;
+        }
+    }
+
+    static bool callObjectFunction(const ObjectType type, Object& obj, const ObjectProcedure proc)
+    {
+        switch (proc)
+        {
+            case ObjectProcedure::validate:
+                return callObjectValidate(type, obj);
+            case ObjectProcedure::unload:
+                callObjectUnload(type, obj);
+                return true;
+            default:
+                throw std::runtime_error("Don't call this function with load/drawPreview.");
+        }
+    }
+
+    static void callObjectLoad(const LoadedObjectHandle& handle, Object& obj, stdx::span<std::byte> data)
+    {
+        switch (handle.type)
+        {
+            case ObjectType::interfaceSkin:
+                reinterpret_cast<InterfaceSkinObject*>(&obj)->load(handle, data);
+                break;
+            case ObjectType::sound:
+                reinterpret_cast<SoundObject*>(&obj)->load(handle, data);
+                break;
+            case ObjectType::currency:
+                reinterpret_cast<CurrencyObject*>(&obj)->load(handle, data);
+                break;
+            case ObjectType::steam:
+                reinterpret_cast<SteamObject*>(&obj)->load(handle, data);
+                break;
+            case ObjectType::rock:
+                reinterpret_cast<RockObject*>(&obj)->load(handle, data);
+                break;
+            case ObjectType::water:
+                reinterpret_cast<WaterObject*>(&obj)->load(handle, data);
+                break;
+            case ObjectType::land:
+                reinterpret_cast<LandObject*>(&obj)->load(handle, data);
+                break;
+            case ObjectType::townNames:
+                reinterpret_cast<TownNamesObject*>(&obj)->load(handle, data);
+                break;
+            case ObjectType::cargo:
+                reinterpret_cast<CargoObject*>(&obj)->load(handle, data);
+                break;
+            case ObjectType::wall:
+                reinterpret_cast<WallObject*>(&obj)->load(handle, data);
+                break;
+            case ObjectType::trackSignal:
+                reinterpret_cast<TrainSignalObject*>(&obj)->load(handle, data);
+                break;
+            case ObjectType::levelCrossing:
+                reinterpret_cast<LevelCrossingObject*>(&obj)->load(handle, data);
+                break;
+            default:
+                auto objectProcTable = (const uintptr_t*)0x004FE1C8;
+                auto objectProc = objectProcTable[static_cast<size_t>(handle.type)];
+
+                registers regs;
+                regs.al = static_cast<uint8_t>(ObjectProcedure::load);
+                regs.esi = X86Pointer(&obj);
+                regs.ebx = handle.id;
+                regs.ecx = enumValue(handle.type);
+                call(objectProc, regs);
+                break;
+        }
+    }
+
+    static bool callObjectFunction(const LoadedObjectHandle& handle, ObjectProcedure proc)
     {
         auto* obj = getAny(handle);
         if (obj != nullptr)
@@ -998,13 +787,110 @@ namespace OpenLoco::ObjectManager
         throw std::runtime_error("Object not loaded at this index");
     }
 
+    bool computeObjectChecksum(const ObjectHeader& object, stdx::span<const uint8_t> data);
+
     // 0x00471BC5
     static bool load(const ObjectHeader& header, LoadedObjectId id)
     {
-        registers regs;
-        regs.ebp = X86Pointer(&header);
-        regs.ecx = static_cast<int32_t>(id);
-        return (call(0x00471BC5, regs) & X86_FLAG_CARRY) == 0;
+        // somewhat duplicates isObjectInstalled
+        const auto installedObjects = getAvailableObjects(header.getType());
+        auto res = std::find_if(std::begin(installedObjects), std::end(installedObjects), [&header](auto& obj) { return *obj.second._header == header; });
+        if (res == std::end(installedObjects))
+        {
+            // Object is not installed
+            return false;
+        }
+
+        const auto& installedObject = res->second;
+        const auto filePath = Environment::getPath(Environment::PathId::objects) / fs::u8path(installedObject._filename);
+
+        SawyerStreamReader stream(filePath);
+        ObjectHeader loadingHeader;
+        stream.read(&loadingHeader, sizeof(loadingHeader));
+        if (loadingHeader != header)
+        {
+            // Something wrong has happened and installed object does not match index
+            // Vanilla continued to search for subsequent matching installed headers.
+            return false;
+        }
+
+        // Vanilla would branch and perform more efficient readChunk if size was known from installedObject.ObjectHeader2
+        auto data = stream.readChunk();
+
+        if (!computeObjectChecksum(loadingHeader, data))
+        {
+            // Something wrong has happened and installed object checksum is broken
+            return false;
+        }
+
+        // Copy the object into Loco freeable memory (required for when load loads the object)
+        auto* object = reinterpret_cast<Object*>(malloc(data.size()));
+        std::copy(std::begin(data), std::end(data), reinterpret_cast<uint8_t*>(object));
+
+        if (!callObjectFunction(loadingHeader.getType(), *object, ObjectProcedure::validate))
+        {
+            free(object);
+            object = nullptr;
+            // Object failed validation
+            return false;
+        }
+
+        if (_totalNumImages >= Gfx::G1ExpectedCount::kObjects + Gfx::G1ExpectedCount::kDisc)
+        {
+            free(object);
+            object = nullptr;
+            // Too many objects loaded and no free image space
+            return false;
+        }
+
+        object_repository[enumValue(loadingHeader.getType())].objects[id] = object;
+        auto& extendedHeader = object_repository[enumValue(loadingHeader.getType())].object_entry_extendeds[id];
+        extendedHeader = ObjectEntry2{
+            loadingHeader, data.size()
+        };
+
+        if (!*_isPartialLoaded)
+        {
+            callObjectLoad({ loadingHeader.getType(), id }, *object, stdx::span<std::byte>(reinterpret_cast<std::byte*>(object), data.size()));
+        }
+
+        return true;
+    }
+
+    static std::optional<LoadedObjectId> findFreeObjectId(const ObjectType type)
+    {
+        for (LoadedObjectId id = 0; id < getMaxObjects(type); ++id)
+        {
+            if (getAny({ type, id }) == nullptr)
+            {
+                return id;
+            }
+        }
+        return std::nullopt;
+    }
+
+    // 0x00471FF8
+    void unload(const ObjectHeader& header)
+    {
+        auto handle = findIndex(header);
+        if (!handle)
+        {
+            return;
+        }
+        unload(*handle);
+        free(object_repository[enumValue(handle->type)].objects[handle->id]);
+        object_repository[enumValue(handle->type)].objects[handle->id] = reinterpret_cast<Object*>(-1);
+    }
+
+    // 0x00471BCE
+    bool load(const ObjectHeader& header)
+    {
+        auto id = findFreeObjectId(header.getType());
+        if (!id)
+        {
+            return false;
+        }
+        return load(header, *id);
     }
 
     static LoadedObjectId getObjectId(LoadedObjectIndex index)
@@ -1034,7 +920,7 @@ namespace OpenLoco::ObjectManager
         for (const auto& header : objects)
         {
             auto id = getObjectId(index);
-            if (!load(header, id))
+            if (!header.isEmpty() && !load(header, id))
             {
                 result.success = false;
                 result.problemObject = header;
@@ -1058,7 +944,7 @@ namespace OpenLoco::ObjectManager
     }
 
     // 0x0047270B
-    static bool computeObjectChecksum(const ObjectHeader& object, stdx::span<const uint8_t> data)
+    bool computeObjectChecksum(const ObjectHeader& object, stdx::span<const uint8_t> data)
     {
         // Compute the checksum of header and data
 
@@ -1191,8 +1077,7 @@ namespace OpenLoco::ObjectManager
     // is possible and if not permutates the name until it is valid.
     static fs::path findObjectPath(std::string& filename)
     {
-        loco_global<char[257], 0x0050B635> _pathObjects;
-        auto objPath = fs::u8path(_pathObjects.get());
+        auto objPath = Environment::getPath(Environment::PathId::objects);
 
         bool permutateName = false;
         do
@@ -1263,13 +1148,14 @@ namespace OpenLoco::ObjectManager
         std::copy(std::begin(data), std::end(data), objectData);
 
         auto* obj = reinterpret_cast<Object*>(objectData);
-        if (!callObjectFunction(objectHeader.getType(), *obj, ObjectProcedure::validate))
+        if (!callObjectValidate(objectHeader.getType(), *obj))
         {
             return false;
         }
 
-        if (_totalNumImages >= 266266)
+        if (_totalNumImages >= Gfx::G1ExpectedCount::kObjects + Gfx::G1ExpectedCount::kDisc)
         {
+            // Free objectData?
             return false;
         }
 
@@ -1298,14 +1184,14 @@ namespace OpenLoco::ObjectManager
         call(0x00472031);
     }
 
-    void unload(const LoadedObjectHandle handle)
+    void unload(const LoadedObjectHandle& handle)
     {
         callObjectFunction(handle, ObjectProcedure::unload);
     }
 
-    size_t getByteLength(const LoadedObjectHandle handle)
+    size_t getByteLength(const LoadedObjectHandle& handle)
     {
-        return objectEntries[getTypeOffset(handle.type) + handle.id].dataSize;
+        return getRepositoryItem(handle.type).object_entry_extendeds[handle.id].dataSize;
     }
 
     template<typename TObject>
@@ -1316,8 +1202,8 @@ namespace OpenLoco::ObjectManager
             auto* obj = ObjectManager::get<TObject>();
             if (obj != nullptr)
             {
-                auto entry = getHeader(getTypeOffset(TObject::kObjectType));
-                entries.push_back(*entry);
+                auto entry = getHeader({ TObject::kObjectType, 0 });
+                entries.push_back(entry);
             }
             else
             {
@@ -1328,13 +1214,13 @@ namespace OpenLoco::ObjectManager
         }
         else
         {
-            for (size_t i = 0; i < getMaxObjects(TObject::kObjectType); ++i)
+            for (LoadedObjectId i = 0; i < getMaxObjects(TObject::kObjectType); ++i)
             {
                 auto* obj = ObjectManager::get<TObject>(i);
                 if (obj != nullptr)
                 {
-                    auto entry = getHeader(i + getTypeOffset(TObject::kObjectType));
-                    entries.push_back(*entry);
+                    auto entry = getHeader({ TObject::kObjectType, i });
+                    entries.push_back(entry);
                 }
                 else
                 {
@@ -1398,5 +1284,19 @@ namespace OpenLoco::ObjectManager
             Gfx::drawString_494B3F(context, rowPosition.x, rowPosition.y, Colour::black, StringIds::object_selection_obsolete, &args);
             rowPosition.y += descriptionRowHeight;
         }
+    }
+
+    // 0x004796A9
+    void updateYearly1()
+    {
+        // set default levelCrossing
+        call(0x004796A9);
+    }
+
+    // 0x004C3A9E
+    void updateYearly2()
+    {
+        // update available vehicles/roads/airports/etc.
+        call(0x004C3A9E);
     }
 }

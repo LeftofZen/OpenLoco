@@ -24,10 +24,10 @@ namespace OpenLoco::Ui::Windows::KeyboardShortcuts
     static Widget _widgets[] = {
         makeWidget({ 0, 0 }, { 360, 238 }, WidgetType::frame, WindowColour::primary),
         makeWidget({ 1, 1 }, { 358, 13 }, WidgetType::caption_25, WindowColour::primary, StringIds::keyboard_shortcuts),
-        makeWidget({ 345, 2 }, { 13, 13 }, WidgetType::wt_9, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
+        makeWidget({ 345, 2 }, { 13, 13 }, WidgetType::buttonWithImage, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
         makeWidget({ 0, 15 }, { 360, 223 }, WidgetType::panel, WindowColour::secondary),
         makeWidget({ 4, 19 }, { 352, 202 }, WidgetType::scrollview, WindowColour::secondary, Scrollbars::vertical, StringIds::keyboard_shortcut_list_tip),
-        makeWidget({ 4, 223 }, { 150, 12 }, WidgetType::wt_11, WindowColour::secondary, StringIds::reset_keys, StringIds::reset_keys_tip),
+        makeWidget({ 4, 223 }, { 150, 12 }, WidgetType::button, WindowColour::secondary, StringIds::reset_keys, StringIds::reset_keys_tip),
         widgetEnd(),
     };
 
@@ -55,13 +55,13 @@ namespace OpenLoco::Ui::Windows::KeyboardShortcuts
 
     static void initEvents()
     {
-        _events.on_mouse_up = onMouseUp;
-        _events.get_scroll_size = getScrollSize;
-        _events.scroll_mouse_down = onScrollMouseDown;
-        _events.scroll_mouse_over = onScrollMouseOver;
+        _events.onMouseUp = onMouseUp;
+        _events.getScrollSize = getScrollSize;
+        _events.scrollMouseDown = onScrollMouseDown;
+        _events.scrollMouseOver = onScrollMouseOver;
         _events.tooltip = tooltip;
         _events.draw = draw;
-        _events.draw_scroll = drawScroll;
+        _events.drawScroll = drawScroll;
     }
 
     // 0x004BE6C7
@@ -79,15 +79,15 @@ namespace OpenLoco::Ui::Windows::KeyboardShortcuts
         window = WindowManager::createWindowCentred(WindowType::keyboardShortcuts, { 360, 238 }, 0, &_events);
 
         window->widgets = _widgets;
-        window->enabled_widgets = (1 << Widx::close_button) | (1 << Widx::reset_keys_btn);
+        window->enabledWidgets = (1 << Widx::close_button) | (1 << Widx::reset_keys_btn);
         window->initScrollWidgets();
 
         auto skin = ObjectManager::get<InterfaceSkinObject>();
         window->setColour(WindowColour::primary, skin->colour_0B);
         window->setColour(WindowColour::secondary, skin->colour_10);
 
-        window->row_count = static_cast<uint16_t>(ShortcutManager::count);
-        window->row_hover = -1;
+        window->rowCount = static_cast<uint16_t>(ShortcutManager::kCount);
+        window->rowHover = -1;
 
         return window;
     }
@@ -154,16 +154,16 @@ namespace OpenLoco::Ui::Windows::KeyboardShortcuts
     // 0x004BE72C
     static void drawScroll(Ui::Window& self, Gfx::Context& context, const uint32_t scrollIndex)
     {
-        auto colour = self.getColour(WindowColour::secondary);
-        auto shade = Colour::getShade(colour, 4);
+        auto colour = self.getColour(WindowColour::secondary).c();
+        auto shade = Colours::getShade(colour, 4);
         Gfx::clearSingle(context, shade);
 
         const auto& shortcuts = Config::getNew().shortcuts;
         auto yPos = 0;
-        for (auto i = 0; i < self.row_count; i++)
+        for (auto i = 0; i < self.rowCount; i++)
         {
             string_id format = StringIds::black_stringid;
-            if (i == self.row_hover)
+            if (i == self.rowHover)
             {
                 Gfx::drawRect(context, 0, yPos, 800, rowHeight, 0x2000030);
                 format = StringIds::wcolour2_stringid;
@@ -229,7 +229,7 @@ namespace OpenLoco::Ui::Windows::KeyboardShortcuts
     // 0x004BE84E
     static void getScrollSize(Ui::Window* self, uint32_t scrollIndex, uint16_t* scrollWidth, uint16_t* scrollHeight)
     {
-        *scrollHeight = self->row_count * rowHeight;
+        *scrollHeight = self->rowCount * rowHeight;
     }
 
     // 0x004BE853
@@ -237,12 +237,12 @@ namespace OpenLoco::Ui::Windows::KeyboardShortcuts
     {
         auto row = y / rowHeight;
 
-        if (row >= self->row_count)
+        if (row >= self->rowCount)
             return;
 
-        if (row != self->row_hover)
+        if (row != self->rowHover)
         {
-            self->row_hover = row;
+            self->rowHover = row;
             self->invalidate();
         }
     }
@@ -252,7 +252,7 @@ namespace OpenLoco::Ui::Windows::KeyboardShortcuts
     {
         auto row = y / rowHeight;
 
-        if (row >= self->row_count)
+        if (row >= self->rowCount)
             return;
 
         EditKeyboardShortcut::open(row);

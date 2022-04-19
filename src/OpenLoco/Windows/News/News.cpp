@@ -40,22 +40,16 @@ namespace OpenLoco::Ui::Windows::NewsWindow
             {
                 case Common::widx::close_button:
                 {
-                    if (_activeMessageIndex != MessageId::null)
-                    {
-                        auto news = MessageManager::get(_activeMessageIndex);
-                        news->var_C8 = 0xFFFF;
-                        _activeMessageIndex = MessageId::null;
-                    }
-                    WindowManager::close(self);
+                    MessageManager::clearActiveMessage();
                     break;
                 }
 
                 case Common::widx::viewport1Button:
                 case Common::widx::viewport2Button:
                 {
-                    if (_activeMessageIndex != MessageId::null)
+                    if (MessageManager::getActiveIndex() != MessageId::null)
                     {
-                        auto news = MessageManager::get(_activeMessageIndex);
+                        auto news = MessageManager::get(MessageManager::getActiveIndex());
                         const auto& mtd = getMessageTypeDescriptor(news->type);
                         if (widgetIndex == Common::widx::viewport1Button)
                         {
@@ -73,12 +67,12 @@ namespace OpenLoco::Ui::Windows::NewsWindow
                         if (widgetIndex == Common::widx::viewport1Button)
                         {
                             itemType = mtd.argumentTypes[0];
-                            itemId = news->item_id_1;
+                            itemId = news->itemSubjects[0];
                         }
                         else
                         {
                             itemType = mtd.argumentTypes[1];
-                            itemId = news->item_id_2;
+                            itemId = news->itemSubjects[1];
                         }
 
                         switch (itemType)
@@ -115,28 +109,28 @@ namespace OpenLoco::Ui::Windows::NewsWindow
                             case MessageItemArgumentType::vehicleTab:
                                 auto vehicleObj = ObjectManager::get<VehicleObject>(itemId);
                                 auto window = Ui::Windows::BuildVehicle::open(static_cast<uint32_t>(vehicleObj->type), (1 << 31));
-                                window->row_hover = itemId;
+                                window->rowHover = itemId;
                                 if (vehicleObj->mode == TransportMode::rail || vehicleObj->mode == TransportMode::road)
                                 {
-                                    if (vehicleObj->track_type != 0xFF)
+                                    if (vehicleObj->trackType != 0xFF)
                                     {
                                         uint8_t i = 0;
                                         while (i < _numTrackTypeTabs)
                                         {
-                                            if (vehicleObj->track_type == _trackTypesForTab[i])
+                                            if (vehicleObj->trackType == _trackTypesForTab[i])
                                             {
-                                                window->current_secondary_tab = i;
+                                                window->currentSecondaryTab = i;
                                                 break;
                                             }
                                         }
                                     }
                                 }
 
-                                auto rowHover = window->row_hover;
+                                auto rowHover = window->rowHover;
 
                                 Ui::Windows::BuildVehicle::sub_4B92A5(window);
 
-                                window->row_hover = rowHover;
+                                window->rowHover = rowHover;
                                 break;
                         }
                     }
@@ -193,8 +187,8 @@ namespace OpenLoco::Ui::Windows::NewsWindow
 
                     view.mapX = industry->x;
                     view.mapY = industry->y;
-                    view.surfaceZ = TileManager::getHeight({ view.mapX, view.mapY }).landHeight;
-                    view.rotation = gCurrentRotation;
+                    view.surfaceZ = Map::TileManager::getHeight({ view.mapX, view.mapY }).landHeight;
+                    view.rotation = WindowManager::getCurrentRotation();
                     view.zoomLevel = ZoomLevel::half;
                     *selectable = true;
                     break;
@@ -207,7 +201,7 @@ namespace OpenLoco::Ui::Windows::NewsWindow
                     view.mapX = station->x;
                     view.mapY = station->y;
                     view.surfaceZ = station->z;
-                    view.rotation = gCurrentRotation;
+                    view.rotation = WindowManager::getCurrentRotation();
                     view.zoomLevel = ZoomLevel::full;
                     *selectable = true;
                     break;
@@ -219,8 +213,8 @@ namespace OpenLoco::Ui::Windows::NewsWindow
 
                     view.mapX = town->x;
                     view.mapY = town->y;
-                    view.surfaceZ = TileManager::getHeight({ view.mapX, view.mapY }).landHeight;
-                    view.rotation = gCurrentRotation;
+                    view.surfaceZ = Map::TileManager::getHeight({ view.mapX, view.mapY }).landHeight;
+                    view.rotation = WindowManager::getCurrentRotation();
                     view.zoomLevel = ZoomLevel::half;
                     *selectable = true;
                     break;
@@ -229,7 +223,7 @@ namespace OpenLoco::Ui::Windows::NewsWindow
                 case MessageItemArgumentType::vehicle:
                 {
                     Vehicles::Vehicle train(EntityId{ itemId });
-                    if (train.head->tile_x == -1)
+                    if (train.head->tileX == -1)
                         break;
 
                     view.thingId = train.veh2->id;
@@ -241,7 +235,7 @@ namespace OpenLoco::Ui::Windows::NewsWindow
 
                     view.flags = (1 << 15);
                     view.zoomLevel = ZoomLevel::full;
-                    view.rotation = gCurrentRotation;
+                    view.rotation = WindowManager::getCurrentRotation();
                     *selectable = true;
                     break;
                 }
@@ -253,11 +247,11 @@ namespace OpenLoco::Ui::Windows::NewsWindow
                     break;
 
                 case MessageItemArgumentType::location:
-                    view.mapX = news->item_id_1; // possible union?
-                    view.mapY = news->item_id_2;
-                    view.surfaceZ = TileManager::getHeight({ view.mapX, view.mapY }).landHeight;
+                    view.mapX = news->itemSubjects[0]; // possible union?
+                    view.mapY = news->itemSubjects[1];
+                    view.surfaceZ = Map::TileManager::getHeight({ view.mapX, view.mapY }).landHeight;
                     view.zoomLevel = ZoomLevel::full;
-                    view.rotation = gCurrentRotation;
+                    view.rotation = WindowManager::getCurrentRotation();
                     *selectable = true;
                     break;
 
@@ -284,20 +278,20 @@ namespace OpenLoco::Ui::Windows::NewsWindow
             view.rotation = -1;
             view.zoomLevel = (ZoomLevel)-1;
             view.thingId = EntityId::null;
-            auto news = MessageManager::get(_activeMessageIndex);
+            auto news = MessageManager::get(MessageManager::getActiveIndex());
             const auto& mtd = getMessageTypeDescriptor(news->type);
 
             bool selectable = false;
 
-            if (_activeMessageIndex != MessageId::null)
+            if (MessageManager::getActiveIndex() != MessageId::null)
             {
                 if (mtd.hasFlag(MessageTypeFlags::hasFirstItem))
                 {
                     auto itemType = mtd.argumentTypes[0];
 
-                    if (news->item_id_1 != 0xFFFF)
+                    if (news->itemSubjects[0] != 0xFFFF)
                     {
-                        view = getView(self, news, news->item_id_1, itemType, &selectable);
+                        view = getView(self, news, news->itemSubjects[0], itemType, &selectable);
                     }
                 }
             }
@@ -312,7 +306,7 @@ namespace OpenLoco::Ui::Windows::NewsWindow
 
             if (selectable)
             {
-                self->widgets[Common::widx::viewport1Button].type = WidgetType::wt_9;
+                self->widgets[Common::widx::viewport1Button].type = WidgetType::buttonWithImage;
             }
 
             uint32_t ecx = view.surfaceZ << 16 | view.rotation << 8 | (uint8_t)view.zoomLevel;
@@ -328,12 +322,8 @@ namespace OpenLoco::Ui::Windows::NewsWindow
             {
                 _dword_525CD0 = ecx;
                 _dword_525CD4 = edx;
-                auto viewport = self->viewports[0];
-                if (viewport != nullptr)
-                {
-                    viewport = nullptr;
-                    self->invalidate();
-                }
+                self->viewportRemove(0);
+                self->invalidate();
 
                 self->widgets[Common::widx::viewport1].left = 6;
                 self->widgets[Common::widx::viewport1].right = 353;
@@ -389,15 +379,15 @@ namespace OpenLoco::Ui::Windows::NewsWindow
             view.thingId = EntityId::null;
             selectable = false;
 
-            if (_activeMessageIndex != MessageId::null)
+            if (MessageManager::getActiveIndex() != MessageId::null)
             {
                 if (mtd.hasFlag(MessageTypeFlags::hasSecondItem))
                 {
                     auto itemType = mtd.argumentTypes[1];
 
-                    if (news->item_id_2 != 0xFFFF)
+                    if (news->itemSubjects[1] != 0xFFFF)
                     {
-                        view = getView(self, news, news->item_id_2, itemType, &selectable);
+                        view = getView(self, news, news->itemSubjects[1], itemType, &selectable);
                     }
                 }
             }
@@ -412,7 +402,7 @@ namespace OpenLoco::Ui::Windows::NewsWindow
 
             if (selectable)
             {
-                self->widgets[Common::widx::viewport2Button].type = WidgetType::wt_9;
+                self->widgets[Common::widx::viewport2Button].type = WidgetType::buttonWithImage;
             }
 
             ecx = view.surfaceZ << 16 | view.rotation << 8 | (uint8_t)view.zoomLevel;
@@ -428,12 +418,8 @@ namespace OpenLoco::Ui::Windows::NewsWindow
             {
                 _dword_525CD8 = ecx;
                 _dword_525CDC = edx;
-                auto viewport = self->viewports[0];
-                if (viewport != nullptr)
-                {
-                    viewport = nullptr;
-                    self->invalidate();
-                }
+                self->viewportRemove(1);
+                self->invalidate();
 
                 self->widgets[Common::widx::viewport2].left = 186;
                 self->widgets[Common::widx::viewport2].right = 353;
@@ -511,6 +497,11 @@ namespace OpenLoco::Ui::Windows::NewsWindow
                 case MessageItemArgumentType::vehicle:
                 {
                     auto vehicle = EntityManager::get<Vehicles::VehicleHead>(EntityId(itemIndex));
+                    if (vehicle == nullptr)
+                    {
+                        WindowManager::close(WindowType::news);
+                        break;
+                    }
                     auto company = CompanyManager::get(vehicle->owner);
                     if (CompanyManager::isPlayerCompany(vehicle->owner))
                     {
@@ -616,7 +607,7 @@ namespace OpenLoco::Ui::Windows::NewsWindow
             {
                 if (mtd.hasFlag(MessageTypeFlags::unk1))
                 {
-                    if (news->item_id_1 != 0xFFFF)
+                    if (news->itemSubjects[0] != 0xFFFF)
                     {
                         auto x = self->widgets[Common::widx::viewport1].left + self->x;
                         auto y = self->widgets[Common::widx::viewport1].top + self->y;
@@ -632,7 +623,7 @@ namespace OpenLoco::Ui::Windows::NewsWindow
             {
                 if (mtd.hasFlag(MessageTypeFlags::unk1))
                 {
-                    if (news->item_id_2 != 0xFFFF)
+                    if (news->itemSubjects[1] != 0xFFFF)
                     {
                         auto x = self->widgets[Common::widx::viewport2].left + self->x;
                         auto y = self->widgets[Common::widx::viewport2].top + self->y;
@@ -648,11 +639,11 @@ namespace OpenLoco::Ui::Windows::NewsWindow
         // 0x004299E7
         static void drawEarlyNews(Window* self, Gfx::Context* context, Message* news)
         {
-            auto imageId = Gfx::recolour(ImageIds::news_background_old_left, PaletteIndex::index_68);
+            auto imageId = Gfx::recolour(ImageIds::news_background_old_left, ExtColour::translucentBrown1);
 
             Gfx::drawImage(context, self->x, self->y, imageId);
 
-            imageId = Gfx::recolour(ImageIds::news_background_old_right, PaletteIndex::index_68);
+            imageId = Gfx::recolour(ImageIds::news_background_old_right, ExtColour::translucentBrown1);
 
             Gfx::drawImage(context, self->x + (windowSize.width / 2), self->y, imageId);
 
@@ -728,7 +719,7 @@ namespace OpenLoco::Ui::Windows::NewsWindow
             {
                 if (mtd.hasFlag(MessageTypeFlags::unk1))
                 {
-                    if (news->item_id_1 != 0xFFFF)
+                    if (news->itemSubjects[0] != 0xFFFF)
                     {
                         x = self->widgets[Common::widx::viewport1].left + self->x;
                         y = self->widgets[Common::widx::viewport1].top + self->y;
@@ -744,7 +735,7 @@ namespace OpenLoco::Ui::Windows::NewsWindow
             {
                 if (mtd.hasFlag(MessageTypeFlags::unk1))
                 {
-                    if (news->item_id_2 != 0xFFFF)
+                    if (news->itemSubjects[1] != 0xFFFF)
                     {
                         x = self->widgets[Common::widx::viewport2].left + self->x;
                         y = self->widgets[Common::widx::viewport2].top + self->y;
@@ -760,7 +751,7 @@ namespace OpenLoco::Ui::Windows::NewsWindow
         // 0x00429739
         static void draw(Ui::Window* self, Gfx::Context* context)
         {
-            auto news = MessageManager::get(_activeMessageIndex);
+            auto news = MessageManager::get(MessageManager::getActiveIndex());
             const auto& mtd = getMessageTypeDescriptor(news->type);
 
             if (mtd.hasFlag(MessageTypeFlags::unk1))
@@ -786,36 +777,36 @@ namespace OpenLoco::Ui::Windows::NewsWindow
 
             if (mtd.hasFlag(MessageTypeFlags::hasFirstItem))
             {
-                if (news->item_id_1 != 0xFFFF)
+                if (news->itemSubjects[0] != 0xFFFF)
                 {
                     auto x = (self->widgets[Common::widx::viewport1Button].left + self->widgets[Common::widx::viewport1Button].right) / 2;
                     x += self->x;
                     auto y = self->widgets[Common::widx::viewport1Button].bottom - 7 + self->y;
                     auto width = self->widgets[Common::widx::viewport1Button].width() - 1;
 
-                    drawViewportString(context, x, y, width, mtd.argumentTypes[0], news->item_id_1);
+                    drawViewportString(context, x, y, width, mtd.argumentTypes[0], news->itemSubjects[0]);
                 }
             }
             if (mtd.hasFlag(MessageTypeFlags::hasSecondItem))
             {
-                if (news->item_id_2 != 0xFFFF)
+                if (news->itemSubjects[1] != 0xFFFF)
                 {
                     auto x = (self->widgets[Common::widx::viewport2Button].left + self->widgets[Common::widx::viewport2Button].right) / 2;
                     x += self->x;
                     auto y = self->widgets[Common::widx::viewport2Button].bottom - 7 + self->y;
                     auto width = self->widgets[Common::widx::viewport2Button].width() - 1;
 
-                    drawViewportString(context, x, y, width, mtd.argumentTypes[1], news->item_id_2);
+                    drawViewportString(context, x, y, width, mtd.argumentTypes[1], news->itemSubjects[1]);
                 }
             }
         }
 
         void initEvents()
         {
-            events.on_mouse_up = onMouseUp;
-            events.on_resize = initViewport;
-            events.on_update = onUpdate;
-            events.viewport_rotate = initViewport;
+            events.onMouseUp = onMouseUp;
+            events.onResize = initViewport;
+            events.onUpdate = onUpdate;
+            events.viewportRotate = initViewport;
             events.draw = draw;
         }
     }

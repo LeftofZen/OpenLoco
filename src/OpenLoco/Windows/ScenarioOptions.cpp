@@ -33,7 +33,7 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
     static loco_global<uint16_t, 0x00526218> startingLoanSize;
     static loco_global<uint16_t, 0x0052621A> maxLoanSize;
 
-    static loco_global<uint8_t, 0x00526230> objectiveType;
+    static loco_global<Scenario::ObjectiveType, 0x00526230> objectiveType;
     static loco_global<uint8_t, 0x00526231> objectiveFlags;
     static loco_global<uint32_t, 0x00526232> objectiveCompanyValue;
     static loco_global<uint32_t, 0x00526236> objectiveMonthlyVehicleProfit;
@@ -64,14 +64,14 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
 
         const uint64_t enabledWidgets = (1 << widx::tab_challenge) | (1 << widx::tab_companies) | (1 << widx::tab_finances) | (1 << widx::tab_scenario);
 
-#define commonWidgets(frameHeight, windowCaptionId)                                                                                              \
-    makeWidget({ 0, 0 }, { 366, frameHeight }, WidgetType::frame, WindowColour::primary),                                                        \
-        makeWidget({ 1, 1 }, { 364, 13 }, WidgetType::caption_25, WindowColour::primary, windowCaptionId),                                       \
-        makeWidget({ 0, 41 }, { 366, 175 }, WidgetType::panel, WindowColour::secondary),                                                         \
-        makeRemapWidget({ 3, 15 }, { 31, 27 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_scenario_challenge), \
-        makeRemapWidget({ 34, 15 }, { 31, 27 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_company_options),   \
-        makeRemapWidget({ 65, 15 }, { 31, 27 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_financial_options), \
-        makeRemapWidget({ 96, 15 }, { 31, 27 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_scenario_options)
+#define commonWidgets(frameHeight, windowCaptionId)                                                                                             \
+    makeWidget({ 0, 0 }, { 366, frameHeight }, WidgetType::frame, WindowColour::primary),                                                       \
+        makeWidget({ 1, 1 }, { 364, 13 }, WidgetType::caption_25, WindowColour::primary, windowCaptionId),                                      \
+        makeWidget({ 0, 41 }, { 366, 175 }, WidgetType::panel, WindowColour::secondary),                                                        \
+        makeRemapWidget({ 3, 15 }, { 31, 27 }, WidgetType::tab, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_scenario_challenge), \
+        makeRemapWidget({ 34, 15 }, { 31, 27 }, WidgetType::tab, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_company_options),   \
+        makeRemapWidget({ 65, 15 }, { 31, 27 }, WidgetType::tab, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_financial_options), \
+        makeRemapWidget({ 96, 15 }, { 31, 27 }, WidgetType::tab, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_scenario_options)
 
         // Defined at the bottom of this file.
         static void initEvents();
@@ -81,7 +81,7 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
         {
             window->frame_no++;
             window->callPrepareDraw();
-            WindowManager::invalidateWidget(WindowType::scenarioOptions, window->number, window->current_tab + widx::tab_challenge);
+            WindowManager::invalidateWidget(WindowType::scenarioOptions, window->number, window->currentTab + widx::tab_challenge);
         }
 
         // 0x004400A4
@@ -111,7 +111,7 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
                 };
 
                 uint32_t imageId = skin->img;
-                if (window->current_tab == widx::tab_challenge - widx::tab_challenge)
+                if (window->currentTab == widx::tab_challenge - widx::tab_challenge)
                     imageId += challengeTabImageIds[(window->frame_no / 4) % std::size(challengeTabImageIds)];
                 else
                     imageId += challengeTabImageIds[0];
@@ -147,7 +147,7 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
                 };
 
                 uint32_t imageId = skin->img;
-                if (window->current_tab == widx::tab_finances - widx::tab_challenge)
+                if (window->currentTab == widx::tab_finances - widx::tab_challenge)
                     imageId += financesTabImageIds[(window->frame_no / 2) % std::size(financesTabImageIds)];
                 else
                     imageId += financesTabImageIds[0];
@@ -197,15 +197,13 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
 
         static Widget widgets[] = {
             commonWidgets(197, StringIds::title_scenario_challenge),
-            makeWidget({ 10, 52 }, { 346, 12 }, WidgetType::wt_18, WindowColour::secondary),
-            makeWidget({ 344, 53 }, { 11, 10 }, WidgetType::wt_11, WindowColour::secondary, StringIds::dropdown),
-            makeStepperWidgets({ 10, 67 }, { 163, 12 }, WidgetType::wt_17, WindowColour::secondary),
-            makeWidget({ 193, 67 }, { 163, 12 }, WidgetType::wt_18, WindowColour::secondary),
-            makeWidget({ 344, 68 }, { 11, 10 }, WidgetType::wt_11, WindowColour::secondary, StringIds::dropdown),
+            makeDropdownWidgets({ 10, 52 }, { 346, 12 }, WidgetType::combobox, WindowColour::secondary),
+            makeStepperWidgets({ 10, 67 }, { 163, 12 }, WidgetType::textbox, WindowColour::secondary),
+            makeDropdownWidgets({ 193, 67 }, { 163, 12 }, WidgetType::combobox, WindowColour::secondary),
             makeWidget({ 10, 83 }, { 346, 12 }, WidgetType::checkbox, WindowColour::secondary, StringIds::and_be_the_top_company),
             makeWidget({ 10, 98 }, { 346, 12 }, WidgetType::checkbox, WindowColour::secondary, StringIds::and_be_within_the_top_companies),
             makeWidget({ 10, 113 }, { 346, 12 }, WidgetType::checkbox, WindowColour::secondary, StringIds::with_a_time_limit),
-            makeStepperWidgets({ 256, 112 }, { 100, 12 }, WidgetType::wt_17, WindowColour::secondary, StringIds::time_limit_years_value),
+            makeStepperWidgets({ 256, 112 }, { 100, 12 }, WidgetType::textbox, WindowColour::secondary, StringIds::time_limit_years_value),
             widgetEnd(),
         };
 
@@ -245,7 +243,7 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
             switch (widgetIndex)
             {
                 case widx::objective_type_btn:
-                    *objectiveType = itemIndex;
+                    *objectiveType = static_cast<Scenario::ObjectiveType>(itemIndex);
                     self->invalidate();
                     break;
 
@@ -270,7 +268,7 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
                     for (size_t i = 0; i < std::size(objectiveTypeLabelIds); i++)
                         Dropdown::add(i, StringIds::dropdown_stringid, objectiveTypeLabelIds[i]);
 
-                    Dropdown::setItemSelected(*objectiveType);
+                    Dropdown::setItemSelected(enumValue(*objectiveType));
                     break;
                 }
 
@@ -278,19 +276,19 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
                 {
                     switch (*objectiveType)
                     {
-                        case Scenario::objective_type::company_value:
+                        case Scenario::ObjectiveType::companyValue:
                             *objectiveCompanyValue = std::max<uint32_t>(*objectiveCompanyValue - 100000, Scenario::min_objective_company_value);
                             break;
 
-                        case Scenario::objective_type::vehicle_profit:
+                        case Scenario::ObjectiveType::vehicleProfit:
                             *objectiveMonthlyVehicleProfit = std::max<uint32_t>(*objectiveMonthlyVehicleProfit - 1000, Scenario::min_objective_monthly_profit_from_vehicles);
                             break;
 
-                        case Scenario::objective_type::performance_index:
+                        case Scenario::ObjectiveType::performanceIndex:
                             *objectivePerformanceIndex = std::max<uint8_t>(*objectivePerformanceIndex - 5, Scenario::min_objective_performance_index);
                             break;
 
-                        case Scenario::objective_type::cargo_delivery:
+                        case Scenario::ObjectiveType::cargoDelivery:
                         {
                             uint16_t stepSize{};
                             if (*_clickRepeatTicks < 100)
@@ -317,19 +315,19 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
                 {
                     switch (*objectiveType)
                     {
-                        case Scenario::objective_type::company_value:
+                        case Scenario::ObjectiveType::companyValue:
                             *objectiveCompanyValue = std::min<uint32_t>(*objectiveCompanyValue + 100000, Scenario::max_objective_company_value);
                             break;
 
-                        case Scenario::objective_type::vehicle_profit:
+                        case Scenario::ObjectiveType::vehicleProfit:
                             *objectiveMonthlyVehicleProfit = std::min<uint32_t>(*objectiveMonthlyVehicleProfit + 1000, Scenario::max_objective_monthly_profit_from_vehicles);
                             break;
 
-                        case Scenario::objective_type::performance_index:
+                        case Scenario::ObjectiveType::performanceIndex:
                             *objectivePerformanceIndex = std::min<uint8_t>(*objectivePerformanceIndex + 5, Scenario::max_objective_performance_index);
                             break;
 
-                        case Scenario::objective_type::cargo_delivery:
+                        case Scenario::ObjectiveType::cargoDelivery:
                         {
                             uint16_t stepSize{};
                             if (*_clickRepeatTicks < 100)
@@ -412,17 +410,17 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
                     break;
 
                 case check_be_top_company:
-                    *objectiveFlags ^= Scenario::objective_flags::be_top_company;
+                    *objectiveFlags ^= Scenario::ObjectiveFlags::beTopCompany;
                     self->invalidate();
                     break;
 
                 case check_be_within_top_three_companies:
-                    *objectiveFlags ^= Scenario::objective_flags::be_within_top_three_companies;
+                    *objectiveFlags ^= Scenario::ObjectiveFlags::beWithinTopThreeCompanies;
                     self->invalidate();
                     break;
 
                 case check_time_limit:
-                    *objectiveFlags ^= Scenario::objective_flags::within_time_limit;
+                    *objectiveFlags ^= Scenario::ObjectiveFlags::withinTimeLimit;
                     self->invalidate();
                     break;
             }
@@ -433,7 +431,7 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
         {
             Common::prepareDraw(self);
 
-            widgets[widx::objective_type].text = objectiveTypeLabelIds[*objectiveType];
+            widgets[widx::objective_type].text = objectiveTypeLabelIds[enumValue(*objectiveType)];
             widgets[widx::objective_cargo].type = WidgetType::none;
             widgets[widx::objective_cargo_btn].type = WidgetType::none;
             widgets[widx::time_limit_value].type = WidgetType::none;
@@ -442,46 +440,46 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
 
             switch (*objectiveType)
             {
-                case Scenario::objective_type::company_value:
+                case Scenario::ObjectiveType::companyValue:
                     *(int32_t*)&*commonFormatArgs = *objectiveCompanyValue;
                     widgets[widx::objective_value].text = StringIds::challenge_monetary_value;
                     break;
 
-                case Scenario::objective_type::vehicle_profit:
+                case Scenario::ObjectiveType::vehicleProfit:
                     *(int32_t*)&*commonFormatArgs = *objectiveMonthlyVehicleProfit;
                     widgets[widx::objective_value].text = StringIds::challenge_monetary_value;
                     break;
 
-                case Scenario::objective_type::performance_index:
+                case Scenario::ObjectiveType::performanceIndex:
                     *(int16_t*)&*commonFormatArgs = *objectivePerformanceIndex * 10;
                     widgets[widx::objective_value].text = StringIds::challenge_performance_index;
                     break;
 
-                case Scenario::objective_type::cargo_delivery:
+                case Scenario::ObjectiveType::cargoDelivery:
                     *(int32_t*)&*commonFormatArgs = *objectiveDeliveredCargoAmount;
                     widgets[widx::objective_value].text = StringIds::challenge_delivered_cargo;
 
                     auto cargo = ObjectManager::get<CargoObject>(*objectiveDeliveredCargoType);
                     widgets[widx::objective_cargo].text = cargo->name;
-                    widgets[widx::objective_cargo].type = WidgetType::wt_18;
-                    widgets[widx::objective_cargo_btn].type = WidgetType::wt_11;
+                    widgets[widx::objective_cargo].type = WidgetType::combobox;
+                    widgets[widx::objective_cargo_btn].type = WidgetType::button;
                     break;
             }
 
-            self->activated_widgets &= ~((1 << widx::check_be_top_company) | (1 << widx::check_be_within_top_three_companies) | (1 << widx::check_time_limit));
+            self->activatedWidgets &= ~((1 << widx::check_be_top_company) | (1 << widx::check_be_within_top_three_companies) | (1 << widx::check_time_limit));
 
-            if ((*objectiveFlags & Scenario::objective_flags::be_top_company) != 0)
-                self->activated_widgets |= 1 << widx::check_be_top_company;
+            if ((*objectiveFlags & Scenario::ObjectiveFlags::beTopCompany) != 0)
+                self->activatedWidgets |= 1 << widx::check_be_top_company;
 
-            if ((*objectiveFlags & Scenario::objective_flags::be_within_top_three_companies) != 0)
-                self->activated_widgets |= 1 << widx::check_be_within_top_three_companies;
+            if ((*objectiveFlags & Scenario::ObjectiveFlags::beWithinTopThreeCompanies) != 0)
+                self->activatedWidgets |= 1 << widx::check_be_within_top_three_companies;
 
-            if ((*objectiveFlags & Scenario::objective_flags::within_time_limit) != 0)
+            if ((*objectiveFlags & Scenario::ObjectiveFlags::withinTimeLimit) != 0)
             {
-                self->activated_widgets |= 1 << widx::check_time_limit;
-                widgets[widx::time_limit_value].type = WidgetType::wt_17;
-                widgets[widx::time_limit_value_down].type = WidgetType::wt_11;
-                widgets[widx::time_limit_value_up].type = WidgetType::wt_11;
+                self->activatedWidgets |= 1 << widx::check_time_limit;
+                widgets[widx::time_limit_value].type = WidgetType::textbox;
+                widgets[widx::time_limit_value_down].type = WidgetType::button;
+                widgets[widx::time_limit_value_up].type = WidgetType::button;
                 commonFormatArgs[3] = *objectiveTimeLimitYears;
             }
         }
@@ -489,11 +487,11 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
         static void initEvents()
         {
             events.draw = draw;
-            events.on_dropdown = onDropdown;
-            events.on_mouse_down = onMouseDown;
-            events.on_mouse_up = onMouseUp;
-            events.on_update = Common::update;
-            events.prepare_draw = prepareDraw;
+            events.onDropdown = onDropdown;
+            events.onMouseDown = onMouseDown;
+            events.onMouseUp = onMouseUp;
+            events.onUpdate = Common::update;
+            events.prepareDraw = prepareDraw;
         }
     }
 
@@ -514,9 +512,9 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
             // 0x0043EEFF start
             window = WindowManager::createWindowCentred(WindowType::scenarioOptions, otherWindowSize, 0, &Challenge::events);
             window->widgets = Challenge::widgets;
-            window->enabled_widgets = Challenge::enabledWidgets;
+            window->enabledWidgets = Challenge::enabledWidgets;
             window->number = 0;
-            window->current_tab = 0;
+            window->currentTab = 0;
             window->frame_no = 0;
 
             auto skin = ObjectManager::get<InterfaceSkinObject>();
@@ -534,14 +532,14 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
         // TODO(avgeffen): only needs to be called once.
         Common::initEvents();
 
-        window->current_tab = 0;
+        window->currentTab = 0;
         window->invalidate();
 
         window->widgets = Challenge::widgets;
-        window->enabled_widgets = Challenge::enabledWidgets;
-        window->holdable_widgets = Challenge::holdableWidgets;
-        window->event_handlers = &Challenge::events;
-        window->activated_widgets = 0;
+        window->enabledWidgets = Challenge::enabledWidgets;
+        window->holdableWidgets = Challenge::holdableWidgets;
+        window->eventHandlers = &Challenge::events;
+        window->activatedWidgets = 0;
 
         window->callOnResize();
         window->callPrepareDraw();
@@ -582,14 +580,11 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
 
         static Widget widgets[] = {
             commonWidgets(327, StringIds::title_company_options),
-            makeStepperWidgets({ 256, 52 }, { 100, 12 }, WidgetType::wt_17, WindowColour::secondary, StringIds::max_competing_companies_value),
-            makeStepperWidgets({ 256, 67 }, { 100, 12 }, WidgetType::wt_17, WindowColour::secondary, StringIds::delay_before_competing_companies_start_months),
-            makeWidget({ 246, 102 }, { 110, 12 }, WidgetType::wt_18, WindowColour::secondary),
-            makeWidget({ 344, 103 }, { 11, 10 }, WidgetType::wt_11, WindowColour::secondary, StringIds::dropdown),
-            makeWidget({ 246, 117 }, { 110, 12 }, WidgetType::wt_18, WindowColour::secondary),
-            makeWidget({ 344, 118 }, { 11, 10 }, WidgetType::wt_11, WindowColour::secondary, StringIds::dropdown),
-            makeWidget({ 246, 132 }, { 110, 12 }, WidgetType::wt_18, WindowColour::secondary),
-            makeWidget({ 344, 133 }, { 11, 10 }, WidgetType::wt_11, WindowColour::secondary, StringIds::dropdown),
+            makeStepperWidgets({ 256, 52 }, { 100, 12 }, WidgetType::textbox, WindowColour::secondary, StringIds::max_competing_companies_value),
+            makeStepperWidgets({ 256, 67 }, { 100, 12 }, WidgetType::textbox, WindowColour::secondary, StringIds::delay_before_competing_companies_start_months),
+            makeDropdownWidgets({ 246, 102 }, { 110, 12 }, WidgetType::combobox, WindowColour::secondary),
+            makeDropdownWidgets({ 246, 117 }, { 110, 12 }, WidgetType::combobox, WindowColour::secondary),
+            makeDropdownWidgets({ 246, 132 }, { 110, 12 }, WidgetType::combobox, WindowColour::secondary),
             makeWidget({ 15, 160 }, { 341, 12 }, WidgetType::checkbox, WindowColour::secondary, StringIds::forbid_trains),
             makeWidget({ 15, 172 }, { 341, 12 }, WidgetType::checkbox, WindowColour::secondary, StringIds::forbid_buses),
             makeWidget({ 15, 184 }, { 341, 12 }, WidgetType::checkbox, WindowColour::secondary, StringIds::forbid_trucks),
@@ -820,21 +815,21 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
             self->widgets[widx::preferred_aggressiveness].text = preferenceLabelIds[*preferredAIAggressiveness];
             self->widgets[widx::preferred_competitiveness].text = preferenceLabelIds[*preferredAICompetitiveness];
 
-            self->activated_widgets &= ~((1 << widx::competitor_forbid_trains) | (1 << widx::competitor_forbid_buses) | (1 << widx::competitor_forbid_trucks) | (1 << widx::competitor_forbid_trams) | (1 << widx::competitor_forbid_aircraft) | (1 << widx::competitor_forbid_ships) | (1 << widx::player_forbid_trains) | (1 << widx::player_forbid_buses) | (1 << widx::player_forbid_trucks) | (1 << widx::player_forbid_trams) | (1 << widx::player_forbid_aircraft) | (1 << widx::player_forbid_ships));
+            self->activatedWidgets &= ~((1 << widx::competitor_forbid_trains) | (1 << widx::competitor_forbid_buses) | (1 << widx::competitor_forbid_trucks) | (1 << widx::competitor_forbid_trams) | (1 << widx::competitor_forbid_aircraft) | (1 << widx::competitor_forbid_ships) | (1 << widx::player_forbid_trains) | (1 << widx::player_forbid_buses) | (1 << widx::player_forbid_trucks) | (1 << widx::player_forbid_trams) | (1 << widx::player_forbid_aircraft) | (1 << widx::player_forbid_ships));
 
             // TODO(avgeffen): replace with wicked smart widget-id kerfuffle, someday.
-            self->activated_widgets |= static_cast<uint64_t>(*forbiddenVehiclesCompetitors) << widx::competitor_forbid_trains;
-            self->activated_widgets |= static_cast<uint64_t>(*forbiddenVehiclesPlayers) << widx::player_forbid_trains;
+            self->activatedWidgets |= static_cast<uint64_t>(*forbiddenVehiclesCompetitors) << widx::competitor_forbid_trains;
+            self->activatedWidgets |= static_cast<uint64_t>(*forbiddenVehiclesPlayers) << widx::player_forbid_trains;
         }
 
         static void initEvents()
         {
             events.draw = draw;
-            events.on_dropdown = onDropdown;
-            events.on_mouse_down = onMouseDown;
-            events.on_mouse_up = onMouseUp;
-            events.on_update = Common::update;
-            events.prepare_draw = prepareDraw;
+            events.onDropdown = onDropdown;
+            events.onMouseDown = onMouseDown;
+            events.onMouseUp = onMouseUp;
+            events.onUpdate = Common::update;
+            events.prepareDraw = prepareDraw;
         }
     }
 
@@ -855,9 +850,9 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
 
         static Widget widgets[] = {
             commonWidgets(217, StringIds::title_financial_options),
-            makeStepperWidgets({ 256, 52 }, { 100, 12 }, WidgetType::wt_17, WindowColour::secondary, StringIds::starting_loan_value),
-            makeStepperWidgets({ 256, 67 }, { 100, 12 }, WidgetType::wt_17, WindowColour::secondary, StringIds::max_loan_size_value),
-            makeStepperWidgets({ 256, 82 }, { 100, 12 }, WidgetType::wt_17, WindowColour::secondary, StringIds::loan_interest_rate_value),
+            makeStepperWidgets({ 256, 52 }, { 100, 12 }, WidgetType::textbox, WindowColour::secondary, StringIds::starting_loan_value),
+            makeStepperWidgets({ 256, 67 }, { 100, 12 }, WidgetType::textbox, WindowColour::secondary, StringIds::max_loan_size_value),
+            makeStepperWidgets({ 256, 82 }, { 100, 12 }, WidgetType::textbox, WindowColour::secondary, StringIds::loan_interest_rate_value),
             widgetEnd(),
         };
 
@@ -963,14 +958,14 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
         static void initEvents()
         {
             events.draw = draw;
-            events.on_mouse_down = onMouseDown;
-            events.on_mouse_up = onMouseUp;
-            events.on_update = Common::update;
-            events.prepare_draw = prepareDraw;
+            events.onMouseDown = onMouseDown;
+            events.onMouseUp = onMouseUp;
+            events.onUpdate = Common::update;
+            events.prepareDraw = prepareDraw;
         }
     }
 
-    namespace Scenario
+    namespace ScenarioTab
     {
         enum widx
         {
@@ -982,10 +977,9 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
 
         static Widget widgets[] = {
             commonWidgets(217, StringIds::title_scenario_options),
-            makeWidget({ 281, 52 }, { 75, 12 }, WidgetType::wt_11, WindowColour::secondary, StringIds::change),
-            makeWidget({ 196, 67 }, { 160, 12 }, WidgetType::wt_18, WindowColour::secondary, StringIds::empty),
-            makeWidget({ 344, 68 }, { 11, 10 }, WidgetType::wt_11, WindowColour::secondary, StringIds::dropdown),
-            makeWidget({ 281, 82 }, { 75, 12 }, WidgetType::wt_11, WindowColour::secondary, StringIds::change),
+            makeWidget({ 281, 52 }, { 75, 12 }, WidgetType::button, WindowColour::secondary, StringIds::change),
+            makeDropdownWidgets({ 196, 67 }, { 160, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::empty),
+            makeWidget({ 281, 82 }, { 75, 12 }, WidgetType::button, WindowColour::secondary, StringIds::change),
             widgetEnd(),
         };
 
@@ -1141,12 +1135,12 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
         static void initEvents()
         {
             events.draw = draw;
-            events.on_dropdown = onDropdown;
-            events.on_mouse_down = onMouseDown;
-            events.on_mouse_up = onMouseUp;
-            events.on_update = Common::update;
-            events.prepare_draw = prepareDraw;
-            events.text_input = textInput;
+            events.onDropdown = onDropdown;
+            events.onMouseDown = onMouseDown;
+            events.onMouseUp = onMouseUp;
+            events.onUpdate = Common::update;
+            events.prepareDraw = prepareDraw;
+            events.textInput = textInput;
         }
     }
 
@@ -1165,13 +1159,13 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
             { Challenge::widgets, widx::tab_challenge, &Challenge::events, &Challenge::enabledWidgets, &Challenge::holdableWidgets },
             { Companies::widgets, widx::tab_companies, &Companies::events, &Companies::enabledWidgets, &Companies::holdableWidgets },
             { Finances::widgets, widx::tab_finances, &Finances::events, &Finances::enabledWidgets, &Finances::holdableWidgets },
-            { Scenario::widgets, widx::tab_scenario, &Scenario::events, &Scenario::enabledWidgets, &Scenario::holdableWidgets }
+            { ScenarioTab::widgets, widx::tab_scenario, &ScenarioTab::events, &ScenarioTab::enabledWidgets, &ScenarioTab::holdableWidgets }
         };
 
         static void prepareDraw(Window* self)
         {
             // Reset tab widgets if needed.
-            auto tabWidgets = tabInformationByTabOffset[self->current_tab].widgets;
+            auto tabWidgets = tabInformationByTabOffset[self->currentTab].widgets;
             if (self->widgets != tabWidgets)
             {
                 self->widgets = tabWidgets;
@@ -1179,9 +1173,9 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
             }
 
             // Activate the current tab.
-            self->activated_widgets &= ~((1 << widx::tab_challenge) | (1 << widx::tab_companies) | (1 << widx::tab_finances) | (1 << widx::tab_scenario));
-            widx widgetIndex = tabInformationByTabOffset[self->current_tab].widgetIndex;
-            self->activated_widgets |= (1ULL << widgetIndex);
+            self->activatedWidgets &= ~((1 << widx::tab_challenge) | (1 << widx::tab_companies) | (1 << widx::tab_finances) | (1 << widx::tab_scenario));
+            widx widgetIndex = tabInformationByTabOffset[self->currentTab].widgetIndex;
+            self->activatedWidgets |= (1ULL << widgetIndex);
 
             // Resize common widgets.
             self->widgets[Common::widx::frame].right = self->width - 1;
@@ -1201,17 +1195,17 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
 
             TextInput::sub_4CE6C9(self->type, self->number);
 
-            self->current_tab = widgetIndex - widx::tab_challenge;
+            self->currentTab = widgetIndex - widx::tab_challenge;
             self->frame_no = 0;
             self->flags &= ~(WindowFlags::flag_16);
-            self->disabled_widgets = 0;
+            self->disabledWidgets = 0;
 
             auto tabInfo = tabInformationByTabOffset[widgetIndex - widx::tab_challenge];
 
-            self->enabled_widgets = *tabInfo.enabledWidgets;
-            self->holdable_widgets = *tabInfo.holdableWidgets;
-            self->event_handlers = tabInfo.events;
-            self->activated_widgets = 0;
+            self->enabledWidgets = *tabInfo.enabledWidgets;
+            self->holdableWidgets = *tabInfo.holdableWidgets;
+            self->eventHandlers = tabInfo.events;
+            self->activatedWidgets = 0;
             self->widgets = tabInfo.widgets;
 
             self->invalidate();
@@ -1237,7 +1231,7 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
             Challenge::initEvents();
             Companies::initEvents();
             Finances::initEvents();
-            Scenario::initEvents();
+            ScenarioTab::initEvents();
         }
     }
 }

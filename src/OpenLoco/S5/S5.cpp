@@ -17,10 +17,10 @@
 #include "../TownManager.h"
 #include "../Ui/WindowManager.h"
 #include "../Utility/Exception.hpp"
+#include "../Utility/Stream.hpp"
 #include "../Vehicles/Orders.h"
 #include "../ViewportManager.h"
 #include "SawyerStream.h"
-#include <fstream>
 
 using namespace OpenLoco::Interop;
 using namespace OpenLoco::Map;
@@ -40,7 +40,7 @@ namespace OpenLoco::S5
     static loco_global<uint8_t, 0x0050C197> _loadErrorCode;
     static loco_global<string_id, 0x0050C198> _loadErrorMessage;
 
-    static bool save(const fs::path& path, const S5File& file, const std::vector<ObjectHeader>& packedObjects);
+    static bool save(Stream& stream, const S5File& file, const std::vector<ObjectHeader>& packedObjects);
 
     Options& getOptions()
     {
@@ -52,7 +52,7 @@ namespace OpenLoco::S5
         return _previewOptions;
     }
 
-    static Header prepareHeader(SaveFlags flags, size_t numPackedObjects)
+    static Header prepareHeader(uint32_t flags, size_t numPackedObjects)
     {
         Header result;
         std::memset(&result, 0, sizeof(result));
@@ -110,7 +110,7 @@ namespace OpenLoco::S5
                 WindowType::previewImage,
                 { 0, 0 },
                 size,
-                WindowFlags::stick_to_front,
+                WindowFlags::stickToFront,
                 &eventList);
             if (tempWindow != nullptr)
             {
@@ -152,9 +152,9 @@ namespace OpenLoco::S5
         StringManager::formatString(saveDetails->company, sizeof(saveDetails->company), playerCompany.name);
         StringManager::formatString(saveDetails->owner, sizeof(saveDetails->owner), playerCompany.ownerName);
         saveDetails->date = gameState.currentDay;
-        saveDetails->performance_index = playerCompany.performanceIndex;
+        saveDetails->performanceIndex = playerCompany.performanceIndex;
         saveDetails->challenge_progress = playerCompany.challengeProgress;
-        saveDetails->challenge_flags = playerCompany.challengeFlags;
+        saveDetails->challengeFlags = playerCompany.challengeFlags;
         std::strncpy(saveDetails->scenario, gameState.scenarioName, sizeof(saveDetails->scenario));
         drawPreviewImage(saveDetails->image, { 250, 200 });
         return saveDetails;
@@ -238,10 +238,10 @@ namespace OpenLoco::S5
         }
     }
 
-    static std::unique_ptr<S5File> prepareSaveFile(SaveFlags flags, const std::vector<ObjectHeader>& requiredObjects, const std::vector<ObjectHeader>& packedObjects)
+    static std::unique_ptr<S5File> prepareSaveFile(uint32_t flags, const std::vector<ObjectHeader>& requiredObjects, const std::vector<ObjectHeader>& packedObjects)
     {
         auto mainWindow = WindowManager::getMainWindow();
-        auto savedView = mainWindow != nullptr ? mainWindow->viewports[0]->toSavedView() : SavedViewSimple();
+        auto savedView = mainWindow != nullptr && mainWindow->viewports[0] != nullptr ? mainWindow->viewports[0]->toSavedView() : SavedViewSimple{ 0, 0, 0, 0 };
 
         auto file = std::make_unique<S5File>();
         file->header = prepareHeader(flags, packedObjects.size());
@@ -268,13 +268,19 @@ namespace OpenLoco::S5
         return file;
     }
 
-    static constexpr bool shouldPackObjects(SaveFlags flags)
+    static constexpr bool shouldPackObjects(uint32_t flags)
     {
         return !(flags & SaveFlags::raw) && !(flags & SaveFlags::dump) && (flags & SaveFlags::packCustomObjects) && !isNetworked();
     }
 
     // 0x00441C26
-    bool save(const fs::path& path, SaveFlags flags)
+    bool save(const fs::path& path, uint32_t flags)
+    {
+        FileStream fs(path, StreamFlags::write);
+        return save(fs, flags);
+    }
+
+    bool save(Stream& stream, uint32_t flags)
     {
         if (!(flags & SaveFlags::noWindowClose) && !(flags & SaveFlags::raw) && !(flags & SaveFlags::dump))
         {
@@ -302,7 +308,7 @@ namespace OpenLoco::S5
             }
 
             auto file = prepareSaveFile(flags, requiredObjects, packedObjects);
-            saveResult = save(path, *file, packedObjects);
+            saveResult = save(stream, *file, packedObjects);
         }
 
         if (!(flags & SaveFlags::raw) && !(flags & SaveFlags::dump))
@@ -324,11 +330,11 @@ namespace OpenLoco::S5
         return false;
     }
 
-    static bool save(const fs::path& path, const S5File& file, const std::vector<ObjectHeader>& packedObjects)
+    static bool save(Stream& stream, const S5File& file, const std::vector<ObjectHeader>& packedObjects)
     {
         try
         {
-            SawyerStreamWriter fs(path);
+            SawyerStreamWriter fs(stream);
             fs.writeChunk(SawyerEncoding::rotate, file.header);
             if (file.header.type == S5Type::scenario || file.header.type == S5Type::landscape)
             {
@@ -414,9 +420,9 @@ namespace OpenLoco::S5
     }
 
     // 0x00441FC9
-    static std::unique_ptr<S5File> load(const fs::path& path)
+    static std::unique_ptr<S5File> load(Stream& stream)
     {
-        SawyerStreamReader fs(path);
+        SawyerStreamReader fs(stream);
         if (!fs.validateChecksum())
         {
             throw std::runtime_error("Invalid checksum");
@@ -519,7 +525,7 @@ namespace OpenLoco::S5
         }
     };
 
-    static void sub_4BAEC4()
+    void sub_4BAEC4() // TerraformConfig
     {
         addr<0x001136496, uint8_t>() = 2;
         addr<0x00525FB1, uint8_t>() = 255;
@@ -528,6 +534,12 @@ namespace OpenLoco::S5
 
     // 0x00441FA7
     bool load(const fs::path& path, uint32_t flags)
+    {
+        FileStream fs(path, StreamFlags::read);
+        return load(fs, flags);
+    }
+
+    bool load(Stream& stream, uint32_t flags)
     {
         _gameSpeed = 0;
         if (!(flags & LoadFlags::titleSequence) && !(flags & LoadFlags::twoPlayer))
@@ -538,7 +550,7 @@ namespace OpenLoco::S5
 
         try
         {
-            auto file = load(path);
+            auto file = load(stream);
 
             if (file->header.version != currentVersion)
             {
@@ -614,6 +626,7 @@ namespace OpenLoco::S5
             call(0x004748FA);
             TileManager::resetSurfaceClearance();
             IndustryManager::createAllMapAnimations();
+            Audio::resetSoundObjects();
 
             if (!(flags & LoadFlags::titleSequence))
             {
@@ -682,7 +695,7 @@ namespace OpenLoco::S5
             0x00441C26,
             [](registers& regs) FORCE_ALIGN_ARG_POINTER -> uint8_t {
                 auto path = fs::u8path(std::string(_savePath));
-                return save(path, static_cast<SaveFlags>(regs.eax)) ? 0 : X86_FLAG_CARRY;
+                return save(path, regs.eax) ? 0 : X86_FLAG_CARRY;
             });
         registerHook(
             0x00441FA7,

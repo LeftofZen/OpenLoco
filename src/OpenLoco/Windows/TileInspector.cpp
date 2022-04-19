@@ -59,11 +59,11 @@ namespace OpenLoco::Ui::Windows::TileInspector
     static Widget _widgets[] = {
         makeWidget({ 0, 0 }, windowSize, WidgetType::frame, WindowColour::primary),
         makeWidget({ 1, 1 }, { windowSize.width - 2, 13 }, WidgetType::caption_25, WindowColour::primary, StringIds::tile_inspector),
-        makeWidget({ windowSize.width - 15, 2 }, { 13, 13 }, WidgetType::wt_9, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
+        makeWidget({ windowSize.width - 15, 2 }, { 13, 13 }, WidgetType::buttonWithImage, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
         makeWidget({ 0, 15 }, { windowSize.width, windowSize.height - 15 }, WidgetType::panel, WindowColour::secondary),
-        makeStepperWidgets({ 19, 24 }, { 55, 12 }, WidgetType::wt_17, WindowColour::secondary),
-        makeStepperWidgets({ 92, 24 }, { 55, 12 }, WidgetType::wt_17, WindowColour::secondary),
-        makeWidget({ windowSize.width - 26, 18 }, { 24, 24 }, WidgetType::wt_9, WindowColour::secondary, ImageIds::construction_new_position, StringIds::tile_inspector_select_btn_tooltip),
+        makeStepperWidgets({ 19, 24 }, { 55, 12 }, WidgetType::textbox, WindowColour::secondary),
+        makeStepperWidgets({ 92, 24 }, { 55, 12 }, WidgetType::textbox, WindowColour::secondary),
+        makeWidget({ windowSize.width - 26, 18 }, { 24, 24 }, WidgetType::buttonWithImage, WindowColour::secondary, ImageIds::construction_new_position, StringIds::tile_inspector_select_btn_tooltip),
         makeWidget({ 4, 46 }, { windowSize.width - 8, 100 }, WidgetType::scrollview, WindowColour::secondary, Ui::Scrollbars::vertical),
         makeWidget({ 4, 148 }, { windowSize.width - 8, 30 }, WidgetType::groupbox, WindowColour::secondary, StringIds::tile_element_data),
         widgetEnd(),
@@ -94,9 +94,9 @@ namespace OpenLoco::Ui::Windows::TileInspector
             &_events);
 
         window->widgets = _widgets;
-        window->enabled_widgets = (1 << widx::close) | (1 << widx::select) | (1 << widx::xPosDecrease) | (1 << widx::xPosIncrease) | (1 << widx::yPosDecrease) | (1 << widx::yPosIncrease);
-        window->row_count = 0;
-        window->row_height = 10;
+        window->enabledWidgets = (1 << widx::close) | (1 << widx::select) | (1 << widx::xPosDecrease) | (1 << widx::xPosIncrease) | (1 << widx::yPosDecrease) | (1 << widx::yPosIncrease);
+        window->rowCount = 0;
+        window->rowHeight = 10;
         window->var_842 = -1;
         window->initScrollWidgets();
 
@@ -112,9 +112,9 @@ namespace OpenLoco::Ui::Windows::TileInspector
     static void prepareDraw(Window* self)
     {
         if (Input::isToolActive(WindowType::tileInspector))
-            self->activated_widgets |= (1 << widx::select);
+            self->activatedWidgets |= (1 << widx::select);
         else
-            self->activated_widgets &= ~(1 << widx::select);
+            self->activatedWidgets &= ~(1 << widx::select);
     }
 
     static void draw(Ui::Window* const self, Gfx::Context* const context)
@@ -307,12 +307,12 @@ namespace OpenLoco::Ui::Windows::TileInspector
             string_id formatString;
             if (self.var_842 == rowNum)
             {
-                Gfx::fillRect(context, 0, yPos, self.width, yPos + self.row_height, Colour::darkGreen);
+                Gfx::fillRect(context, 0, yPos, self.width, yPos + self.rowHeight, enumValue(Colour::darkGreen));
                 formatString = StringIds::white_stringid;
             }
-            else if (self.row_hover == rowNum)
+            else if (self.rowHover == rowNum)
             {
-                Gfx::fillRect(context, 0, yPos, self.width, yPos + self.row_height, 0x2000030);
+                Gfx::fillRect(context, 0, yPos, self.width, yPos + self.rowHeight, 0x2000030);
                 formatString = StringIds::wcolour2_stringid;
             }
             else
@@ -343,14 +343,14 @@ namespace OpenLoco::Ui::Windows::TileInspector
 
             Gfx::drawString_494B3F(context, 0, yPos, Colour::black, formatString, &args);
             rowNum++;
-            yPos += self.row_height;
+            yPos += self.rowHeight;
         }
     }
 
     static void scrollMouseDown(Window* const self, const int16_t x, const int16_t y, const uint8_t scrollIndex)
     {
-        auto index = y / self->row_height;
-        if (index >= self->row_count)
+        auto index = y / self->rowHeight;
+        if (index >= self->rowCount)
             return;
 
         if (self->var_842 != index)
@@ -363,13 +363,13 @@ namespace OpenLoco::Ui::Windows::TileInspector
 
     static void scrollMouseOver(Window* const self, const int16_t x, const int16_t y, const uint8_t scrollIndex)
     {
-        auto index = y / self->row_height;
-        if (index >= self->row_count)
+        auto index = y / self->rowHeight;
+        if (index >= self->rowCount)
             return;
 
-        if (self->row_hover != index)
+        if (self->rowHover != index)
         {
-            self->row_hover = index;
+            self->rowHover = index;
             self->invalidate();
         }
     }
@@ -416,7 +416,7 @@ namespace OpenLoco::Ui::Windows::TileInspector
             return;
         }
 
-        *scrollHeight = self->row_count * self->row_height;
+        *scrollHeight = self->rowCount * self->rowHeight;
     }
 
     static void onToolUpdate(Window& self, const WidgetIndex_t widgetIndex, const int16_t x, const int16_t y)
@@ -446,8 +446,8 @@ namespace OpenLoco::Ui::Windows::TileInspector
         _currentPosition = res->first;
         auto tile = TileManager::get(_currentPosition);
 
-        self.row_count = static_cast<uint16_t>(tile.size());
-        self.row_hover = -1;
+        self.rowCount = static_cast<uint16_t>(tile.size());
+        self.rowHover = -1;
         self.var_842 = 0;
         self.invalidate();
     }
@@ -460,14 +460,14 @@ namespace OpenLoco::Ui::Windows::TileInspector
     static void initEvents()
     {
         _events.draw = draw;
-        _events.draw_scroll = drawScroll;
-        _events.get_scroll_size = getScrollSize;
-        _events.on_close = onClose;
-        _events.on_mouse_up = onMouseUp;
-        _events.on_tool_update = onToolUpdate;
-        _events.on_tool_down = onToolDown;
-        _events.prepare_draw = prepareDraw;
-        _events.scroll_mouse_down = scrollMouseDown;
-        _events.scroll_mouse_over = scrollMouseOver;
+        _events.drawScroll = drawScroll;
+        _events.getScrollSize = getScrollSize;
+        _events.onClose = onClose;
+        _events.onMouseUp = onMouseUp;
+        _events.onToolUpdate = onToolUpdate;
+        _events.onToolDown = onToolDown;
+        _events.prepareDraw = prepareDraw;
+        _events.scrollMouseDown = scrollMouseDown;
+        _events.scrollMouseOver = scrollMouseOver;
     }
 }

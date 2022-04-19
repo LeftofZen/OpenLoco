@@ -20,8 +20,6 @@ using namespace OpenLoco::Map::TileManager;
 
 namespace OpenLoco::Ui::Windows::Construction::Overhead
 {
-    static loco_global<int32_t, 0x00E3F0B8> gCurrentRotation;
-
     Widget widgets[] = {
         commonWidgets(138, 192, StringIds::stringid_2),
         makeWidget({ 3, 45 }, { 132, 12 }, WidgetType::checkbox, WindowColour::secondary, StringIds::empty, StringIds::tooltip_select_track_mod),
@@ -29,8 +27,7 @@ namespace OpenLoco::Ui::Windows::Construction::Overhead
         makeWidget({ 3, 69 }, { 132, 12 }, WidgetType::checkbox, WindowColour::secondary, StringIds::empty, StringIds::tooltip_select_track_mod),
         makeWidget({ 3, 81 }, { 132, 12 }, WidgetType::checkbox, WindowColour::secondary, StringIds::empty, StringIds::tooltip_select_track_mod),
         makeWidget({ 35, 110 }, { 66, 66 }, WidgetType::wt_3, WindowColour::secondary),
-        makeWidget({ 3, 95 }, { 132, 12 }, WidgetType::wt_18, WindowColour::secondary, 0xFFFFFFFF, StringIds::tooltip_select_track_to_upgrade),
-        makeWidget({ 123, 96 }, { 11, 10 }, WidgetType::wt_11, WindowColour::secondary, StringIds::dropdown, StringIds::tooltip_select_track_to_upgrade),
+        makeDropdownWidgets({ 3, 95 }, { 132, 12 }, WidgetType::combobox, WindowColour::secondary, 0xFFFFFFFF, StringIds::tooltip_select_track_to_upgrade),
         widgetEnd(),
     };
 
@@ -391,7 +388,7 @@ namespace OpenLoco::Ui::Windows::Construction::Overhead
         self->widgets[widgetIndex].text = name;
 
         if (_lastSelectedMods & (1 << checkboxIndex))
-            self->activated_widgets |= (1ULL << widgetIndex);
+            self->activatedWidgets |= (1ULL << widgetIndex);
     }
 
     // 0x0049E7D3
@@ -399,7 +396,7 @@ namespace OpenLoco::Ui::Windows::Construction::Overhead
     {
         Common::prepareDraw(self);
 
-        self->activated_widgets &= ~(1 << widx::checkbox_1 | 1 << widx::checkbox_2 | 1 << widx::checkbox_3 | 1 << widx::checkbox_4);
+        self->activatedWidgets &= ~(1 << widx::checkbox_1 | 1 << widx::checkbox_2 | 1 << widx::checkbox_3 | 1 << widx::checkbox_4);
 
         self->widgets[widx::checkbox_1].type = WidgetType::none;
         self->widgets[widx::checkbox_2].type = WidgetType::none;
@@ -440,7 +437,7 @@ namespace OpenLoco::Ui::Windows::Construction::Overhead
             }
         }
 
-        //self->activated_widgets = activatedWidgets;
+        // self->activatedWidgets = activatedWidgets;
 
         self->widgets[widx::image].type = WidgetType::none;
         self->widgets[widx::track].type = WidgetType::none;
@@ -451,8 +448,8 @@ namespace OpenLoco::Ui::Windows::Construction::Overhead
         if (_lastSelectedMods & 0xF)
         {
             self->widgets[widx::image].type = WidgetType::wt_3;
-            self->widgets[widx::track].type = WidgetType::wt_18;
-            self->widgets[widx::track_dropdown].type = WidgetType::wt_11;
+            self->widgets[widx::track].type = WidgetType::combobox;
+            self->widgets[widx::track_dropdown].type = WidgetType::button;
 
             self->widgets[widx::image].tooltip = StringIds::upgrade_track_with_mods;
 
@@ -491,7 +488,7 @@ namespace OpenLoco::Ui::Windows::Construction::Overhead
                 coord_t x = 0x2010;
                 coord_t y = 0x2010;
 
-                auto rotCoord = Math::Vector::rotate(Pos2{ x, y }, gCurrentRotation);
+                auto rotCoord = Math::Vector::rotate(Pos2{ x, y }, WindowManager::getCurrentRotation());
                 Ui::Point screenPos = { static_cast<int16_t>(rotCoord.y - rotCoord.x), static_cast<int16_t>(((rotCoord.x + rotCoord.y) >> 1) - 460) };
 
                 screenPos.x -= (self->widgets[widx::image].width() / 2);
@@ -511,11 +508,11 @@ namespace OpenLoco::Ui::Windows::Construction::Overhead
                 if (_trackType & (1 << 7))
                 {
                     uint8_t trackType = _trackType & ~(1 << 7);
-                    Construction::drawRoad(x, y, _lastSelectedMods, 0x1D0, trackType, 0, companyColour, gCurrentRotation);
+                    Construction::drawRoad(x, y, _lastSelectedMods, 0x1D0, trackType, 0, enumValue(companyColour), WindowManager::getCurrentRotation());
                 }
                 else
                 {
-                    Construction::drawTrack(x, y, _lastSelectedMods, 0x1D0, _trackType, 0, companyColour, gCurrentRotation);
+                    Construction::drawTrack(x, y, _lastSelectedMods, 0x1D0, _trackType, 0, enumValue(companyColour), WindowManager::getCurrentRotation());
                 }
                 _byte_522095 = _byte_522095 & ~(1 << 0);
                 _dword_E0C3E0 = nullptr;
@@ -541,14 +538,14 @@ namespace OpenLoco::Ui::Windows::Construction::Overhead
 
     void initEvents()
     {
-        events.on_close = Common::onClose;
-        events.on_mouse_up = onMouseUp;
-        events.on_mouse_down = onMouseDown;
-        events.on_dropdown = onDropdown;
-        events.on_update = onUpdate;
-        events.on_tool_update = onToolUpdate;
-        events.on_tool_down = onToolDown;
-        events.prepare_draw = prepareDraw;
+        events.onClose = Common::onClose;
+        events.onMouseUp = onMouseUp;
+        events.onMouseDown = onMouseDown;
+        events.onDropdown = onDropdown;
+        events.onUpdate = onUpdate;
+        events.onToolUpdate = onToolUpdate;
+        events.onToolDown = onToolDown;
+        events.prepareDraw = prepareDraw;
         events.draw = draw;
     }
 }

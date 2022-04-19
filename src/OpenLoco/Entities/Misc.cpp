@@ -46,9 +46,9 @@ namespace OpenLoco
         }
     }
 
-    SteamObject* Exhaust::object() const
+    const SteamObject* Exhaust::getObject() const
     {
-        return ObjectManager::get<SteamObject>(object_id & 0x7F);
+        return ObjectManager::get<SteamObject>(objectId & 0x7F);
     }
 
     // 0x004408C2
@@ -78,8 +78,8 @@ namespace OpenLoco
         {
             _exhaust->base_type = EntityBaseType::misc;
             _exhaust->moveTo(loc);
-            _exhaust->object_id = type;
-            auto obj = _exhaust->object();
+            _exhaust->objectId = type;
+            const auto* obj = _exhaust->getObject();
             _exhaust->var_14 = obj->var_05;
             _exhaust->var_09 = obj->var_06;
             _exhaust->var_15 = obj->var_07;
@@ -126,18 +126,86 @@ namespace OpenLoco
 
     static loco_global<int32_t, 0x112C876> _currentFontSpriteBase;
 
+    // 0x004FADD0
+    constexpr Map::Pos2 _wiggleAmounts[] = {
+        { 1, -1 },
+        { 1, 1 },
+        { -1, 1 },
+        { -1, -1 },
+    };
+
+    // clang-format off
+    // 0x004FAD21
+    constexpr int8_t _wiggleZAmounts[MoneyEffect::kLifetime] = {
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        2, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+        0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+        0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+        0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+        0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+        0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+        0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+        0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+        0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+        0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+        0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+        0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+        0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+        0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+        0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+    };
+    // clang-format on
+
     // 0x0044063E
     void MoneyEffect::update()
     {
-        registers regs;
-        regs.esi = X86Pointer(this);
         if (getSubType() == MiscEntityType::windowCurrency)
         {
-            call(0x0044063E, regs);
+            invalidateSprite();
+            if (wiggle == 0)
+            {
+                wiggle = 21;
+            }
+            else
+            {
+                wiggle--;
+            }
+
+            if (frame >= kLifetime)
+            {
+                EntityManager::freeEntity(this);
+                return;
+            }
+            const auto nudge = _wiggleAmounts[Ui::WindowManager::getCurrentRotation()] * ((frame & 1) ? 0 : 1);
+            const auto nudgeZ = _wiggleZAmounts[frame];
+            moveTo(position + Map::Pos3{ nudge.x, nudge.y, nudgeZ });
+            frame++;
         }
         else
         {
-            call(0x004405D8, regs);
+            invalidateSprite();
+            if (wiggle == 22)
+            {
+                wiggle = 0;
+            }
+            else
+            {
+                wiggle++;
+            }
+            moveDelay++;
+            if (moveDelay < 2)
+            {
+                return;
+            }
+            moveDelay = 0;
+
+            const auto nudge = _wiggleAmounts[Ui::WindowManager::getCurrentRotation()];
+            moveTo(position + Map::Pos3{ nudge.x, nudge.y, position.z });
+            numMovements++;
+            if (numMovements >= kRedGreenLifetime)
+            {
+                EntityManager::freeEntity(this);
+            }
         }
     }
 
@@ -163,8 +231,8 @@ namespace OpenLoco
             m->var_2E = company;
             m->moveTo(loc);
             m->setSubType(MiscEntityType::windowCurrency);
-            m->var_26 = 0;
-            m->var_28 = 0;
+            m->frame = 0;
+            m->numMovements = 0;
 
             string_id strFormat = (amount < 0) ? StringIds::format_currency_expense_red_negative : StringIds::format_currency_income_green;
             char buffer[255] = {};
@@ -227,5 +295,22 @@ namespace OpenLoco
         {
             EntityManager::freeEntity(this);
         }
+    }
+
+    // 0x00440BBF
+    ExplosionSmoke* ExplosionSmoke::create(const Map::Pos3& loc)
+    {
+        auto t = static_cast<ExplosionSmoke*>(EntityManager::createEntityMisc());
+        if (t != nullptr)
+        {
+            t->var_14 = 44;
+            t->var_09 = 32;
+            t->var_15 = 34;
+            t->base_type = EntityBaseType::misc;
+            t->moveTo(loc + Map::Pos3{ 0, 0, 4 });
+            t->setSubType(MiscEntityType::explosionSmoke);
+            t->frame = 0;
+        }
+        return t;
     }
 }

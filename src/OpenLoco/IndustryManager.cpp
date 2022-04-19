@@ -24,14 +24,14 @@ namespace OpenLoco::IndustryManager
         Ui::Windows::IndustryList::reset();
     }
 
-    FixedVector<Industry, Limits::maxIndustries> industries()
+    FixedVector<Industry, Limits::kMaxIndustries> industries()
     {
         return FixedVector(rawIndustries());
     }
 
     Industry* get(IndustryId id)
     {
-        if (enumValue(id) >= Limits::maxIndustries)
+        if (enumValue(id) >= Limits::kMaxIndustries)
         {
             return nullptr;
         }
@@ -43,12 +43,18 @@ namespace OpenLoco::IndustryManager
     {
         if (Game::hasFlags(1u << 0) && !isEditorMode())
         {
-            CompanyManager::updatingCompanyId(CompanyId::neutral);
+            CompanyManager::setUpdatingCompanyId(CompanyId::neutral);
             for (auto& industry : industries())
             {
                 industry.update();
             }
         }
+    }
+
+    // 0x00453487
+    void updateDaily()
+    {
+        call(0x00453487);
     }
 
     // 0x0045383B
@@ -74,7 +80,7 @@ namespace OpenLoco::IndustryManager
     {
         for (auto& industry : industries())
         {
-            auto industryObj = industry.object();
+            const auto* industryObj = industry.getObject();
             if ((industryObj->flags & flags) == 0)
                 continue;
 
@@ -84,6 +90,15 @@ namespace OpenLoco::IndustryManager
         }
 
         return false;
+    }
+
+    // 0x004574E8
+    void updateProducedCargoStats()
+    {
+        for (auto& industry : industries())
+        {
+            industry.updateProducedCargoStats();
+        }
     }
 }
 

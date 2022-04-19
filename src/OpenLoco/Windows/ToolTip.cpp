@@ -98,7 +98,7 @@ namespace OpenLoco::Ui::Windows::ToolTip
             WindowType::tooltip,
             Ui::Point(x, y),
             Ui::Size(width, height),
-            WindowFlags::stick_to_front | WindowFlags::transparent | WindowFlags::flag_7,
+            WindowFlags::stickToFront | WindowFlags::transparent | WindowFlags::flag_7,
             &events);
         tooltip->widgets = _widgets;
         _tooltipNotShownTicks = 0;
@@ -175,7 +175,7 @@ namespace OpenLoco::Ui::Windows::ToolTip
         uint16_t height = window->height;
 
         Gfx::drawRect(*context, x + 1, y + 1, width - 2, height - 2, 0x2000000 | 45);
-        Gfx::drawRect(*context, x + 1, y + 1, width - 2, height - 2, 0x2000000 | (116 + ObjectManager::get<InterfaceSkinObject>()->colour_08));
+        Gfx::drawRect(*context, x + 1, y + 1, width - 2, height - 2, 0x2000000 | (116 + enumValue(ObjectManager::get<InterfaceSkinObject>()->colour_08)));
 
         Gfx::drawRect(*context, x, y + 2, 1, height - 4, 0x2000000 | 46);
         Gfx::drawRect(*context, x + width - 1, y + 2, 1, height - 4, 0x2000000 | 46);
@@ -223,8 +223,8 @@ namespace OpenLoco::Ui::Windows::ToolTip
 
     static void initEvents()
     {
-        events.on_close = onClose;
-        events.on_update = update;
+        events.onClose = onClose;
+        events.onUpdate = update;
         events.draw = draw;
     }
 }

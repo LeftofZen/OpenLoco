@@ -1,5 +1,51 @@
-21.10+ (???)
+22.04+ (???)
 ------------------------------------------------------------------------
+- Fix: [#1463] Crash when opening the build window under certain situations.
+
+22.04 (2022-04-12)
+------------------------------------------------------------------------
+- Feature: [#1316] Added a cheat to allow building locked vehicles.
+- Feature: [#1435] Separate landscape height tool from landscape paint tool.
+- Fix: [#1229] Reliability cheat would not apply to multi power locos.
+- Fix: [#1241] Total vehicle power formatted incorrectly.
+- Fix: [#1242] Cannot select both sides of a single way signals.
+- Fix: [#1250] Cannot save landscape in scenario editor.
+- Fix: [#1279] Various crashes when removing vehicles.
+- Fix: [#1284] Delete key doesn't work in text input widgets.
+- Fix: [#1379] Year formatted correctly in date cheat window.
+- Fix: [#1393] Vehicles not sorted correctly in build vehicle window.
+- Fix: [#1400] Imperial-to-metric power conversion didn't match vanilla.
+- Fix: [#1424] Crash when loading a scenario after waiting on title screen.
+- Fix: [#1434] Can set 0 or more than 80 towns in scenario editor.
+- Fix: [#1449] Autopay tooltip was formatted poorly.
+- Fix: [#1450] Some strings were erroneously referenced in the language files.
+- Fix: [#1453] Vehicle modify button image disapears for certain company colours.
+
+22.03.1 (2022-03-08)
+------------------------------------------------------------------------
+- Fix: [#1375] All vehicles are locked.
+
+22.03 (2022-03-08)
+------------------------------------------------------------------------
+- Feature: [#1327] Readd the game intro (use commandline switch --intro to enable).
+- Feature: [#1350] Show vehicle obsolete date in build vehicle window.
+- Feature: [#1354] Added a cheat to display locked vehicles.
+- Fix: [#239] Vehicles sound do not modify pitch and incorrect sounds can be loaded when loading saves.
+- Fix: [#1280] Crash when removing crashed vehicles with news window open.
+- Fix: [#1320] Inability to mark scenario as complete.
+- Fix: [#1323] Playlist crash when setting the date really far into the future.
+- Fix: [#1325] Crash when saving second loaded scenario of a playthrough.
+- Fix: [#1328] Various object loading bugs related to custom object files causing crashes on load.
+- Change: [#1276] Transfering cargo is now viable. The cargo age is calculated as the weighted average of the present and delivered cargo.
+- Technical: [#1347] Now using OpenAL-soft engine for audio, replacing SDL2_mixer.
+
+22.02 (2022-02-06)
+------------------------------------------------------------------------
+- Feature: [#1271] Vehicles display their total capacity in the cargo window.
+- Feature: [#1278] Added a cheat to change the in-game date.
+- Feature: [#1284] Added automatic loan repayment option in company finances window.
+- Feature: [#1291] Modified the time panel date format to display day.
+- Feature: [#1310] Added keyboard shortcuts for changing the game simulation speed.
 - Fix: [#1236] Incorrect cargo capacity displayed for vehicle objects.
 
 21.10 (2021-10-17)

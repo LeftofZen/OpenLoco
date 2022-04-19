@@ -51,7 +51,7 @@ namespace OpenLoco::Input
     static loco_global<uint8_t[256], 0x01140740> _keyboardState;
     static loco_global<uint8_t, 0x011364A4> _editingShortcutIndex;
 
-    static std::pair<std::string, std::function<void()>> cheats[] = {
+    static const std::pair<std::string, std::function<void()>> kCheats[] = {
         { "DRIVER", loc_4BECDE },
         { "SHUNT", loc_4BED04 },
         { "FREECASH", loc_4BED79 }
@@ -86,13 +86,18 @@ namespace OpenLoco::Input
                 continue;
 
             auto t = EntityManager::get<Vehicles::VehicleBase>(EntityId(w->number));
+            if (t == nullptr)
+                continue;
+
             if (t->owner != CompanyManager::getControllingId())
                 continue;
 
             if (t->getTransportMode() != TransportMode::rail)
                 continue;
 
-            GameCommands::do_77(EntityId(w->number));
+            GameCommands::VehicleApplyShuntCheatArgs args;
+            args.head = EntityId(w->number);
+            GameCommands::doCommand(args, GameCommands::Flags::apply);
             Audio::playSound(Audio::SoundId::clickPress, Ui::width() / 2);
 
             return;
@@ -101,7 +106,7 @@ namespace OpenLoco::Input
 
     static void loc_4BED79()
     {
-        GameCommands::do_78();
+        GameCommands::doCommand(GameCommands::ApplyFreeCashCheatArgs(), GameCommands::Flags::apply);
 
         Audio::playSound(Audio::SoundId::clickPress, Ui::width() / 2);
     }
@@ -222,7 +227,7 @@ namespace OpenLoco::Input
         if (isTitleMode())
             return;
 
-        for (auto cheat : cheats)
+        for (const auto& cheat : kCheats)
         {
             if (strcmp(_cheatBuffer.c_str(), cheat.first.c_str()) == 0)
             {
@@ -252,7 +257,7 @@ namespace OpenLoco::Input
         auto& cfg = Config::getNew();
 
         // Unbind any shortcuts that may be using the current keycode.
-        for (size_t i = 0; i < ShortcutManager::count; i++)
+        for (size_t i = 0; i < ShortcutManager::kCount; i++)
         {
             if (cfg.shortcuts[i].keyCode == k->keyCode && cfg.shortcuts[i].modifiers == _keyModifier)
             {
@@ -351,7 +356,7 @@ namespace OpenLoco::Input
 
             if (!isTitleMode())
             {
-                for (size_t i = 0; i < ShortcutManager::count; i++)
+                for (size_t i = 0; i < ShortcutManager::kCount; i++)
                 {
                     if (tryShortcut((Shortcut)i, nextKey->keyCode, _keyModifier))
                         break;
@@ -359,7 +364,7 @@ namespace OpenLoco::Input
                 continue;
             }
 
-            if (Intro::state() == (Intro::State)9)
+            if (Intro::state() == Intro::State::state_9)
             {
                 Intro::state(Intro::State::end);
                 continue;
@@ -367,7 +372,7 @@ namespace OpenLoco::Input
 
             if (Intro::state() != Intro::State::none)
             {
-                Intro::state((Intro::State)8);
+                Intro::state(Intro::State::state_8);
             }
 
             if (tryShortcut(Shortcut::sendMessage, nextKey->keyCode, _keyModifier))
@@ -383,7 +388,7 @@ namespace OpenLoco::Input
         if (Tutorial::state() != Tutorial::State::none)
             return;
 
-        if (Config::get().edge_scrolling == 0)
+        if (Config::get().edgeScrolling == 0)
             return;
 
         if (Input::state() != State::normal && Input::state() != State::dropdownActive)
@@ -411,7 +416,7 @@ namespace OpenLoco::Input
             return;
 
         auto main = WindowManager::getMainWindow();
-        if ((main->flags & WindowFlags::viewport_no_scrolling) != 0)
+        if ((main->flags & WindowFlags::viewportNoScrolling) != 0)
             return;
 
         if (OpenLoco::isTitleMode())
@@ -423,8 +428,8 @@ namespace OpenLoco::Input
 
         delta.x *= 1 << viewport->zoom;
         delta.y *= 1 << viewport->zoom;
-        main->viewport_configurations[0].saved_view_x += delta.x;
-        main->viewport_configurations[0].saved_view_y += delta.y;
+        main->viewportConfigurations[0].saved_view_x += delta.x;
+        main->viewportConfigurations[0].saved_view_y += delta.y;
         Input::setFlag(Flags::viewportScrolling);
     }
 
@@ -457,7 +462,7 @@ namespace OpenLoco::Input
             return;
 
         auto main = WindowManager::getMainWindow();
-        if ((main->flags & WindowFlags::viewport_no_scrolling) != 0)
+        if ((main->flags & WindowFlags::viewportNoScrolling) != 0)
             return;
 
         if (OpenLoco::isTitleMode())
@@ -469,8 +474,8 @@ namespace OpenLoco::Input
 
         delta.x *= 1 << viewport->zoom;
         delta.y *= 1 << viewport->zoom;
-        main->viewport_configurations[0].saved_view_x += delta.x;
-        main->viewport_configurations[0].saved_view_y += delta.y;
+        main->viewportConfigurations[0].saved_view_x += delta.x;
+        main->viewportConfigurations[0].saved_view_y += delta.y;
         Input::setFlag(Flags::viewportScrolling);
     }
 

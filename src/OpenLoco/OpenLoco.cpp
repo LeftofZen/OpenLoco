@@ -1,3 +1,4 @@
+#include "CommandLine.h"
 #include <algorithm>
 #include <cassert>
 #include <chrono>
@@ -47,6 +48,7 @@
 #include "Map/AnimationManager.h"
 #include "Map/TileManager.h"
 #include "Map/WaveManager.h"
+#include "MessageManager.h"
 #include "MultiPlayer.h"
 #include "Objects/ObjectManager.h"
 #include "OpenLoco.h"
@@ -80,13 +82,6 @@ namespace OpenLoco
     static Timepoint _lastUpdate = Clock::now();
     static CExceptionHandler _exHandler = nullptr;
 
-#ifdef _WIN32
-    loco_global<HINSTANCE, 0x0113E0B4> ghInstance;
-    loco_global<LPSTR, 0x00525348> glpCmdLine;
-#else
-    loco_global<char*, 0x00525348> glpCmdLine;
-#endif
-
     loco_global<char[256], 0x005060D0> gCDKey;
 
     loco_global<uint16_t, 0x0050C19C> time_since_last_tick;
@@ -95,15 +90,14 @@ namespace OpenLoco
     loco_global<uint16_t, 0x00508F12> _screen_age;
     loco_global<uint16_t, 0x00508F14> _screenFlags;
     loco_global<uint8_t, 0x00508F17> paused_state;
-    loco_global<uint8_t, 0x00508F1A> _gameSpeed;
+    loco_global<GameSpeed, 0x00508F1A> _gameSpeed;
     static loco_global<string_id, 0x0050A018> _mapTooltipFormatArguments;
     static loco_global<int32_t, 0x0052339C> _52339C;
     static loco_global<int8_t, 0x0052336E> _52336E; // bool
     static loco_global<CompanyId[2], 0x00525E3C> _playerCompanies;
-    loco_global<uint32_t, 0x00525F5E> _scenario_ticks;
     static loco_global<int16_t, 0x00525F62> _525F62;
 
-    static loco_global<CompanyId, 0x009C68EB> _updating_company_id;
+    static loco_global<CompanyId, 0x009C68EB> _updatingCompanyId;
 
     static loco_global<char[256], 0x011367A0> _11367A0;
     static loco_global<char[256], 0x011368A0> _11368A0;
@@ -120,25 +114,6 @@ namespace OpenLoco
     {
         return version;
     }
-
-#ifdef _WIN32
-    void* hInstance()
-    {
-        return ghInstance;
-    }
-#endif
-
-    const char* lpCmdLine()
-    {
-        return glpCmdLine;
-    }
-
-#ifndef _WIN32
-    void lpCmdLine(const char* path)
-    {
-        glpCmdLine = strdup(path);
-    }
-#endif
 
     void resetScreenAge()
     {
@@ -235,20 +210,22 @@ namespace OpenLoco
         *paused_state &= ~(value);
     }
 
-    uint8_t getGameSpeed()
+    GameSpeed getGameSpeed()
     {
         return _gameSpeed;
     }
 
-    void setGameSpeed(uint8_t speed)
+    // 0x00439A70 (speed: 0)
+    // 0x00439A93 (speed: 1)
+    // 0x00439AB6 (speed: 2)
+    void setGameSpeed(const GameSpeed speed)
     {
-        assert(speed <= 3);
-        _gameSpeed = speed;
-    }
-
-    uint32_t scenarioTicks()
-    {
-        return _scenario_ticks;
+        assert(speed <= GameSpeed::MAX);
+        if (_gameSpeed != speed)
+        {
+            _gameSpeed = speed;
+            WindowManager::invalidate(WindowType::timeToolbar);
+        }
     }
 
     Utility::prng& gPrng()
@@ -357,7 +334,7 @@ namespace OpenLoco
         Ui::disposeInput();
         Localisation::unloadLanguageFile();
 
-        auto tempFilePath = Environment::getPathNoWarning(Environment::path_id::_1tmp);
+        auto tempFilePath = Environment::getPathNoWarning(Environment::PathId::_1tmp);
         if (fs::exists(tempFilePath))
         {
             auto path8 = tempFilePath.u8string();
@@ -389,7 +366,7 @@ namespace OpenLoco
     {
         Ui::Windows::MapToolTip::reset();
 
-        Colour::initColourMap();
+        Colours::initColourMap();
         Ui::WindowManager::init();
         Ui::ViewportManager::init();
 
@@ -444,20 +421,49 @@ namespace OpenLoco
         call(0x004969DA);
         Scenario::reset();
         setScreenFlag(ScreenFlags::initialised);
-#ifdef _SHOW_INTRO_
-        Intro::state(Intro::State::begin);
-#else
-        Intro::state(Intro::State::end);
-#endif
+        const auto& cmdLineOptions = getCommandLineOptions();
+        if (cmdLineOptions.action == CommandLineAction::intro)
+        {
+            Intro::state(Intro::State::begin);
+        }
+        else
+        {
+            Intro::state(Intro::State::end);
+        }
         Title::start();
         Gui::init();
         Gfx::clear(Gfx::screenContext(), 0x0A0A0A0A);
     }
 
-    // 0x00428E47
-    static void sub_428E47()
+    static void loadFile(const fs::path& path)
     {
-        call(0x00428E47);
+        auto extension = path.extension().u8string();
+        if (Utility::iequals(extension, S5::extensionSC5))
+        {
+            Scenario::loadAndStart(path);
+        }
+        else
+        {
+            S5::load(path, 0);
+        }
+    }
+
+    static void loadFile(const std::string& path)
+    {
+        loadFile(fs::u8path(path));
+    }
+
+    static void launchGame()
+    {
+        const auto& cmdLineOptions = getCommandLineOptions();
+        if (!cmdLineOptions.path.empty())
+        {
+            loadFile(cmdLineOptions.path);
+        }
+        else
+        {
+            Title::start();
+        }
     }
 
     // 0x0046E388
@@ -483,12 +489,27 @@ namespace OpenLoco
 
     void sub_431695(uint16_t var_F253A0)
     {
+        _updatingCompanyId = CompanyManager::getControllingId();
+        for (auto i = 0; i < var_F253A0; i++)
+        {
+            MessageManager::sub_428E47();
+            WindowManager::dispatchUpdateAll();
+        }
+
+        Input::processKeyboardInput();
+        WindowManager::update();
+        Ui::handleInput();
+        CompanyManager::updateOwnerStatus();
+    }
+
+    [[maybe_unused]] static void old_sub_431695(uint16_t var_F253A0)
+    {
         if (!isNetworked())
         {
-            _updating_company_id = CompanyManager::getControllingId();
+            _updatingCompanyId = CompanyManager::getControllingId();
             for (auto i = 0; i < var_F253A0; i++)
             {
-                sub_428E47();
+                MessageManager::sub_428E47();
                 WindowManager::dispatchUpdateAll();
             }
 
@@ -508,12 +529,12 @@ namespace OpenLoco
         // Host/client?
         if (isNetworkHost())
         {
-            _updating_company_id = CompanyManager::getControllingId();
+            _updatingCompanyId = CompanyManager::getControllingId();
 
             // run twice as often as var_F253A0
             for (auto i = 0; i < var_F253A0 * 2; i++)
             {
-                sub_428E47();
+                MessageManager::sub_428E47();
                 WindowManager::dispatchUpdateAll();
             }
 
@@ -524,15 +545,15 @@ namespace OpenLoco
             CompanyManager::updateOwnerStatus();
             sub_46E388();
 
-            _updating_company_id = _playerCompanies[1];
+            _updatingCompanyId = _playerCompanies[1];
             sub_4317BD();
         }
         else
         {
-            _updating_company_id = _playerCompanies[1];
+            _updatingCompanyId = _playerCompanies[1];
             auto eax = sub_4317BD();
 
-            _updating_company_id = _playerCompanies[0];
+            _updatingCompanyId = _playerCompanies[0];
             if (!isTitleMode())
             {
                 auto edx = gPrng().srand_0();
@@ -549,7 +570,7 @@ namespace OpenLoco
             // run twice as often as var_F253A0
             for (auto i = 0; i < var_F253A0 * 2; i++)
             {
-                sub_428E47();
+                MessageManager::sub_428E47();
                 WindowManager::dispatchUpdateAll();
             }
 
@@ -673,7 +694,7 @@ namespace OpenLoco
                     Config::write();
                 }
 
-                call(0x00452D1A);
+                call(0x00452D1A); // nop redrawPeepAndRain
                 call(0x00440DEC);
 
                 if (addr<0x00525340, int32_t>() == 1)
@@ -689,6 +710,10 @@ namespace OpenLoco
                 if (Intro::isActive())
                 {
                     Intro::update();
+                    if (!Intro::isActive())
+                    {
+                        launchGame();
+                    }
                 }
                 else
                 {
@@ -735,16 +760,17 @@ namespace OpenLoco
                     }
                     uint16_t var_F253A0 = std::max<uint16_t>(1, numUpdates);
                     _screen_age = std::min(0xFFFF, (int32_t)_screen_age + var_F253A0);
-                    if (_gameSpeed != 0)
+                    if (_gameSpeed != GameSpeed::Normal)
                     {
                         numUpdates *= 3;
-                        if (_gameSpeed != 1)
+                        if (_gameSpeed != GameSpeed::FastForward)
                         {
                             numUpdates *= 3;
                         }
                     }
 
                     sub_46FFCA();
+
                     tickLogic(numUpdates);
 
                     _525F62++;
@@ -770,7 +796,7 @@ namespace OpenLoco
                     }
 
                     sub_431695(var_F253A0);
-                    call(0x00452B5F);
+                    call(0x00452B5F); // nop was updateRainAnimation
                     sub_46FFCA();
                     if (Config::get().countdown != 0xFF)
                     {
@@ -828,7 +854,8 @@ namespace OpenLoco
     // 0x0046ABCB
     static void tickLogic()
     {
-        _scenario_ticks++;
+        ScenarioManager::setScenarioTicks(ScenarioManager::getScenarioTicks() + 1);
+
         addr<0x00525F64, int32_t>()++;
         addr<0x00525FCC, uint32_t>() = gPrng().srand_0();
         addr<0x00525FD0, uint32_t>() = gPrng().srand_1();
@@ -836,7 +863,7 @@ namespace OpenLoco
         addr<0x00F25374, uint8_t>() = S5::getOptions().madeAnyChanges;
         dateTick();
         Map::TileManager::update();
-        WaveManager::update();
+        Map::WaveManager::update();
         TownManager::update();
         IndustryManager::update();
         EntityManager::updateVehicles();
@@ -845,7 +872,7 @@ namespace OpenLoco
         EntityManager::updateMiscEntities();
         sub_46FFCA();
         CompanyManager::update();
-        AnimationManager::update();
+        Map::AnimationManager::update();
         Audio::updateVehicleNoise();
         Audio::updateAmbientNoise();
         Title::update();
@@ -874,7 +901,7 @@ namespace OpenLoco
     {
         try
         {
-            auto autosaveDirectory = Environment::getPath(Environment::path_id::autosave);
+            auto autosaveDirectory = Environment::getPath(Environment::PathId::autosave);
             if (fs::is_directory(autosaveDirectory))
             {
                 std::vector<fs::path> autosaveFiles;
@@ -893,7 +920,7 @@ namespace OpenLoco
                     }
                 }
 
-                auto amountToKeep = static_cast<size_t>(std::max(1, Config::getNew().autosave_amount));
+                auto amountToKeep = static_cast<size_t>(std::max(1, Config::getNew().autosaveAmount));
                 if (autosaveFiles.size() > amountToKeep)
                 {
                     // Sort them by name (which should correspond to date order)
@@ -936,14 +963,14 @@ namespace OpenLoco
 
         try
         {
-            auto autosaveDirectory = Environment::getPath(Environment::path_id::autosave);
+            auto autosaveDirectory = Environment::getPath(Environment::PathId::autosave);
             Environment::autoCreateDirectory(autosaveDirectory);
 
             auto autosaveFullPath = autosaveDirectory / filename;
 
             auto autosaveFullPath8 = autosaveFullPath.u8string();
             std::printf("Autosaving game to %s\n", autosaveFullPath8.c_str());
-            S5::save(autosaveFullPath, static_cast<S5::SaveFlags>(S5::SaveFlags::noWindowClose));
+            S5::save(autosaveFullPath, S5::SaveFlags::noWindowClose);
         }
         catch (const std::exception& e)
         {
@@ -957,7 +984,7 @@ namespace OpenLoco
 
         if (!isTitleMode())
         {
-            auto freq = Config::getNew().autosave_frequency;
+            auto freq = Config::getNew().autosaveFrequency;
             if (freq > 0 && _monthsSinceLastAutosave >= freq)
             {
                 autosave();
@@ -974,26 +1001,27 @@ namespace OpenLoco
             if (updateDayCounter())
             {
                 StationManager::updateDaily();
-                call(0x004B94CF);
-                call(0x00453487);
-                call(0x004284DB);
-                call(0x004969DA);
-                call(0x00439BA5);
+                EntityManager::updateDaily();
+                IndustryManager::updateDaily();
+                MessageManager::updateDaily();
+                call(0x004969DA); // nop this sets the real time not used
+                WindowManager::updateDaily();
 
                 auto yesterday = calcDate(getCurrentDay() - 1);
                 auto today = calcDate(getCurrentDay());
                 setDate(today);
                 Scenario::updateSnowLine(today.dayOfOlympiad);
+                Ui::Windows::TimePanel::invalidateFrame();
+
                 if (today.month != yesterday.month)
                 {
                     // End of every month
-                    Ui::Windows::TimePanel::invalidateFrame();
                     addr<0x00526243, uint16_t>()++;
                     TownManager::updateMonthly();
                     IndustryManager::updateMonthly();
-                    call(0x0043037B);
-                    call(0x0042F213);
-                    call(0x004C3C54);
+                    CompanyManager::updateMonthly1();
+                    CompanyManager::updateMonthlyHeadquarters();
+                    EntityManager::updateMonthly();
 
                     if (today.year <= 2029)
                     {
@@ -1013,16 +1041,16 @@ namespace OpenLoco
                     if (today.year != yesterday.year)
                     {
                         // End of every year
-                        call(0x004312C7);
-                        call(0x004796A9);
-                        call(0x004C3A9E);
-                        call(0x0047AB9B);
+                        CompanyManager::updateYearly();
+                        ObjectManager::updateYearly1();
+                        ObjectManager::updateYearly2();
+                        Map::TileManager::updateYearly();
                     }
 
                     autosaveCheck();
                 }
 
-                call(0x00437FB8);
+                CompanyManager::updateDaily();
             }
         }
     }
@@ -1152,9 +1180,58 @@ namespace OpenLoco
 #endif
     }
 
-    // 0x00406D13
-    void main()
+    /**
+     * We do our own command line logic, but we still execute routines that try to read lpCmdLine,
+     * so make sure it is initialised to a pointer to an empty string. Remove this when no more
+     * original code is called that uses lpCmdLine (e.g. 0x00440DEC)
+     */
+    static void resetCmdline()
     {
+        loco_global<const char*, 0x00525348> glpCmdLine;
+        glpCmdLine = "";
+    }
+
+    void simulateGame(const fs::path& path, int32_t ticks)
+    {
+        Config::readNewConfig();
+        Environment::resolvePaths();
+        resetCmdline();
+        registerHooks();
+
+        try
+        {
+            initialise();
+            loadFile(path);
+        }
+        catch (const std::exception& e)
+        {
+            Console::error("Unable to simulate park: %s", e.what());
+        }
+        catch (const GameException i)
+        {
+            if (i != GameException::Interrupt)
+            {
+                Console::error("Unable to simulate park!");
+            }
+            else
+            {
+                Console::log("File loaded. Starting simulation.");
+            }
+        }
+        tickLogic(ticks);
+    }
+
+    // 0x00406D13
+    static int main(const CommandLineOptions& options)
+    {
+        auto ret = runCommandLineOnlyCommand(options);
+        if (ret)
+        {
+            return *ret;
+        }
+
+        setCommandLineOptions(options);
+
         if (!OpenLoco::Platform::isRunningInWine())
         {
             _exHandler = crashInit();
@@ -1163,6 +1240,7 @@ namespace OpenLoco
         {
             Console::log("Detected wine, not installing crash handler as it doesn't provide useful data. Consider using native builds of OpenLoco instead.\n");
         }
+
         auto versionInfo = OpenLoco::getVersionInfo();
         std::cout << versionInfo << std::endl;
         try
@@ -1170,6 +1248,7 @@ namespace OpenLoco
             const auto& cfg = Config::readNewConfig();
             Environment::resolvePaths();
 
+            resetCmdline();
             registerHooks();
             if (sub_4054B9())
             {
@@ -1183,11 +1262,40 @@ namespace OpenLoco
 
                 // TODO extra clean up code
             }
+            return 0;
         }
         catch (const std::exception& e)
         {
             std::cerr << e.what() << std::endl;
             Ui::showMessageBox("Exception", e.what());
+            exitCleanly();
+            return 2;
+        }
+    }
+
+    int main(int argc, const char** argv)
+    {
+        auto options = parseCommandLine(argc, argv);
+        if (options)
+        {
+            return main(*options);
+        }
+        else
+        {
+            return 1;
+        }
+    }
+
+    int main(const char* args)
+    {
+        auto options = parseCommandLine(args);
+        if (options)
+        {
+            return main(*options);
+        }
+        else
+        {
+            return 1;
         }
     }
 }
@@ -1196,17 +1304,14 @@ extern "C" {
 
 #ifdef _WIN32
 /**
-     * The function that is called directly from the host application (loco.exe)'s WinMain. This will be removed when OpenLoco can
-     * be built as a stand alone application.
-     */
+ * The function that is called directly from the host application (loco.exe)'s WinMain. This will be removed when OpenLoco can
+ * be built as a stand alone application.
+ */
 // Hack to trick mingw into thinking we forward-declared this function.
 __declspec(dllexport) int StartOpenLoco(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow);
 __declspec(dllexport) int StartOpenLoco(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-    OpenLoco::glpCmdLine = lpCmdLine;
-    OpenLoco::ghInstance = hInstance;
-    OpenLoco::main();
-    return 0;
+    return OpenLoco::main(lpCmdLine);
 }
 #endif
 }

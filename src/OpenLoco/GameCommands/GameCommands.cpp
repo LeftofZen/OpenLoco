@@ -18,7 +18,7 @@ using namespace OpenLoco::Map;
 
 namespace OpenLoco::GameCommands
 {
-    static loco_global<CompanyId, 0x009C68EB> _updating_company_id;
+    static loco_global<CompanyId, 0x009C68EB> _updatingCompanyId;
     static loco_global<uint8_t, 0x00508F08> game_command_nest_level;
     static loco_global<CompanyId[2], 0x00525E3C> _player_company;
     static loco_global<uint8_t, 0x00508F17> paused_state;
@@ -45,7 +45,7 @@ namespace OpenLoco::GameCommands
     };
 
     // clang-format off
-    static constexpr GameCommandInfo _gameCommandDefinitions[82] = {
+    static constexpr GameCommandInfo kGameCommandDefinitions[83] = {
         { GameCommand::vehicleRearrange,             nullptr,                   0x004AF1DF, true  },
         { GameCommand::vehiclePlace,                 nullptr,                   0x004B01B6, true  },
         { GameCommand::vehiclePickup,                vehiclePickup,             0x004B0826, true  },
@@ -70,7 +70,7 @@ namespace OpenLoco::GameCommands
         { GameCommand::loadSaveQuitGame,             loadSaveQuit,              0x0043BFCB, false },
         { GameCommand::removeTree,                   removeTree,                0x004BB392, true  },
         { GameCommand::createTree,                   nullptr,                   0x004BB138, true  },
-        { GameCommand::changeLandMaterial,           nullptr,                   0x00468EDD, true  },
+        { GameCommand::changeLandMaterial,           changeLandMaterial,        0x00468EDD, true  },
         { GameCommand::raiseLand,                    nullptr,                   0x00463702, true  },
         { GameCommand::lowerLand,                    nullptr,                   0x004638C6, true  },
         { GameCommand::lowerRaiseLandMountain,       nullptr,                   0x00462DCE, true  },
@@ -119,15 +119,16 @@ namespace OpenLoco::GameCommands
         { GameCommand::gc_unk_70,                    nullptr,                   0x004456C8, false },
         { GameCommand::sendChatMessage,              nullptr,                   0x0046F976, false },
         { GameCommand::multiplayerSave,              nullptr,                   0x004A0ACD, false },
-        { GameCommand::updateOwnerStatus,            nullptr,                   0x004383CA, false },
+        { GameCommand::updateOwnerStatus,            updateOwnerStatus,         0x004383CA, false },
         { GameCommand::vehicleSpeedControl,          nullptr,                   0x004BAB63, true  },
         { GameCommand::vehicleOrderUp,               nullptr,                   0x00470CD2, false },
         { GameCommand::vehicleOrderDown,             nullptr,                   0x00470E06, false },
-        { GameCommand::vehicleApplyShuntCheat,       nullptr,                   0x004BAC53, false },
-        { GameCommand::applyFreeCashCheat,           nullptr,                   0x00438A08, false },
+        { GameCommand::vehicleApplyShuntCheat,       vehicleShuntCheat,         0x004BAC53, false },
+        { GameCommand::applyFreeCashCheat,           freeCashCheat,             0x00438A08, false },
         { GameCommand::renameIndustry,               renameIndustry,            0x00455029, false },
         { GameCommand::vehicleClone,                 Vehicles::cloneVehicle,    0,          true  },
         { GameCommand::cheat,                        cheat,                     0,          true  },
+        { GameCommand::setGameSpeed,                 setGameSpeed,              0,          true  },
     };
     // clang-format on
 
@@ -153,7 +154,7 @@ namespace OpenLoco::GameCommands
         if ((flags & (Flags::flag_4 | Flags::flag_6)) != 0)
             return false;
 
-        auto& gameCommand = _gameCommandDefinitions[static_cast<uint32_t>(command)];
+        auto& gameCommand = kGameCommandDefinitions[static_cast<uint32_t>(command)];
         if (!gameCommand.unpausesGame || isPauseOverrideEnabled())
             return false;
 
@@ -175,7 +176,7 @@ namespace OpenLoco::GameCommands
             return loc_4313C6(esi, regs);
         }
 
-        if (commandRequiresUnpausingGame(command, flags) && _updating_company_id == _player_company[0])
+        if (commandRequiresUnpausingGame(command, flags) && _updatingCompanyId == _player_company[0])
         {
             if (getPauseFlags() & 1)
             {
@@ -185,20 +186,20 @@ namespace OpenLoco::GameCommands
                 Ui::Windows::PlayerInfoPanel::invalidateFrame();
             }
 
-            if (getGameSpeed() != 0)
+            if (getGameSpeed() != GameSpeed::Normal)
             {
-                setGameSpeed(0);
-                WindowManager::invalidate(WindowType::timeToolbar);
+                // calling the command setGameSpeed will cause infinite recursion here, so just call the real function
+                OpenLoco::setGameSpeed(GameSpeed::Normal);
             }
 
             if (isPaused())
             {
                 _gGameCommandErrorText = StringIds::empty;
-                return 0x80000000;
+                return GameCommands::FAILURE;
             }
         }
 
-        if (_updating_company_id == _player_company[0] && isNetworked())
+        if (_updatingCompanyId == _player_company[0] && isNetworked())
         {
             assert(false);
             registers fnRegs = regs;
@@ -210,7 +211,7 @@ namespace OpenLoco::GameCommands
 
     static void callGameCommandFunction(uint32_t command, registers& regs)
     {
-        auto& gameCommand = _gameCommandDefinitions[command];
+        auto& gameCommand = kGameCommandDefinitions[command];
         if (gameCommand.implementation != nullptr)
         {
             gameCommand.implementation(regs);
@@ -235,7 +236,7 @@ namespace OpenLoco::GameCommands
         int32_t ebx = fnRegs1.ebx;
         _gameCommandFlags = flagsBackup;
 
-        if (ebx != static_cast<int32_t>(0x80000000))
+        if (ebx != static_cast<int32_t>(GameCommands::FAILURE))
         {
             if (isEditorMode())
                 ebx = 0;
@@ -254,7 +255,7 @@ namespace OpenLoco::GameCommands
             }
         }
 
-        if (ebx == static_cast<int32_t>(0x80000000))
+        if (ebx == static_cast<int32_t>(GameCommands::FAILURE))
         {
             if (flags & Flags::apply)
             {
@@ -279,7 +280,7 @@ namespace OpenLoco::GameCommands
         int32_t ebx2 = fnRegs2.ebx;
         _gameCommandFlags = flagsBackup2;
 
-        if (ebx2 == static_cast<int32_t>(0x80000000))
+        if (ebx2 == static_cast<int32_t>(GameCommands::FAILURE))
         {
             return loc_4314EA();
         }
@@ -302,12 +303,12 @@ namespace OpenLoco::GameCommands
             return ebx;
 
         // Apply to company money
-        CompanyManager::applyPaymentToCompany(CompanyManager::updatingCompanyId(), ebx, getExpenditureType());
+        CompanyManager::applyPaymentToCompany(CompanyManager::getUpdatingCompanyId(), ebx, getExpenditureType());
 
-        if (ebx != 0 && _updating_company_id == _player_company[0])
+        if (ebx != 0 && _updatingCompanyId == _player_company[0])
         {
             // Add flying cost text
-            CompanyManager::spendMoneyEffect(getPosition() + Map::Pos3{ 0, 0, 24 }, _updating_company_id, ebx);
+            CompanyManager::spendMoneyEffect(getPosition() + Map::Pos3{ 0, 0, 24 }, _updatingCompanyId, ebx);
         }
 
         return ebx;
@@ -317,18 +318,18 @@ namespace OpenLoco::GameCommands
     {
         game_command_nest_level--;
         if (game_command_nest_level != 0)
-            return 0x80000000;
+            return GameCommands::FAILURE;
 
-        if (_updating_company_id != _player_company[0])
-            return 0x80000000;
+        if (_updatingCompanyId != _player_company[0])
+            return GameCommands::FAILURE;
 
         if (_gameCommandFlags & Flags::flag_3)
-            return 0x80000000;
+            return GameCommands::FAILURE;
 
         if (_gGameCommandErrorText != 0xFFFE)
         {
             Windows::showError(_gGameCommandErrorTitle, _gGameCommandErrorText);
-            return 0x80000000;
+            return GameCommands::FAILURE;
         }
 
         // advanced errors
@@ -350,7 +351,7 @@ namespace OpenLoco::GameCommands
                     formatter.push(pObject->name);
                     formatter.push(CompanyManager::get(_errorCompanyId)->name);
                     Windows::Error::openWithCompetitor(_gGameCommandErrorTitle, StringIds::error_reason_stringid_belongs_to, _errorCompanyId);
-                    return 0x80000000;
+                    return GameCommands::FAILURE;
                 }
 
                 case ElementType::road: //0x1C
@@ -365,7 +366,7 @@ namespace OpenLoco::GameCommands
                     formatter.push(pObject->name);
                     formatter.push(CompanyManager::get(_errorCompanyId)->name);
                     Windows::Error::openWithCompetitor(_gGameCommandErrorTitle, StringIds::error_reason_stringid_belongs_to, _errorCompanyId);
-                    return 0x80000000;
+                    return GameCommands::FAILURE;
                 }
 
                 case ElementType::station: // 8
@@ -381,7 +382,7 @@ namespace OpenLoco::GameCommands
                     formatter.push(pStation->town);
                     formatter.push(CompanyManager::get(_errorCompanyId)->name);
                     Windows::Error::openWithCompetitor(_gGameCommandErrorTitle, StringIds::error_reason_stringid_belongs_to, _errorCompanyId);
-                    return 0x80000000;
+                    return GameCommands::FAILURE;
                 }
 
                 case ElementType::signal: // 0x0C
@@ -389,7 +390,7 @@ namespace OpenLoco::GameCommands
                     auto formatter = FormatArguments::common();
                     formatter.push(CompanyManager::get(_errorCompanyId)->name);
                     Windows::Error::openWithCompetitor(_gGameCommandErrorTitle, StringIds::error_reason_signal_belongs_to, _errorCompanyId);
-                    return 0x80000000;
+                    return GameCommands::FAILURE;
                 }
 
                 default:
@@ -401,7 +402,7 @@ namespace OpenLoco::GameCommands
         auto formatter = FormatArguments::common();
         formatter.push(CompanyManager::get(_errorCompanyId)->name);
         Windows::Error::openWithCompetitor(_gGameCommandErrorTitle, StringIds::error_reason_stringid_belongs_to, _errorCompanyId);
-        return 0x80000000;
+        return GameCommands::FAILURE;
     }
 
     // 0x00431E6A
@@ -413,7 +414,7 @@ namespace OpenLoco::GameCommands
         {
             return true;
         }
-        if (_updating_company_id == company || _updating_company_id == CompanyId::neutral)
+        if (_updatingCompanyId == company || _updatingCompanyId == CompanyId::neutral)
         {
             return true;
         }
@@ -456,5 +457,15 @@ namespace OpenLoco::GameCommands
     void setExpenditureType(const ExpenditureType type)
     {
         _gGameCommandExpenditureType = static_cast<uint8_t>(type) * 4;
+    }
+
+    CompanyId getUpdatingCompanyId()
+    {
+        return _updatingCompanyId;
+    }
+
+    void setUpdatingCompanyId(const CompanyId companyId)
+    {
+        _updatingCompanyId = companyId;
     }
 }

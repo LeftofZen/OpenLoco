@@ -20,14 +20,14 @@ namespace OpenLoco::Vehicles
         uint32_t remainingDistance;  // 0x28
         TrackAndDirection var_2C;    // 0x2C
         uint16_t subPosition;        // 0x2E
-        int16_t tile_x;              // 0x30
-        int16_t tile_y;              // 0x32
-        uint8_t tile_base_z;         // 0x34
-        uint8_t track_type;          // 0x35 field same in all vehicles
+        int16_t tileX;               // 0x30
+        int16_t tileY;               // 0x32
+        uint8_t tileBaseZ;           // 0x34
+        uint8_t trackType;           // 0x35 field same in all vehicles
         RoutingHandle routingHandle; // 0x36 field same in all vehicles
         uint8_t var_38;              // 0x38
         uint8_t pad_39;
-        EntityId next_car_id; // 0x3A
+        EntityId nextCarId; // 0x3A
         uint8_t pad_3C[0x42 - 0x3C];
         TransportMode mode; // 0x42 field same in all vehicles
     };
@@ -42,7 +42,7 @@ namespace OpenLoco::Vehicles
     VehicleBase* VehicleBase::nextVehicleComponent()
     {
         auto* veh = reinterpret_cast<VehicleCommon*>(this);
-        return EntityManager::get<VehicleBase>(veh->next_car_id);
+        return EntityManager::get<VehicleBase>(veh->nextCarId);
     }
 
     TransportMode VehicleBase::getTransportMode() const
@@ -60,7 +60,19 @@ namespace OpenLoco::Vehicles
     uint8_t VehicleBase::getTrackType() const
     {
         const auto* veh = reinterpret_cast<const VehicleCommon*>(this);
-        return veh->track_type;
+        return veh->trackType;
+    }
+
+    Map::Pos3 VehicleBase::getTrackLoc() const
+    {
+        const auto* veh = reinterpret_cast<const VehicleCommon*>(this);
+        return Map::Pos3(veh->tileX, veh->tileY, veh->tileBaseZ * 4);
+    }
+
+    TrackAndDirection VehicleBase::getVar2C() const
+    {
+        const auto* veh = reinterpret_cast<const VehicleCommon*>(this);
+        return veh->var_2C;
     }
 
     RoutingHandle VehicleBase::getRoutingHandle() const
@@ -78,7 +90,7 @@ namespace OpenLoco::Vehicles
     void VehicleBase::setNextCar(const EntityId newNextCar)
     {
         auto* veh = reinterpret_cast<VehicleCommon*>(this);
-        veh->next_car_id = newNextCar;
+        veh->nextCarId = newNextCar;
     }
 
     // 0x004AA464
@@ -97,6 +109,15 @@ namespace OpenLoco::Vehicles
         regs.esi = X86Pointer(this);
         call(0x004B15FF, regs);
         return regs.eax;
+    }
+
+    // 0x004AA407
+    void VehicleBase::explodeComponent()
+    {
+        assert(getSubType() == VehicleThingType::bogie || getSubType() == VehicleThingType::body_start || getSubType() == VehicleThingType::body_continued);
+        registers regs;
+        regs.esi = X86Pointer(this);
+        call(0x004AA407, regs);
     }
 
     // 0x0047D959
@@ -167,41 +188,59 @@ namespace OpenLoco::Vehicles
 
     bool VehicleBase::updateComponent()
     {
-        int32_t result = 0;
-        registers regs;
-        regs.esi = X86Pointer(this);
         switch (getSubType())
         {
             case VehicleThingType::head:
                 return !asVehicleHead()->update();
             case VehicleThingType::vehicle_1:
-                result = call(0x004A9788, regs);
-                break;
+                return !asVehicle1()->update();
             case VehicleThingType::vehicle_2:
-                result = call(0x004A9B0B, regs);
-                break;
+                return !asVehicle2()->update();
             case VehicleThingType::bogie:
-                result = call(0x004AA008, regs);
-                break;
+                return !asVehicleBogie()->update();
             case VehicleThingType::body_start:
             case VehicleThingType::body_continued:
                 return !asVehicleBody()->update();
-                break;
             case VehicleThingType::tail:
                 return !asVehicleTail()->update();
-                break;
             default:
                 break;
         }
-        return (result & (1 << 8)) != 0;
+        return false;
     }
 
     CarComponent::CarComponent(VehicleBase*& component)
     {
         front = component->asVehicleBogie();
-        back = front->nextVehicleComponent()->asVehicleBogie();
-        body = back->nextVehicleComponent()->asVehicleBody();
-        component = body->nextVehicleComponent();
+        if (front == nullptr)
+        {
+            throw std::runtime_error("Bad vehicle structure");
+        }
+        component = component->nextVehicleComponent();
+        if (component == nullptr)
+        {
+            throw std::runtime_error("Bad vehicle structure");
+        }
+        back = component->asVehicleBogie();
+        if (back == nullptr)
+        {
+            throw std::runtime_error("Bad vehicle structure");
+        }
+        component = component->nextVehicleComponent();
+        if (component == nullptr)
+        {
+            throw std::runtime_error("Bad vehicle structure");
+        }
+        body = component->asVehicleBody();
+        if (body == nullptr)
+        {
+            throw std::runtime_error("Bad vehicle structure");
+        }
+        component = component->nextVehicleComponent();
+        if (component == nullptr)
+        {
+            throw std::runtime_error("Bad vehicle structure");
+        }
     }
 
     Vehicle::Vehicle(EntityId _head)
@@ -212,9 +251,35 @@ namespace OpenLoco::Vehicles
             throw std::runtime_error("Bad vehicle structure");
         }
         head = component->asVehicleHead();
-        veh1 = head->nextVehicleComponent()->asVehicle1();
-        veh2 = veh1->nextVehicleComponent()->asVehicle2();
-        component = veh2->nextVehicleComponent();
+        if (head == nullptr)
+        {
+            throw std::runtime_error("Bad vehicle structure");
+        }
+        component = component->nextVehicleComponent();
+        if (component == nullptr)
+        {
+            throw std::runtime_error("Bad vehicle structure");
+        }
+        veh1 = component->asVehicle1();
+        if (veh1 == nullptr)
+        {
+            throw std::runtime_error("Bad vehicle structure");
+        }
+        component = component->nextVehicleComponent();
+        if (component == nullptr)
+        {
+            throw std::runtime_error("Bad vehicle structure");
+        }
+        veh2 = component->asVehicle2();
+        if (veh2 == nullptr)
+        {
+            throw std::runtime_error("Bad vehicle structure");
+        }
+        component = component->nextVehicleComponent();
+        if (component == nullptr)
+        {
+            throw std::runtime_error("Bad vehicle structure");
+        }
         if (component->getSubType() != VehicleThingType::tail)
         {
             cars = Cars{ Car{ component } };
@@ -222,6 +287,10 @@ namespace OpenLoco::Vehicles
         while (component->getSubType() != VehicleThingType::tail)
         {
             component = component->nextVehicleComponent();
+            if (component == nullptr)
+            {
+                throw std::runtime_error("Bad vehicle structure");
+            }
         }
         tail = component->asVehicleTail();
     }
@@ -229,7 +298,7 @@ namespace OpenLoco::Vehicles
     // 0x00426790
     uint16_t VehicleBogie::getPlaneType()
     {
-        auto* vehObj = ObjectManager::get<VehicleObject>(object_id);
+        auto* vehObj = ObjectManager::get<VehicleObject>(objectId);
         if (vehObj->flags & FlagsE0::isHelicopter)
         {
             return 1 << 4;

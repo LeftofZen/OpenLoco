@@ -24,6 +24,7 @@
 #include "../Objects/RoadStationObject.h"
 #include "../Objects/VehicleObject.h"
 #include "../OpenLoco.h"
+#include "../ScenarioManager.h"
 #include "../StationManager.h"
 #include "../TownManager.h"
 #include "../Ui/WindowManager.h"
@@ -31,9 +32,11 @@
 #include "Orders.h"
 #include "Vehicle.h"
 #include <cassert>
+#include <numeric>
 
 using namespace OpenLoco::Interop;
 using namespace OpenLoco::Literals;
+using namespace OpenLoco::Map;
 
 namespace OpenLoco::Vehicles
 {
@@ -46,15 +49,13 @@ namespace OpenLoco::Vehicles
     static loco_global<int32_t, 0x0113612C> vehicleUpdate_var_113612C; // Speed
     static loco_global<int32_t, 0x01136130> vehicleUpdate_var_1136130; // Speed
     static loco_global<int16_t, 0x01136168> vehicleUpdate_targetZ;
-    static loco_global<uint8_t, 0x01136237> vehicle_var_1136237; // remainingDistance related?
-    static loco_global<uint8_t, 0x01136238> vehicle_var_1136238; // remainingDistance related?
     static loco_global<Status, 0x0113646C> vehicleUpdate_initialStatus;
     static loco_global<uint8_t, 0x0113646D> vehicleUpdate_helicopterTargetYaw;
     static loco_global<uint32_t, 0x00525BB0> vehicleUpdate_var_525BB0;
-    static constexpr uint16_t trainOneWaySignalTimeout = 1920;
-    static constexpr uint16_t trainTwoWaySignalTimeout = 640;
-    static constexpr uint16_t busSignalTimeout = 960;   // Time to wait before turning around at barriers
-    static constexpr uint16_t tramSignalTimeout = 2880; // Time to wait before turning around at barriers
+    static constexpr uint16_t kTrainOneWaySignalTimeout = 1920;
+    static constexpr uint16_t kTrainTwoWaySignalTimeout = 640;
+    static constexpr uint16_t kBusSignalTimeout = 960;   // Time to wait before turning around at barriers
+    static constexpr uint16_t kTramSignalTimeout = 2880; // Time to wait before turning around at barriers
 
     void VehicleHead::updateVehicle()
     {
@@ -73,7 +74,7 @@ namespace OpenLoco::Vehicles
     // 0x004A8B81
     bool VehicleHead::update()
     {
-        Vehicle train(this);
+        Vehicle train(head);
         vehicleUpdate_head = train.head;
         vehicleUpdate_1 = train.veh1;
         vehicleUpdate_2 = train.veh2;
@@ -93,7 +94,7 @@ namespace OpenLoco::Vehicles
             var_5C--;
         }
 
-        if (tile_x == -1)
+        if (tileX == -1)
         {
             if (!train.cars.empty())
             {
@@ -130,6 +131,42 @@ namespace OpenLoco::Vehicles
         return continueUpdating;
     }
 
+    // 0x004C3C65
+    void VehicleHead::updateMonthly()
+    {
+        Vehicle train(head);
+        if ((tileX != -1) && !(var_38 & Flags38::isGhost))
+        {
+            constexpr ExpenditureType vehTypeToCost[] = {
+                ExpenditureType::TrainRunningCosts,
+                ExpenditureType::BusRunningCosts,
+                ExpenditureType::TruckRunningCosts,
+                ExpenditureType::TramRunningCosts,
+                ExpenditureType::AircraftRunningCosts,
+                ExpenditureType::ShipRunningCosts,
+            };
+            const auto costs = calculateRunningCost();
+            CompanyManager::applyPaymentToCompany(owner, costs, vehTypeToCost[enumValue(vehicleType)]);
+
+            const auto monthlyProfit = train.veh2->curMonthRevenue - costs;
+
+            auto& profitHist = train.veh2->profit;
+            std::rotate(std::begin(profitHist), std::end(profitHist) - 1, std::end(profitHist));
+            profitHist[0] = monthlyProfit;
+
+            train.veh2->curMonthRevenue = 0;
+            Ui::WindowManager::invalidate(Ui::WindowType::vehicle, enumValue(id));
+        }
+
+        for (auto& car : train.cars)
+        {
+            // Reduce the refund cost by 0.78% each month
+            car.front->refundCost -= car.front->refundCost / 128;
+        }
+
+        calculateRefundCost();
+    }
+
     // 0x004BA8D4
     void VehicleHead::updateBreakdown()
     {
@@ -152,12 +189,12 @@ namespace OpenLoco::Vehicles
             case Status::takingOff:
                 break;
         }
-        Vehicle train(this);
+        Vehicle train(head);
         for (auto& car : train.cars)
         {
-            if (car.front->var_5F & Flags5F::broken_down)
+            if (car.front->var_5F & Flags5F::brokenDown)
             {
-                if ((scenarioTicks() & 3) == 0)
+                if ((ScenarioManager::getScenarioTicks() & 3) == 0)
                 {
                     auto v2 = car.body; // body
 
@@ -165,13 +202,13 @@ namespace OpenLoco::Vehicles
                 }
             }
 
-            if ((car.front->var_5F & Flags5F::breakdown_pending) && !isTitleMode())
+            if ((car.front->var_5F & Flags5F::breakdownPending) && !isTitleMode())
             {
                 auto newConfig = Config::getNew();
-                if (!newConfig.breakdowns_disabled)
+                if (!newConfig.breakdownsDisabled)
                 {
-                    car.front->var_5F &= ~Flags5F::breakdown_pending;
-                    car.front->var_5F |= Flags5F::broken_down;
+                    car.front->var_5F &= ~Flags5F::breakdownPending;
+                    car.front->var_5F |= Flags5F::brokenDown;
                     car.front->var_6A = 5;
                     applyBreakdownToTrain();
 
@@ -185,13 +222,13 @@ namespace OpenLoco::Vehicles
     // 0x004BAA76
     void VehicleHead::applyBreakdownToTrain()
     {
-        Vehicle train(this);
+        Vehicle train(head);
         bool isBrokenDown = false;
         bool trainStillPowered = false;
         // Check only the first bogie on each car for breakdown flags
         for (const auto& car : train.cars)
         {
-            auto* vehObj = ObjectManager::get<VehicleObject>(car.front->object_id);
+            auto* vehObj = ObjectManager::get<VehicleObject>(car.front->objectId);
             if (vehObj == nullptr)
             {
                 continue;
@@ -201,7 +238,7 @@ namespace OpenLoco::Vehicles
             {
                 continue;
             }
-            if (car.front->var_5F & Flags5F::broken_down)
+            if (car.front->var_5F & Flags5F::brokenDown)
             {
                 isBrokenDown = true;
             }
@@ -233,7 +270,7 @@ namespace OpenLoco::Vehicles
     // ebx : sourceVehicleTypeId;
     static bool sub_4B90F0(const uint16_t newVehicleTypeId, const uint16_t sourceVehicleTypeId)
     {
-        auto newObject = ObjectManager::get<VehicleObject>(newVehicleTypeId);       //edi
+        auto newObject = ObjectManager::get<VehicleObject>(newVehicleTypeId);       // edi
         auto sourceObject = ObjectManager::get<VehicleObject>(sourceVehicleTypeId); // esi
 
         if ((newObject->flags & FlagsE0::can_couple) && (sourceObject->flags & FlagsE0::can_couple))
@@ -288,7 +325,7 @@ namespace OpenLoco::Vehicles
                 continue;
             }
 
-            auto unk = vehObject->var_24[i].body_sprite_ind & 0x7F;
+            auto unk = vehObject->var_24[i].body_sprite_ind & (VehicleObject::kMaxBodySprites - 1);
             length += vehObject->bodySprites[unk].bogey_position * 2;
         }
         return length;
@@ -299,10 +336,10 @@ namespace OpenLoco::Vehicles
     uint32_t VehicleHead::getVehicleTotalLength() // TODO: const
     {
         auto totalLength = 0;
-        Vehicle train(this);
+        Vehicle train(head);
         for (const auto& car : train.cars)
         {
-            totalLength += getVehicleTypeLength(car.body->object_id);
+            totalLength += getVehicleTypeLength(car.body->objectId);
         }
         return totalLength;
     }
@@ -315,7 +352,7 @@ namespace OpenLoco::Vehicles
         auto newObject = ObjectManager::get<VehicleObject>(vehicleTypeId);
         if (newObject->mode == TransportMode::air || newObject->mode == TransportMode::water)
         {
-            Vehicle train(this);
+            Vehicle train(head);
             if (!train.cars.empty())
             {
                 GameCommands::setErrorText(StringIds::incompatible_vehicle);
@@ -324,7 +361,7 @@ namespace OpenLoco::Vehicles
         }
         else
         {
-            if (newObject->track_type != track_type)
+            if (newObject->trackType != trackType)
             {
                 GameCommands::setErrorText(StringIds::incompatible_vehicle);
                 return false;
@@ -344,11 +381,11 @@ namespace OpenLoco::Vehicles
         }
 
         {
-            Vehicle train(this);
+            Vehicle train(head);
             for (const auto& car : train.cars)
             {
-                // The object_id is the same for all vehicle components and car components of a car
-                if (!sub_4B90F0(vehicleTypeId, car.front->object_id))
+                // The objectId is the same for all vehicle components and car components of a car
+                if (!sub_4B90F0(vehicleTypeId, car.front->objectId))
                 {
                     return false;
                 }
@@ -359,14 +396,14 @@ namespace OpenLoco::Vehicles
             return true;
         }
 
-        if (track_type != 0xFF)
+        if (trackType != 0xFF)
         {
             return true;
         }
 
         auto curTotalLength = getVehicleTotalLength();
         auto additionalNewLength = getVehicleTypeLength(vehicleTypeId);
-        if (curTotalLength + additionalNewLength > max_vehicle_length)
+        if (curTotalLength + additionalNewLength > kMaxVehicleLength)
         {
             GameCommands::setErrorText(StringIds::vehicle_too_long);
             return false;
@@ -379,12 +416,12 @@ namespace OpenLoco::Vehicles
     {
         VehicleStatus vehStatus = {};
         vehStatus.status2 = StringIds::null;
-        if (tile_x == -1)
+        if (tileX == -1)
         {
             vehStatus.status1 = StringIds::vehicle_status_no_position;
             return vehStatus;
         }
-        Vehicle train(this);
+        Vehicle train(head);
         if (train.veh2->var_73 & Flags73::isBrokenDown)
         {
             vehStatus.status1 = StringIds::vehicle_status_broken_down;
@@ -527,7 +564,7 @@ namespace OpenLoco::Vehicles
     // 0x004B691C
     void VehicleHead::getSecondStatus(VehicleStatus& vehStatus) const
     {
-        Vehicle train(this);
+        Vehicle train(head);
         if (status == Status::waitingAtSignal)
         {
             vehStatus.status2 = StringIds::vehicle_status_waiting_at_signal;
@@ -541,7 +578,7 @@ namespace OpenLoco::Vehicles
     // 0x004A8882
     void VehicleHead::updateDrivingSounds()
     {
-        Vehicle train(this);
+        Vehicle train(head);
         updateDrivingSound(train.veh2->asVehicle2Or6());
         updateDrivingSound(train.tail->asVehicle2Or6());
     }
@@ -549,7 +586,7 @@ namespace OpenLoco::Vehicles
     // 0x004A88A6
     void VehicleHead::updateDrivingSound(Vehicle2or6* vehType2or6)
     {
-        if (tile_x == -1 || status == Status::crashed || status == Status::stuck || (var_38 & Flags38::isGhost) || vehType2or6->objectId == 0xFFFF)
+        if (tileX == -1 || status == Status::crashed || status == Status::stuck || (var_38 & Flags38::isGhost) || vehType2or6->objectId == 0xFFFF)
         {
             updateDrivingSoundNone(vehType2or6);
             return;
@@ -603,7 +640,7 @@ namespace OpenLoco::Vehicles
     // 0x004A8937
     void VehicleHead::updateDrivingSoundEngine1(Vehicle2or6* vehType2or6, VehicleObjectEngine1Sound* snd)
     {
-        Vehicle train(this);
+        Vehicle train(head);
         if (vehType2or6->isVehicle2())
         {
             if (vehicleType != VehicleType::ship && vehicleType != VehicleType::aircraft)
@@ -613,7 +650,7 @@ namespace OpenLoco::Vehicles
                 {
                     assert(false);
                 }
-                if (train.cars.firstCar.front->var_5F & Flags5F::broken_down)
+                if (train.cars.firstCar.front->var_5F & Flags5F::brokenDown)
                 {
                     updateDrivingSoundNone(vehType2or6);
                     return;
@@ -696,7 +733,7 @@ namespace OpenLoco::Vehicles
     // 0x004A8A39
     void VehicleHead::updateDrivingSoundEngine2(Vehicle2or6* vehType2or6, VehicleObjectEngine2Sound* snd)
     {
-        Vehicle train(this);
+        Vehicle train(head);
         if (vehType2or6->isVehicle2())
         {
             if (vehicleType != VehicleType::ship && vehicleType != VehicleType::aircraft)
@@ -706,7 +743,7 @@ namespace OpenLoco::Vehicles
                 {
                     assert(false);
                 }
-                if (train.cars.firstCar.front->var_5F & Flags5F::broken_down)
+                if (train.cars.firstCar.front->var_5F & Flags5F::brokenDown)
                 {
                     updateDrivingSoundNone(vehType2or6);
                     return;
@@ -920,7 +957,7 @@ namespace OpenLoco::Vehicles
     // 2: give up and reverse at signal
     uint8_t VehicleHead::sub_4AA36A()
     {
-        Vehicle train(this);
+        Vehicle train(head);
         if (train.veh2->routingHandle != train.veh1->routingHandle || train.veh2->subPosition != train.veh1->subPosition)
         {
             train.veh1->timeAtSignal = 0;
@@ -928,9 +965,9 @@ namespace OpenLoco::Vehicles
         }
 
         auto param1 = 160;
-        auto turnaroundAtSignalTimeout = busSignalTimeout;
+        auto turnaroundAtSignalTimeout = kBusSignalTimeout;
 
-        if (track_type == 0xFF || ObjectManager::get<RoadObject>(track_type)->flags & Flags12::isRoad)
+        if (trackType == 0xFF || ObjectManager::get<RoadObject>(trackType)->flags & Flags12::isRoad)
         {
             if (train.veh1->var_2C.road.isBackToFront())
             {
@@ -941,7 +978,7 @@ namespace OpenLoco::Vehicles
         else
         {
             // Tram
-            turnaroundAtSignalTimeout = tramSignalTimeout;
+            turnaroundAtSignalTimeout = kTramSignalTimeout;
             if (train.veh1->var_2C.road.isBackToFront())
             {
                 param1 = 64;
@@ -988,7 +1025,7 @@ namespace OpenLoco::Vehicles
         }
         else
         {
-            Vehicle train(this);
+            Vehicle train(head);
             train.veh2->sub_4AA464();
             return false;
         }
@@ -1009,7 +1046,7 @@ namespace OpenLoco::Vehicles
             }
         }
 
-        Vehicle train(this);
+        Vehicle train(head);
         auto* vehType2 = train.veh2;
         if (vehType2->routingHandle != routingHandle || vehType2->subPosition != subPosition)
         {
@@ -1054,7 +1091,7 @@ namespace OpenLoco::Vehicles
     // Checks if at the desiered station and then begins unloading if at it
     bool VehicleHead::landTryBeginUnloading()
     {
-        Vehicle train(this);
+        Vehicle train(head);
         if (routingHandle != train.veh2->routingHandle || train.veh2->subPosition != subPosition)
         {
             return true;
@@ -1135,7 +1172,7 @@ namespace OpenLoco::Vehicles
         }
         else if (al == 2)
         {
-            Vehicle train(this);
+            Vehicle train(head);
             if (routingHandle != train.veh2->routingHandle || train.veh2->subPosition != subPosition)
             {
                 return true;
@@ -1151,7 +1188,7 @@ namespace OpenLoco::Vehicles
     // 0x004A8D63
     bool VehicleHead::trainNormalMovementUpdate(uint8_t al, uint8_t flags, StationId nextStation)
     {
-        Vehicle train(this);
+        Vehicle train(head);
         if (al == 4)
         {
             status = Status::approaching;
@@ -1185,7 +1222,7 @@ namespace OpenLoco::Vehicles
             // if one-way or two-way signal??
             if (flags & (1 << 1))
             {
-                if (vehType1->timeAtSignal >= trainOneWaySignalTimeout)
+                if (vehType1->timeAtSignal >= kTrainOneWaySignalTimeout)
                 {
                     if (flags & (1 << 7))
                     {
@@ -1224,7 +1261,7 @@ namespace OpenLoco::Vehicles
                     }
                 }
 
-                if (vehType1->timeAtSignal >= trainTwoWaySignalTimeout)
+                if (vehType1->timeAtSignal >= kTrainTwoWaySignalTimeout)
                 {
                     return landReverseFromSignal();
                 }
@@ -1263,7 +1300,7 @@ namespace OpenLoco::Vehicles
     // 0x004A8ED9
     bool VehicleHead::landReverseFromSignal()
     {
-        Vehicle train(this);
+        Vehicle train(head);
         train.veh1->timeAtSignal = 0;
 
         if (routingHandle != train.veh2->routingHandle || train.veh2->subPosition != subPosition)
@@ -1287,7 +1324,7 @@ namespace OpenLoco::Vehicles
             vehicleUpdate_var_1136130 = 0x2000;
         }
 
-        Vehicle train(this);
+        Vehicle train(head);
         train.cars.firstCar.body->sub_4AAB0B();
 
         if (status == Status::stopped)
@@ -1396,7 +1433,7 @@ namespace OpenLoco::Vehicles
         Pitch targetPitch = Pitch::flat;
         if (vehType2->currentSpeed < 50.0_mph)
         {
-            auto vehObject = ObjectManager::get<VehicleObject>(train.cars.firstCar.front->object_id);
+            auto vehObject = ObjectManager::get<VehicleObject>(train.cars.firstCar.front->objectId);
             targetPitch = Pitch::up12deg;
             // Slope sprites for taxiing planes??
             if (!(vehObject->flags & FlagsE0::unk_08))
@@ -1417,7 +1454,7 @@ namespace OpenLoco::Vehicles
         {
             if (vehType2->currentSpeed <= 180.0_mph)
             {
-                auto vehObject = ObjectManager::get<VehicleObject>(train.cars.firstCar.front->object_id);
+                auto vehObject = ObjectManager::get<VehicleObject>(train.cars.firstCar.front->objectId);
 
                 // looks wrong??
                 if (vehObject->flags & FlagsE0::can_couple)
@@ -1513,7 +1550,7 @@ namespace OpenLoco::Vehicles
     // 0x004273DF
     std::pair<Status, Speed16> VehicleHead::airplaneGetNewStatus()
     {
-        Vehicle train(this);
+        Vehicle train(head);
         if (stationId == StationId::null || airportMovementEdge == cAirportMovementNodeNull)
         {
             auto veh2 = train.veh2;
@@ -1774,7 +1811,7 @@ namespace OpenLoco::Vehicles
                     continue;
 
                 auto airportObject = ObjectManager::get<AirportObject>(elStation->objectId());
-                Vehicle train(this);
+                Vehicle train(head);
                 uint16_t planeType = train.cars.firstCar.front->getPlaneType();
 
                 if (airportObject->allowed_plane_types & planeType)
@@ -1836,7 +1873,7 @@ namespace OpenLoco::Vehicles
             vehicleUpdate_var_1136130 = 0x2000;
         }
 
-        Vehicle train(this);
+        Vehicle train(head);
         train.cars.firstCar.body->sub_4AAB0B();
 
         if (status == Status::stopped)
@@ -2056,8 +2093,8 @@ namespace OpenLoco::Vehicles
                     return cAirportMovementNodeNull;
                 }
                 // 0x4272A5
-                Vehicle train(this);
-                auto vehObject = ObjectManager::get<VehicleObject>(train.cars.firstCar.front->object_id);
+                Vehicle train(head);
+                auto vehObject = ObjectManager::get<VehicleObject>(train.cars.firstCar.front->objectId);
                 if (vehObject->flags & FlagsE0::isHelicopter)
                 {
                     for (uint8_t movementEdge = 0; movementEdge < airportObject->numMovementEdges; movementEdge++)
@@ -2206,8 +2243,8 @@ namespace OpenLoco::Vehicles
             return;
         }
 
-        Vehicle train(this);
-        auto* vehObj = train.cars.firstCar.body->object();
+        Vehicle train(head);
+        const auto* vehObj = train.cars.firstCar.body->getObject();
         if (vehObj != nullptr && vehObj->numStartSounds != 0)
         {
             auto numSounds = vehObj->numStartSounds & NumStartSounds::mask;
@@ -2273,7 +2310,7 @@ namespace OpenLoco::Vehicles
         cargoTransferTimeout = 10;
         var_58 = 0;
 
-        Vehicle train(this);
+        Vehicle train(head);
         for (auto& car : train.cars)
         {
             for (auto& carComponent : car)
@@ -2288,15 +2325,15 @@ namespace OpenLoco::Vehicles
     // 0x00426CA4
     void VehicleHead::movePlaneTo(const Map::Pos3& newLoc, const uint8_t newYaw, const Pitch newPitch)
     {
-        Vehicle train(this);
+        Vehicle train(head);
         moveTo({ newLoc.x, newLoc.y, newLoc.z });
-        tile_x = 0;
+        tileX = 0;
 
         train.veh1->moveTo({ newLoc.x, newLoc.y, newLoc.z });
-        train.veh1->tile_x = 0;
+        train.veh1->tileX = 0;
 
         train.veh2->moveTo({ newLoc.x, newLoc.y, newLoc.z });
-        train.veh2->tile_x = 0;
+        train.veh2->tileX = 0;
 
         // The first bogie of the plane is the shadow of the plane
         auto* shadow = train.cars.firstCar.front;
@@ -2305,7 +2342,7 @@ namespace OpenLoco::Vehicles
         shadow->moveTo({ newLoc.x, newLoc.y, height });
         shadow->sprite_yaw = newYaw;
         shadow->sprite_pitch = Pitch::flat;
-        shadow->tile_x = 0;
+        shadow->tileX = 0;
         shadow->invalidateSprite();
 
         auto* body = train.cars.firstCar.body;
@@ -2313,7 +2350,7 @@ namespace OpenLoco::Vehicles
         body->moveTo({ newLoc.x, newLoc.y, newLoc.z });
         body->sprite_yaw = newYaw;
         body->sprite_pitch = newPitch;
-        body->tile_x = 0;
+        body->tileX = 0;
         body->invalidateSprite();
     }
 
@@ -2425,7 +2462,7 @@ namespace OpenLoco::Vehicles
 
             if (stationId != StationId::null)
             {
-                auto targetTile = TileManager::get(Map::Pos2{ tile_x, tile_y });
+                auto targetTile = TileManager::get(Map::Pos2{ tileX, tileY });
                 StationElement* station = nullptr;
                 for (auto& el : targetTile)
                 {
@@ -2438,7 +2475,7 @@ namespace OpenLoco::Vehicles
                     {
                         continue;
                     }
-                    if (station->baseZ() == tile_base_z)
+                    if (station->baseZ() == tileBaseZ)
                     {
                         station->setFlag6(false);
                         stationId = StationId::null;
@@ -2452,11 +2489,11 @@ namespace OpenLoco::Vehicles
             if (newStationId != StationId::null)
             {
                 stationId = newStationId;
-                tile_x = stationTarget.x;
-                tile_y = stationTarget.y;
-                tile_base_z = stationTarget.z / 4;
+                tileX = stationTarget.x;
+                tileY = stationTarget.y;
+                tileBaseZ = stationTarget.z / 4;
 
-                auto targetTile = TileManager::get(Map::Pos2{ tile_x, tile_y });
+                auto targetTile = TileManager::get(Map::Pos2{ tileX, tileY });
                 StationElement* station = nullptr;
                 for (auto& el : targetTile)
                 {
@@ -2469,7 +2506,7 @@ namespace OpenLoco::Vehicles
                     {
                         continue;
                     }
-                    if (station->baseZ() == tile_base_z)
+                    if (station->baseZ() == tileBaseZ)
                     {
                         station->setFlag6(true);
                         break;
@@ -2507,16 +2544,16 @@ namespace OpenLoco::Vehicles
     // 0x00427B70
     void VehicleHead::moveBoatTo(const Pos3& newLoc, const uint8_t yaw, const Pitch pitch)
     {
-        Vehicle train(this);
+        Vehicle train(head);
         train.veh1->moveTo({ newLoc.x, newLoc.y, newLoc.z });
-        train.veh1->tile_x = 0;
+        train.veh1->tileX = 0;
         train.veh2->moveTo({ newLoc.x, newLoc.y, newLoc.z });
-        train.veh2->tile_x = 0;
+        train.veh2->tileX = 0;
         train.cars.firstCar.body->invalidateSprite();
         train.cars.firstCar.body->moveTo({ newLoc.x, newLoc.y, newLoc.z });
         train.cars.firstCar.body->sprite_yaw = yaw;
         train.cars.firstCar.body->sprite_pitch = pitch;
-        train.cars.firstCar.body->tile_x = 0;
+        train.cars.firstCar.body->tileX = 0;
         train.cars.firstCar.body->invalidateSprite();
     }
 
@@ -2530,11 +2567,11 @@ namespace OpenLoco::Vehicles
                 return 1;
             case TransportMode::rail:
             {
-                auto tile = Map::TileManager::get(Pos2{ bogie->tile_x, bogie->tile_y });
+                auto tile = Map::TileManager::get(Pos2{ bogie->tileX, bogie->tileY });
                 auto direction = bogie->var_2C.track.cardinalDirection();
                 auto trackId = bogie->var_2C.track.id();
                 auto loadingModifier = 12;
-                auto* elStation = tile.trackStation(trackId, direction, bogie->tile_base_z);
+                auto* elStation = tile.trackStation(trackId, direction, bogie->tileBaseZ);
                 if (elStation != nullptr)
                 {
                     if (elStation->isFlag5() || elStation->isGhost())
@@ -2549,11 +2586,11 @@ namespace OpenLoco::Vehicles
             }
             case TransportMode::road:
             {
-                auto tile = Map::TileManager::get(Pos2{ bogie->tile_x, bogie->tile_y });
+                auto tile = Map::TileManager::get(Pos2{ bogie->tileX, bogie->tileY });
                 auto direction = bogie->var_2C.road.cardinalDirection();
                 auto roadId = bogie->var_2C.road.id();
                 auto loadingModifier = 2;
-                auto* elStation = tile.roadStation(roadId, direction, bogie->tile_base_z);
+                auto* elStation = tile.roadStation(roadId, direction, bogie->tileBaseZ);
                 if (elStation != nullptr)
                 {
                     if (elStation->isFlag5() || elStation->isGhost())
@@ -2589,7 +2626,7 @@ namespace OpenLoco::Vehicles
         }
 
         auto* station = StationManager::get(stationId);
-        auto& cargoStats = station->cargo_stats[cargo.type];
+        auto& cargoStats = station->cargoStats[cargo.type];
         if (cargoStats.isAccepted())
         {
             station->deliverCargoToTown(cargo.type, cargo.qty);
@@ -2614,10 +2651,10 @@ namespace OpenLoco::Vehicles
             station->var_3B1 = 0;
             station->flags |= StationFlags::flag_8;
 
-            if (cargoStats.industry_id != IndustryId::null)
+            if (cargoStats.industryId != IndustryId::null)
             {
-                auto* industry = IndustryManager::get(cargoStats.industry_id);
-                auto* industryObj = industry->object();
+                auto* industry = IndustryManager::get(cargoStats.industryId);
+                const auto* industryObj = industry->getObject();
 
                 for (auto i = 0; i < 3; ++i)
                 {
@@ -2633,7 +2670,7 @@ namespace OpenLoco::Vehicles
                 if (!(industry->history_min_production[0] & (1ULL << cargo.type)))
                 {
                     industry->history_min_production[0] |= 1ULL << cargo.type;
-                    MessageManager::post(MessageType::workersCelebrate, owner, enumValue(id), enumValue(cargoStats.industry_id), enumValue(cargoStats.industry_id) | (cargo.type << 8));
+                    MessageManager::post(MessageType::workersCelebrate, owner, enumValue(id), enumValue(cargoStats.industryId), enumValue(cargoStats.industryId) | (cargo.type << 8));
                 }
 
                 auto* town = TownManager::get(industry->town);
@@ -2676,9 +2713,21 @@ namespace OpenLoco::Vehicles
 
                 break;
             }
+
+            const bool stationHadPreviousCargo = cargoStats.quantity != 0;
             cargoStats.quantity = Math::Bound::add(cargoStats.quantity, cargo.qty);
             station->updateCargoDistribution();
-            cargoStats.enroute_age = std::max(cargoStats.enroute_age, cargo.numDays);
+            cargoStats.enrouteAge = Math::Bound::add(cargoStats.enrouteAge, cargo.numDays);
+
+            // Change from vanilla to deal with the cargo transfer bug:
+            // Calculate the weighted average of the present and the delivered cargo
+            if (stationHadPreviousCargo)
+            {
+                // enrouteAge = enrouteAge * (1 - addedQuantity / summedQuantity)
+                const auto multiplier = (1 << 16) - (cargo.qty << 16) / cargoStats.quantity;
+                cargoStats.enrouteAge = (cargoStats.enrouteAge * multiplier) >> 16;
+            }
+
             bool setOrigin = true;
             if (cargoStats.origin != StationId::null)
             {
@@ -2717,7 +2766,7 @@ namespace OpenLoco::Vehicles
         status = Status::loading;
         cargoTransferTimeout = 10;
 
-        Vehicle train(this);
+        Vehicle train(head);
         for (auto& car : train.cars)
         {
             for (auto& carComponent : car)
@@ -2737,7 +2786,7 @@ namespace OpenLoco::Vehicles
             return;
         }
 
-        Vehicle train(this);
+        Vehicle train(head);
         for (auto& car : train.cars)
         {
             for (auto& carComponent : car)
@@ -2783,7 +2832,7 @@ namespace OpenLoco::Vehicles
                 company->var_4A8[var_60].var_80 += cargoProfit;
             }
             Vehicle2* veh2 = vehicleUpdate_2;
-            veh2->lifetimeProfit += cargoProfit;
+            veh2->curMonthRevenue += cargoProfit;
             Vehicle1* veh1 = vehicleUpdate_1;
             if (cargoProfit != 0)
             {
@@ -2863,19 +2912,16 @@ namespace OpenLoco::Vehicles
                 }
                 else
                 {
-                    if (highestQty < station->cargo_stats[possibleCargo].quantity)
+                    if (highestQty < station->cargoStats[possibleCargo].quantity)
                     {
-                        highestQty = station->cargo_stats[possibleCargo].quantity;
+                        highestQty = station->cargoStats[possibleCargo].quantity;
                         chosenCargo = possibleCargo;
                     }
                 }
             }
             if (highestQty != 0)
             {
-                if (cargo.type != chosenCargo)
-                {
-                    cargo.type = chosenCargo;
-                }
+                cargo.type = chosenCargo;
             }
         }
 
@@ -2901,7 +2947,7 @@ namespace OpenLoco::Vehicles
         }
 
         auto* cargoObj = ObjectManager::get<CargoObject>(cargo.type);
-        auto& stationCargo = station->cargo_stats[cargo.type];
+        auto& stationCargo = station->cargoStats[cargo.type];
         auto qtyTransferred = std::min<uint16_t>(cargo.maxQty - cargo.qty, stationCargo.quantity);
         cargoTransferTimeout = static_cast<uint16_t>(std::min<uint32_t>((cargoObj->var_4 * qtyTransferred * loadingModifier) / 256, std::numeric_limits<uint16_t>::max()));
 
@@ -2910,11 +2956,11 @@ namespace OpenLoco::Vehicles
             if (cargo.qty == 0)
             {
                 cargo.townFrom = stationCargo.origin;
-                cargo.numDays = stationCargo.enroute_age;
+                cargo.numDays = stationCargo.enrouteAge;
             }
             else
             {
-                cargo.numDays = std::max(cargo.numDays, stationCargo.enroute_age);
+                cargo.numDays = std::max(cargo.numDays, stationCargo.enrouteAge);
 
                 auto* cargoSourceStation = StationManager::get(stationCargo.origin);
                 auto stationLoc = Map::Pos2{ station->x, station->y };
@@ -2940,9 +2986,9 @@ namespace OpenLoco::Vehicles
 
         station->var_3B0 = 0;
         station->flags |= StationFlags::flag_7;
-        Vehicle train(this);
+        Vehicle train(head);
         auto vehMaxSpeed = train.veh2->maxSpeed;
-        auto carAgeFactor = static_cast<uint8_t>(std::min<uint32_t>(0xFF, (getCurrentDay() - bogie->creation_day) / 256));
+        auto carAgeFactor = static_cast<uint8_t>(std::min<uint32_t>(0xFF, (getCurrentDay() - bogie->creationDay) / 256));
 
         if (stationCargo.flags & (1 << 2))
         {
@@ -2972,7 +3018,7 @@ namespace OpenLoco::Vehicles
             return true;
         }
 
-        Vehicle train(this);
+        Vehicle train(head);
         for (auto& car : train.cars)
         {
             for (auto& carComponent : car)
@@ -3070,8 +3116,8 @@ namespace OpenLoco::Vehicles
     void VehicleHead::beginNewJourney()
     {
         // Set initial position for updateLastJourneyAverageSpeed
-        var_73 = scenarioTicks();
-        Vehicle train(this);
+        var_73 = ScenarioManager::getScenarioTicks();
+        Vehicle train(head);
         var_6F = train.veh2->position.x;
         var_71 = train.veh2->position.y;
         var_5F |= Flags5F::unk_3;
@@ -3109,8 +3155,8 @@ namespace OpenLoco::Vehicles
     // 0x0042843E
     void VehicleHead::produceLeavingDockSound()
     {
-        Vehicle train(this);
-        auto* vehObj = train.cars.firstCar.body->object();
+        Vehicle train(head);
+        const auto* vehObj = train.cars.firstCar.body->getObject();
         if (vehObj != nullptr && vehObj->numStartSounds != 0)
         {
             auto randSoundIndex = gPrng().randNext((vehObj->numStartSounds & NumStartSounds::mask) - 1);
@@ -3134,8 +3180,8 @@ namespace OpenLoco::Vehicles
     // 0x0042750E
     void VehicleHead::produceTouchdownAirportSound()
     {
-        Vehicle train(this);
-        auto* vehObj = train.cars.firstCar.body->object();
+        Vehicle train(head);
+        const auto* vehObj = train.cars.firstCar.body->getObject();
         if (vehObj != nullptr && vehObj->numStartSounds != 0)
         {
 
@@ -3180,7 +3226,7 @@ namespace OpenLoco::Vehicles
     {
         registers regs;
         regs.esi = X86Pointer(this);
-        return call(0x004AC1C2, regs) & (1 << 8);
+        return call(0x004AC1C2, regs) & X86_FLAG_CARRY;
     }
 
     // 0x004AC0A3
@@ -3188,7 +3234,7 @@ namespace OpenLoco::Vehicles
     {
         registers regs;
         regs.esi = X86Pointer(this);
-        return call(0x004AC0A3, regs) & (1 << 8);
+        return call(0x004AC0A3, regs) & X86_FLAG_CARRY;
     }
 
     // 0x004ACCDC
@@ -3196,7 +3242,7 @@ namespace OpenLoco::Vehicles
     {
         registers regs;
         regs.esi = X86Pointer(this);
-        return call(0x004ACCDC, regs) & (1 << 8);
+        return call(0x004ACCDC, regs) & X86_FLAG_CARRY;
     }
 
     // 0x004AD93A
@@ -3212,8 +3258,8 @@ namespace OpenLoco::Vehicles
         auto direction = bogie->var_2C.track.cardinalDirection();
         auto trackId = bogie->var_2C.track.id();
 
-        auto tile = TileManager::get(Map::Pos2{ bogie->tile_x, bogie->tile_y });
-        auto* elStation = tile.trackStation(trackId, direction, bogie->tile_base_z);
+        auto tile = TileManager::get(Map::Pos2{ bogie->tileX, bogie->tileY });
+        auto* elStation = tile.trackStation(trackId, direction, bogie->tileBaseZ);
         if (elStation == nullptr)
         {
             return StationId::null;
@@ -3229,12 +3275,13 @@ namespace OpenLoco::Vehicles
     // 0x004B6669
     char* VehicleHead::generateCargoTotalString(char* buffer)
     {
-        uint32_t cargoTotals[ObjectManager::getMaxObjects(ObjectType::cargo)]{};
-        Vehicles::Vehicle train(this);
-        for (auto& car : train.cars)
+        CargoTotalArray cargoTotals{};
+        Vehicles::Vehicle train(head);
+        for (const auto& car : train.cars)
         {
             auto front = car.front;
             auto body = car.body;
+
             if (front->secondaryCargo.type != 0xFF)
             {
                 cargoTotals[front->secondaryCargo.type] += front->secondaryCargo.qty;
@@ -3245,6 +3292,33 @@ namespace OpenLoco::Vehicles
             }
         }
 
+        return cargoLUTToString(cargoTotals, buffer);
+    }
+
+    char* VehicleHead::generateCargoCapacityString(char* buffer)
+    {
+        CargoTotalArray cargoTotals{};
+        Vehicles::Vehicle train(head);
+        for (const auto& car : train.cars)
+        {
+            auto front = car.front;
+            auto body = car.body;
+
+            if (front->secondaryCargo.type != 0xFF)
+            {
+                cargoTotals[front->secondaryCargo.type] += front->secondaryCargo.maxQty;
+            }
+            if (body->primaryCargo.type != 0xFF)
+            {
+                cargoTotals[body->primaryCargo.type] += body->primaryCargo.maxQty;
+            }
+        }
+
+        return cargoLUTToString(cargoTotals, buffer);
+    }
+
+    char* VehicleHead::cargoLUTToString(CargoTotalArray& cargoTotals, char* buffer)
+    {
         bool hasCargo = false;
         for (size_t cargoType = 0; cargoType < ObjectManager::getMaxObjects(ObjectType::cargo); ++cargoType)
         {
@@ -3281,7 +3355,7 @@ namespace OpenLoco::Vehicles
     // it is defined as stationary with at least one bogie at the station
     StationId VehicleHead::manualFindTrainStationAtLocation()
     {
-        Vehicle train(this);
+        Vehicle train(head);
         for (auto& car : train.cars)
         {
             for (auto& component : car)
@@ -3313,13 +3387,13 @@ namespace OpenLoco::Vehicles
     // 0x004BADE4
     bool VehicleHead::isOnExpectedRoadOrTrack()
     {
-        Vehicle train(this);
+        Vehicle train(head);
         Vehicle2* veh = train.veh2;
         Pos2 loc = {
-            veh->tile_x,
-            veh->tile_y
+            veh->tileX,
+            veh->tileY
         };
-        auto baseZ = veh->tile_base_z;
+        auto baseZ = veh->tileBaseZ;
 
         auto tile = TileManager::get(loc);
         if (veh->mode == TransportMode::road)
@@ -3412,7 +3486,7 @@ namespace OpenLoco::Vehicles
     // 0x004BA7C7
     void VehicleHead::updateLastIncomeStats(uint8_t cargoType, uint16_t cargoQty, uint16_t cargoDist, uint8_t cargoAge, currency32_t profit)
     {
-        Vehicle train(this);
+        Vehicle train(head);
         if (cargoQty == 0)
             return;
         if (cargoType == 0xFF)
@@ -3429,6 +3503,16 @@ namespace OpenLoco::Vehicles
         {
             Ui::WindowManager::invalidate(Ui::WindowType::vehicle, enumValue(id));
         }
+    }
+
+    // 0x004B82AE
+    void VehicleHead::calculateRefundCost()
+    {
+        Vehicle train(head);
+
+        totalRefundCost = std::accumulate(train.cars.begin(), train.cars.end(), 0, [](currency32_t total, const Car& car) {
+            return total + car.front->refundCost;
+        });
     }
 
     // 0x004B7CC3
@@ -3469,7 +3553,7 @@ namespace OpenLoco::Vehicles
                         return false;
                     }
 
-                    if (this->tile_x == -1)
+                    if (this->tileX == -1)
                     {
                         return true;
                     }
@@ -3489,7 +3573,7 @@ namespace OpenLoco::Vehicles
                 }
                 else
                 {
-                    if (this->tile_x == -1)
+                    if (this->tileX == -1)
                     {
                         return true;
                     }
@@ -3498,7 +3582,7 @@ namespace OpenLoco::Vehicles
                     {
                         return true;
                     }
-                    if (train.veh1->var_3C <= 13961)
+                    if (train.veh1->var_3C <= 0x3689)
                     {
                         return true;
                     }
@@ -3521,10 +3605,10 @@ namespace OpenLoco::Vehicles
     currency32_t VehicleHead::calculateRunningCost() const
     {
         currency32_t totalRunCost = 0;
-        const Vehicle train(this);
+        const Vehicle train(head);
         for (const auto& car : train.cars)
         {
-            auto* vehObj = ObjectManager::get<VehicleObject>(car.front->object_id);
+            auto* vehObj = ObjectManager::get<VehicleObject>(car.front->objectId);
             currency32_t runCost = Economy::getInflationAdjustedCost(vehObj->run_cost_factor, vehObj->run_cost_index, 10);
             totalRunCost += runCost;
         }

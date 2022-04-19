@@ -76,14 +76,20 @@ namespace OpenLoco::Map
 
         bool isGhost() const { return _flags & ElementFlags::ghost; }
         bool isFlag5() const { return _flags & ElementFlags::flag_5; }
-        bool isFlag6() const { return _flags & ElementFlags::flag_6; }
+        bool isFlag6() const { return _flags & ElementFlags::flag_6; } // in tracks/roads indicates is last tile of multi tile
         void setFlag6(bool state)
         {
             _flags &= ~ElementFlags::flag_6;
             _flags |= state == true ? ElementFlags::flag_6 : 0;
         }
+        void setBaseZ(uint8_t baseZ) { _base_z = baseZ; }
         void setClearZ(uint8_t value) { _clear_z = value; }
         bool isLast() const;
+        void setLastFlag(bool state)
+        {
+            _flags &= ~ElementFlags::last;
+            _flags |= state == true ? ElementFlags::last : 0;
+        }
 
         std::array<uint8_t, 8>& rawData()
         {
@@ -175,10 +181,10 @@ namespace OpenLoco::Map
         static constexpr ElementType kElementType = ElementType::surface;
 
     private:
-        uint8_t _slope;       // 0x4
-        uint8_t _water;       // 0x5
-        uint8_t _terrain;     // 0x6
-        IndustryId _industry; // 0x7
+        uint8_t _slope;   // 0x4
+        uint8_t _water;   // 0x5
+        uint8_t _terrain; // 0x6
+        uint8_t _7;       // 0x7 either variation or industry depending on high type flag
 
     public:
         bool isSlopeDoubleHeight() const { return _slope & SurfaceSlope::double_height; }
@@ -188,14 +194,21 @@ namespace OpenLoco::Map
         uint8_t water() const { return _water & 0x1F; }
         void setWater(uint8_t level) { _water = (_water & 0xE0) | (level & 0x1F); };
         uint8_t terrain() const { return _terrain & 0x1F; }
+        void setTerrain(uint8_t terrain)
+        {
+            _terrain &= ~0x1F;
+            _terrain |= terrain & 0x1F;
+        }
         uint8_t var_6_SLR5() const { return _terrain >> 5; }
         void setVar6SLR5(uint8_t var6)
         {
             _terrain &= 0x1F;
             _terrain |= var6 << 5;
         }
-        IndustryId industryId() const { return IndustryId(_industry); }
-        void setIndustry(const IndustryId industry) { _industry = industry; }
+        IndustryId industryId() const { return IndustryId(_7); }
+        uint8_t variation() const { return _7; }
+        void setIndustry(const IndustryId industry) { _7 = enumValue(industry); }
+        void setVariation(const uint8_t variation) { _7 = variation; }
         void setType6Flag(bool state)
         {
             _type &= ~0x40;
@@ -207,6 +220,7 @@ namespace OpenLoco::Map
             _type &= ~0x80;
             _type |= state ? 0x80 : 0;
         }
+        void removeIndustry(const Map::Pos2& pos);
     };
     static_assert(sizeof(SurfaceElement) == TileElementSize);
 
@@ -246,10 +260,10 @@ namespace OpenLoco::Map
             _type &= ~0x80;
             _type |= state ? 0x80 : 0;
         }
-        uint8_t colour() const { return _6 >> 11; }
-        void setColour(Colour_t colour) { _6 = (_6 & 0x7FF) | (colour << 11); }
+        Colour colour() const { return static_cast<Colour>(_6 >> 11); }
+        void setColour(Colour colour) { _6 = (_6 & 0x7FF) | (enumValue(colour) << 11); }
         uint8_t objectId() const { return _4; }
-        BuildingObject* object() const;
+        const BuildingObject* getObject() const;
         uint8_t multiTileIndex() const { return _5 & 3; }
         uint8_t unk5u() const { return _5 >> 5; } // likely age related as well (higher precision)
         void setUnk5u(uint8_t value)
@@ -258,6 +272,11 @@ namespace OpenLoco::Map
             _5 |= value << 5;
         }
         uint8_t variation() const { return (_6 >> 6) & 0x1F; }
+        void setVariation(uint8_t variation)
+        {
+            _6 &= ~0x07C0;
+            _6 |= (variation & 0x1F) << 6;
+        }
         uint8_t age() const { return _6 & 0x3F; } // 6l
         void setAge(uint8_t value)                // 6l
         {

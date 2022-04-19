@@ -22,22 +22,19 @@ namespace OpenLoco::Game
     static loco_global<GameCommands::LoadOrQuitMode, 0x0050A002> _savePromptType;
 
     // TODO: make accessible from Environment
-    static loco_global<char[257], 0x0050B1CF> _path_saves_single_player;
-    static loco_global<char[257], 0x0050B2EC> _path_saves_two_player;
-    static loco_global<char[257], 0x0050B406> _path_scenarios;
-    static loco_global<char[257], 0x0050B518> _path_landscapes;
+    static loco_global<char[257], 0x0050B1CF> _pathSavesSinglePlayer;
+    static loco_global<char[257], 0x0050B2EC> _pathSavesTwoPlayer;
+    static loco_global<char[257], 0x0050B406> _pathScenarios;
+    static loco_global<char[257], 0x0050B518> _pathLandscapes;
 
     static loco_global<char[256], 0x0050B745> _currentScenarioFilename;
-
-    static loco_global<uint16_t, 0x009C871A> _scenarioFlags;
-    static loco_global<char[64], 0x009C873E> _scenarioTitle;
 
     static loco_global<char[512], 0x0112CE04> _savePath;
 
     // 0x0046DB4C
-    static void sub_46DB4C()
+    void sub_46DB4C()
     {
-        call(0x0046DB4C);
+        call(0x0046DB4C); // draw preview map
     }
 
     using Ui::Windows::PromptBrowse::browse_type;
@@ -64,9 +61,9 @@ namespace OpenLoco::Game
     bool loadSaveGameOpen()
     {
         if (!isNetworked())
-            strncpy(&_savePath[0], &_path_saves_single_player[0], std::size(_savePath));
+            strncpy(&_savePath[0], &_pathSavesSinglePlayer[0], std::size(_savePath));
         else
-            strncpy(&_savePath[0], &_path_saves_two_player[0], std::size(_savePath));
+            strncpy(&_savePath[0], &_pathSavesTwoPlayer[0], std::size(_savePath));
 
         return openBrowsePrompt(StringIds::title_prompt_load_game, browse_type::load, S5::filterSV5);
     }
@@ -74,7 +71,7 @@ namespace OpenLoco::Game
     // 0x004417A7
     bool loadLandscapeOpen()
     {
-        strncpy(&_savePath[0], &_path_landscapes[0], std::size(_savePath));
+        strncpy(&_savePath[0], &_pathLandscapes[0], std::size(_savePath));
 
         return openBrowsePrompt(StringIds::title_prompt_load_landscape, browse_type::load, S5::filterSC5);
     }
@@ -90,7 +87,7 @@ namespace OpenLoco::Game
     // 0x004418DB
     bool saveScenarioOpen()
     {
-        auto path = fs::u8path(&_path_scenarios[0]).parent_path() / &_scenarioTitle[0];
+        auto path = fs::u8path(&_pathScenarios[0]).parent_path() / S5::getOptions().scenarioName;
         strncpy(&_savePath[0], path.u8string().c_str(), std::size(_savePath));
         strncat(&_savePath[0], S5::extensionSC5, std::size(_savePath));
 
@@ -100,14 +97,14 @@ namespace OpenLoco::Game
     // 0x00441993
     bool saveLandscapeOpen()
     {
-        *_scenarioFlags &= ~(1 << 0);
+        S5::getOptions().scenarioFlags &= ~(1 << 0);
         if (hasFlags(1u << 0))
         {
-            *_scenarioFlags |= (1 << 0);
+            S5::getOptions().scenarioFlags |= (1 << 0);
             sub_46DB4C();
         }
 
-        auto path = fs::u8path(&_path_landscapes[0]).parent_path() / &_scenarioTitle[0];
+        auto path = fs::u8path(&_pathLandscapes[0]).parent_path() / S5::getOptions().scenarioName;
         strncpy(&_savePath[0], path.u8string().c_str(), std::size(_savePath));
         strncat(&_savePath[0], S5::extensionSC5, std::size(_savePath));
 
@@ -161,7 +158,7 @@ namespace OpenLoco::Game
         else if (isNetworked())
         {
             // 0x0043C0DB
-            if (CompanyManager::getControllingId() == CompanyManager::updatingCompanyId())
+            if (CompanyManager::getControllingId() == CompanyManager::getUpdatingCompanyId())
             {
                 MultiPlayer::setFlag(MultiPlayer::flags::flag_4);
                 MultiPlayer::setFlag(MultiPlayer::flags::flag_3);
@@ -182,12 +179,12 @@ namespace OpenLoco::Game
         {
             clearScreenFlag(ScreenFlags::networked);
             auto playerCompanyId = CompanyManager::getControllingId();
-            auto previousUpdatingId = CompanyManager::updatingCompanyId();
-            CompanyManager::updatingCompanyId(playerCompanyId);
+            auto previousUpdatingId = CompanyManager::getUpdatingCompanyId();
+            CompanyManager::setUpdatingCompanyId(playerCompanyId);
 
             Ui::WindowManager::closeAllFloatingWindows();
 
-            CompanyManager::updatingCompanyId(previousUpdatingId);
+            CompanyManager::setUpdatingCompanyId(previousUpdatingId);
             setScreenFlag(ScreenFlags::networked);
 
             // If the other party is leaving the game, go back to the title screen.
@@ -267,14 +264,11 @@ namespace OpenLoco::Game
         {
             if (Game::saveLandscapeOpen())
             {
-                // 0x0043C4B3
-                auto path = fs::u8path(&_savePath[0]).replace_extension(S5::extensionSC5);
-                std::strncpy(&_currentScenarioFilename[0], path.u8string().c_str(), std::size(_currentScenarioFilename));
-
-                if (!S5::save(path, S5::SaveFlags::scenario))
-                    Ui::Windows::Error::open(StringIds::landscape_save_failed, StringIds::null);
-                else
+                if (saveLandscape())
+                {
+                    // load landscape
                     GameCommands::do_21(2, 0);
+                }
             }
         }
         else if (!isNetworked())
@@ -285,7 +279,7 @@ namespace OpenLoco::Game
                 auto path = fs::u8path(&_savePath[0]).replace_extension(S5::extensionSV5);
                 std::strncpy(&_currentScenarioFilename[0], path.u8string().c_str(), std::size(_currentScenarioFilename));
 
-                S5::SaveFlags flags = {};
+                uint32_t flags = 0;
                 if (Config::get().flags & Config::Flags::exportObjectsWithSaves)
                     flags = S5::SaveFlags::packCustomObjects;
 
@@ -319,6 +313,19 @@ namespace OpenLoco::Game
         Gfx::invalidateScreen();
     }
 
+    bool saveLandscape()
+    {
+        // 0x0043C4B3
+        auto path = fs::u8path(&_savePath[0]).replace_extension(S5::extensionSC5);
+        std::strncpy(&_currentScenarioFilename[0], path.u8string().c_str(), std::size(_currentScenarioFilename));
+
+        bool saveResult = !S5::save(path, S5::SaveFlags::scenario);
+        if (saveResult)
+            Ui::Windows::Error::open(StringIds::landscape_save_failed, StringIds::null);
+
+        return saveResult;
+    }
+
     uint32_t getFlags()
     {
         return getGameState().flags;
@@ -337,16 +344,5 @@ namespace OpenLoco::Game
     void removeFlags(uint32_t flags)
     {
         setFlags(getFlags() & ~flags);
-    }
-
-    void registerHooks()
-    {
-        // Can be removed after https://github.com/OpenLoco/OpenLoco/pull/781
-        registerHook(
-            0x004418DB,
-            [](registers& regs) FORCE_ALIGN_ARG_POINTER -> uint8_t {
-                regs.eax = saveScenarioOpen();
-                return 0;
-            });
     }
 }

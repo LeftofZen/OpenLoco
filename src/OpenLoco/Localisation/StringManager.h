@@ -3,6 +3,7 @@
 #include "../Types.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 
 #ifdef small
 #error "small is defined, likely by windows.h"
@@ -24,16 +25,6 @@ namespace OpenLoco
         constexpr int16_t medium_bold = 224;
         constexpr int16_t small = 448;
         constexpr int16_t large = 672;
-    }
-
-    namespace FormatFlags
-    {
-        constexpr uint8_t textflag_5 = (1ULL << 5); // 0x20
-        constexpr uint8_t textflag_6 = (1ULL << 6); // 0x40
-
-        constexpr uint8_t fd = 0xFD;
-        constexpr uint8_t fe = 0xFE;
-        constexpr uint8_t ff = 0xFF;
     }
 
     namespace ControlCodes
@@ -120,6 +111,11 @@ namespace OpenLoco
     }
 }
 
+namespace OpenLoco
+{
+    enum class MonthId : uint8_t;
+}
+
 namespace OpenLoco::StringManager
 {
     void reset();
@@ -131,4 +127,5 @@ namespace OpenLoco::StringManager
     string_id isTownName(string_id stringId);
     string_id toTownName(string_id stringId);
     string_id fromTownName(string_id stringId);
+    std::pair<string_id, string_id> monthToString(MonthId month);
 }

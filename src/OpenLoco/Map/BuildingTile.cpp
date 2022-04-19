@@ -1,8 +1,10 @@
+#include "../CompanyManager.h"
 #include "../Game.h"
 #include "../GameCommands/GameCommands.h"
 #include "../Objects/BuildingObject.h"
 #include "../StationManager.h"
 #include "../TownManager.h"
+#include "../Ui/WindowManager.h"
 #include "../ViewportManager.h"
 #include "AnimationManager.h"
 #include "Tile.h"
@@ -10,16 +12,6 @@
 
 namespace OpenLoco::Map
 {
-    static void sub_497DC1(const Map::Pos2& loc, uint32_t population, uint32_t unk1, uint16_t rating, uint16_t unk3)
-    {
-        registers regs;
-        regs.edi = population;
-        regs.esi = unk1;
-        regs.ebp = rating | (unk3 << 16);
-        regs.ax = loc.x;
-        regs.cx = loc.y;
-        call(0x00497DC1, regs);
-    }
 
     // 0x0042DF8B
     bool BuildingElement::update(const Map::Pos2& loc)
@@ -35,7 +27,7 @@ namespace OpenLoco::Map
             return true;
         }
 
-        auto* buildingObj = object();
+        const auto* buildingObj = getObject();
         if (!isConstructed())
         {
             auto newUnk5u = unk5u();
@@ -92,7 +84,7 @@ namespace OpenLoco::Map
                         }
                     }
 
-                    sub_497DC1(loc, buildingObj->producedQuantity[0], 0, 0, 0);
+                    TownManager::sub_497DC1(loc, buildingObj->producedQuantity[0], 0, 0, 0);
 
                     newUnk5u = 0;
                     newAge = 0;

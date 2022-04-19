@@ -1,9 +1,15 @@
 #include "TileManager.h"
+#include "../Audio/Audio.h"
 #include "../CompanyManager.h"
+#include "../Entities/Misc.h"
 #include "../Game.h"
+#include "../GameState.h"
+#include "../IndustryManager.h"
 #include "../Input.h"
 #include "../Interop/Interop.hpp"
 #include "../Map/Map.hpp"
+#include "../Objects/BuildingObject.h"
+#include "../TownManager.h"
 #include "../Ui.h"
 #include "../ViewportManager.h"
 
@@ -14,6 +20,8 @@ namespace OpenLoco::Map::TileManager
     static loco_global<TileElement*, 0x005230C8> _elements;
     static loco_global<TileElement* [0x30004], 0x00E40134> _tiles;
     static loco_global<TileElement*, 0x00F00134> _elementsEnd;
+    static loco_global<TileElement*, 0x00F00158> _F00158;
+    static loco_global<uint32_t, 0x00F00168> _F00168;
     static loco_global<coord_t, 0x00F24486> _mapSelectionAX;
     static loco_global<coord_t, 0x00F24488> _mapSelectionBX;
     static loco_global<coord_t, 0x00F2448A> _mapSelectionAY;
@@ -27,10 +35,36 @@ namespace OpenLoco::Map::TileManager
 
     static TileElement* InvalidTile = reinterpret_cast<TileElement*>(static_cast<intptr_t>(-1));
 
+    // 0x0046902E
+    void removeSurfaceIndustry(const Pos2& pos)
+    {
+        auto tile = get(pos);
+        auto* surface = tile.surface();
+        if (surface != nullptr)
+        {
+            surface->removeIndustry(pos);
+        }
+    }
+
     // 0x00461179
     void initialise()
     {
-        call(0x00461179);
+        _F00168 = 0;
+        _startUpdateLocation = Map::Pos2(0, 0);
+        const auto landType = getGameState().lastLandOption == 0xFF ? 0 : getGameState().lastLandOption;
+
+        SurfaceElement defaultElement{};
+        defaultElement.setTerrain(landType);
+        defaultElement.setBaseZ(4);
+        defaultElement.setLastFlag(true);
+
+        auto* element = *_elements;
+        for (auto i = 0; i < map_size; ++i, ++element)
+        {
+            *element = *reinterpret_cast<TileElement*>(&defaultElement);
+        }
+        updateTilePointers();
+        getGameState().flags |= (1u << 0);
     }
 
     stdx::span<TileElement> getElements()
@@ -74,11 +108,45 @@ namespace OpenLoco::Map::TileManager
         TileManager::updateTilePointers();
     }
 
+    // Note: Must be past the last tile flag
+    static void markElementAsFree(TileElement& element)
+    {
+        element.setBaseZ(255);
+        if (element.next() == *_elementsEnd)
+        {
+            _elementsEnd--;
+        }
+    }
+
+    // 0x00461760
     void removeElement(TileElement& element)
     {
-        registers regs;
-        regs.esi = X86Pointer(&element);
-        call(0x004BB432, regs);
+        if (&element == *_F00158)
+        {
+            if (element.isLast())
+            {
+                *_F00158 = reinterpret_cast<TileElement*>(-1);
+            }
+        }
+
+        if (element.isLast())
+        {
+            auto* prev = element.prev();
+            prev->setLastFlag(true);
+            markElementAsFree(element);
+        }
+        else
+        {
+            // Move all of the elments up one until last for the tile
+            auto* next = element.next();
+            auto* cur = &element;
+            do
+            {
+                *cur++ = *next;
+            } while (!next++->isLast());
+
+            markElementAsFree(*cur);
+        }
     }
 
     TileElement** getElementIndex()
@@ -105,6 +173,116 @@ namespace OpenLoco::Map::TileManager
     Tile get(coord_t x, coord_t y)
     {
         return get(TilePos2(x / Map::tile_size, y / Map::tile_size));
+    }
+
+    constexpr uint8_t kTileSize = 31;
+
+    static int16_t getOneCornerUpLandHeight(int8_t xl, int8_t yl, uint8_t slope)
+    {
+        int16_t quad = 0;
+        switch (slope)
+        {
+            case SurfaceSlope::n_corner_up:
+                quad = xl + yl - kTileSize;
+                break;
+            case SurfaceSlope::e_corner_up:
+                quad = xl - yl;
+                break;
+            case SurfaceSlope::s_corner_up:
+                quad = kTileSize - yl - xl;
+                break;
+            case SurfaceSlope::w_corner_up:
+                quad = yl - xl;
+                break;
+        }
+        // If the element is in the quadrant with the slope, raise its height
+        if (quad > 0)
+        {
+            return quad;
+        }
+        return 0;
+    }
+
+    static int16_t getOneSideUpLandHeight(int8_t xl, int8_t yl, uint8_t slope)
+    {
+        int16_t edge = 0;
+        switch (slope)
+        {
+            case SurfaceSlope::ne_side_up:
+                edge = xl / 2 + 1;
+                break;
+            case SurfaceSlope::se_side_up:
+                edge = (kTileSize - yl) / 2;
+                break;
+            case SurfaceSlope::nw_side_up:
+                edge = yl / 2 + 1;
+                break;
+            case SurfaceSlope::sw_side_up:
+                edge = (kTileSize - xl) / 2;
+                break;
+        }
+        return edge;
+    }
+
+    // This also takes care of the one corner down and one opposite corner up
+    static int16_t getOneCornerDownLandHeight(int8_t xl, int8_t yl, uint8_t slope, bool isDoubleHeight)
+    {
+        int16_t quadExtra = 0;
+        int16_t quad = 0;
+
+        switch (slope)
+        {
+            case SurfaceSlope::w_corner_dn:
+                quadExtra = xl + kTileSize - yl;
+                quad = xl - yl;
+                break;
+            case SurfaceSlope::s_corner_dn:
+                quadExtra = xl + yl;
+                quad = xl + yl - kTileSize - 1;
+                break;
+            case SurfaceSlope::e_corner_dn:
+                quadExtra = kTileSize - xl + yl;
+                quad = yl - xl;
+                break;
+            case SurfaceSlope::n_corner_dn:
+                quadExtra = (kTileSize - xl) + (kTileSize - yl);
+                quad = kTileSize - yl - xl - 1;
+                break;
+        }
+
+        if (isDoubleHeight)
+        {
+            return quadExtra / 2 + 1;
+        }
+        else
+        {
+            // This tile is essentially at the next height level
+            // so we move *down* the slope
+            return quad / 2 + 16;
+        }
+    }
+
+    static int16_t getValleyLandHeight(int8_t xl, int8_t yl, uint8_t slope)
+    {
+        int16_t quad = 0;
+        switch (slope)
+        {
+            case SurfaceSlope::w_e_valley:
+                if (xl + yl > kTileSize + 1)
+                {
+                    quad = kTileSize - xl - yl;
+                }
+                break;
+            case SurfaceSlope::n_s_valley:
+                quad = xl - yl;
+                break;
+        }
+
+        if (quad > 0)
+        {
+            return quad / 2;
+        }
+        return 0;
     }
 
     /**
@@ -137,17 +315,6 @@ namespace OpenLoco::Map::TileManager
         height.landHeight = surfaceEl->baseZ() * 4;
 
         const auto slope = surfaceEl->slopeCorners();
-        if (slope == SurfaceSlope::flat)
-        {
-            // Flat surface requires no further calculations.
-            return height;
-        }
-
-        int8_t quad = 0;
-        int8_t quad_extra = 0; // which quadrant the element is in?
-                               // quad_extra is for extra height tiles
-
-        constexpr uint8_t TILE_SIZE = 31;
 
         // Subtile coords
         const auto xl = pos.x & 0x1f;
@@ -156,106 +323,42 @@ namespace OpenLoco::Map::TileManager
         // Slope logic:
         // Each of the four bits in slope represents that corner being raised
         // slope == 15 (all four bits) is not used and slope == 0 is flat
-        // If the extra_height bit is set, then the slope goes up two z-levels
+        // If the extra_height bit is set, then the slope goes up two z-levels (this happens with one corner down with oppisite corner up)
 
         // We arbitrarily take the SW corner to be closest to the viewer
 
-        // One corner up
         switch (slope)
         {
+            case SurfaceSlope::flat:
+                // Flat surface requires no further calculations.
+                break;
+
             case SurfaceSlope::n_corner_up:
-                quad = xl + yl - TILE_SIZE;
-                break;
             case SurfaceSlope::e_corner_up:
-                quad = xl - yl;
-                break;
             case SurfaceSlope::s_corner_up:
-                quad = TILE_SIZE - yl - xl;
-                break;
             case SurfaceSlope::w_corner_up:
-                quad = yl - xl;
+                height.landHeight += getOneCornerUpLandHeight(xl, yl, slope);
                 break;
-        }
-        // If the element is in the quadrant with the slope, raise its height
-        if (quad > 0)
-        {
-            height.landHeight += quad / 2;
-        }
 
-        // One side up
-        switch (slope)
-        {
             case SurfaceSlope::ne_side_up:
-                height.landHeight += xl / 2 + 1;
-                break;
             case SurfaceSlope::se_side_up:
-                height.landHeight += (TILE_SIZE - yl) / 2;
-                break;
             case SurfaceSlope::nw_side_up:
-                height.landHeight += yl / 2;
-                height.landHeight++;
-                break;
             case SurfaceSlope::sw_side_up:
-                height.landHeight += (TILE_SIZE - xl) / 2;
+                height.landHeight += getOneSideUpLandHeight(xl, yl, slope);
                 break;
-        }
 
-        // One corner down
-        switch (slope)
-        {
-            case SurfaceSlope::w_corner_dn:
-                quad_extra = xl + TILE_SIZE - yl;
-                quad = xl - yl;
-                break;
-            case SurfaceSlope::s_corner_dn:
-                quad_extra = xl + yl;
-                quad = xl + yl - TILE_SIZE - 1;
-                break;
-            case SurfaceSlope::e_corner_dn:
-                quad_extra = TILE_SIZE - xl + yl;
-                quad = yl - xl;
-                break;
             case SurfaceSlope::n_corner_dn:
-                quad_extra = (TILE_SIZE - xl) + (TILE_SIZE - yl);
-                quad = TILE_SIZE - yl - xl - 1;
+            case SurfaceSlope::e_corner_dn:
+            case SurfaceSlope::s_corner_dn:
+            case SurfaceSlope::w_corner_dn:
+                height.landHeight += getOneCornerDownLandHeight(xl, yl, slope, surfaceEl->isSlopeDoubleHeight());
                 break;
-        }
 
-        if (surfaceEl->isSlopeDoubleHeight())
-        {
-            height.landHeight += quad_extra / 2;
-            height.landHeight++;
-            return height;
-        }
-
-        // This tile is essentially at the next height level
-        height.landHeight += 0x10;
-        // so we move *down* the slope
-        if (quad < 0)
-        {
-            height.landHeight += quad / 2;
-        }
-
-        // Valleys
-        switch (slope)
-        {
-            case SurfaceSlope::w_e_valley:
-                if (xl + yl <= TILE_SIZE + 1)
-                {
-                    return height;
-                }
-                quad = TILE_SIZE - xl - yl;
-                break;
             case SurfaceSlope::n_s_valley:
-                quad = xl - yl;
+            case SurfaceSlope::w_e_valley:
+                height.landHeight += getValleyLandHeight(xl, yl, slope);
                 break;
         }
-
-        if (quad > 0)
-        {
-            height.landHeight += quad / 2;
-        }
-
         return height;
     }
 
@@ -618,7 +721,7 @@ namespace OpenLoco::Map::TileManager
             return;
         }
 
-        CompanyManager::updatingCompanyId(CompanyId::neutral);
+        CompanyManager::setUpdatingCompanyId(CompanyId::neutral);
         auto pos = *_startUpdateLocation;
         for (; pos.y < Map::map_height; pos.y += 16 * Map::tile_size)
         {
@@ -646,8 +749,65 @@ namespace OpenLoco::Map::TileManager
         _startUpdateLocation = TilePos2(shift & 0xF, shift >> 4);
         if (shift == 0)
         {
-            call(0x004574E8);
+            IndustryManager::updateProducedCargoStats();
         }
+    }
+
+    // 0x0048B0C7
+    void createDestructExplosion(const Map::Pos3& pos)
+    {
+        ExplosionSmoke::create(pos + Map::Pos3{ 0, 0, 13 });
+        const auto randFreq = gPrng().randNext(20'003, 24'098);
+        Audio::playSound(Audio::SoundId::demolishBuilding, pos, -1400, randFreq);
+    }
+
+    // 0x0042D8FF
+    void removeBuildingElement(BuildingElement& elBuilding, const Map::Pos2& pos)
+    {
+        if (!elBuilding.isGhost() && !elBuilding.isFlag5())
+        {
+            if (CompanyManager::getUpdatingCompanyId() != CompanyId::neutral)
+            {
+                createDestructExplosion(Map::Pos3(pos.x + 16, pos.y + 16, elBuilding.baseZ() * 4));
+            }
+        }
+
+        if (elBuilding.multiTileIndex() == 0)
+        {
+            if (!elBuilding.isGhost())
+            {
+                auto* buildingObj = elBuilding.getObject();
+                if (buildingObj != nullptr)
+                {
+                    if (!(buildingObj->flags & BuildingObjectFlags::misc_building))
+                    {
+                        auto buildingCapacity = -buildingObj->producedQuantity[0];
+                        auto removedPopulation = buildingCapacity;
+                        if (!elBuilding.isConstructed())
+                        {
+                            removedPopulation = 0;
+                        }
+                        auto ratingReduction = buildingObj->demolishRatingReduction;
+                        auto* town = TownManager::sub_497DC1(pos, removedPopulation, buildingCapacity, ratingReduction, -1);
+                        if (town != nullptr)
+                        {
+                            if (buildingObj->var_AC != 0xFF)
+                            {
+                                town->var_150[buildingObj->var_AC] -= 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ui::ViewportManager::invalidate(pos, elBuilding.baseZ() * 4, elBuilding.clearZ() * 4, ZoomLevel::eighth);
+        TileManager::removeElement(*reinterpret_cast<TileElement*>(&elBuilding));
+    }
+
+    // 0x0047AB9B
+    void updateYearly()
+    {
+        call(0x0047AB9B);
     }
 
     void registerHooks()
@@ -664,6 +824,22 @@ namespace OpenLoco::Map::TileManager
             0x004C5596,
             [](registers& regs) FORCE_ALIGN_ARG_POINTER -> uint8_t {
                 regs.dx = countSurroundingWaterTiles({ regs.ax, regs.cx });
+                return 0;
+            });
+
+        registerHook(
+            0x0046902E,
+            [](registers& regs) FORCE_ALIGN_ARG_POINTER -> uint8_t {
+                removeSurfaceIndustry({ regs.ax, regs.cx });
+                return 0;
+            });
+
+        registerHook(
+            0x0042D8FF,
+            [](registers& regs) FORCE_ALIGN_ARG_POINTER -> uint8_t {
+                registers backup = regs;
+                removeBuildingElement(*X86Pointer<BuildingElement>(regs.esi), { regs.ax, regs.cx });
+                regs = backup;
                 return 0;
             });
     }

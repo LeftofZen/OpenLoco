@@ -28,6 +28,7 @@
 #include "../Station.h"
 #include "../StationManager.h"
 #include "../Title.h"
+#include "../TownManager.h"
 #include "../Tutorial.h"
 #include "../Ui.h"
 #include "../Ui/ProgressBar.h"
@@ -56,36 +57,6 @@ using namespace OpenLoco;
 // MSVC ignores C++17's [[maybe_unused]] attribute on functions, so just disable the warning
 #pragma warning(disable : 4505) // unreferenced local function has been removed.
 
-FORCE_ALIGN_ARG_POINTER
-static int32_t CDECL audioLoadChannel(int a0, const char* a1, int a2, int a3, int a4)
-{
-    return Audio::loadChannel((Audio::ChannelId)a0, a1, a2) ? 1 : 0;
-}
-
-FORCE_ALIGN_ARG_POINTER
-static int32_t CDECL audioPlayChannel(int a0, int a1, int a2, int a3, int a4)
-{
-    return Audio::playChannel((Audio::ChannelId)a0, a1, a2, a3, a4) ? 1 : 0;
-}
-
-FORCE_ALIGN_ARG_POINTER
-static void CDECL audioStopChannel(int a0, int a1, int a2, int a3, int a4)
-{
-    Audio::stopChannel((Audio::ChannelId)a0);
-}
-
-FORCE_ALIGN_ARG_POINTER
-static void CDECL audioSetChannelVolume(int a0, int a1)
-{
-    Audio::setChannelVolume((Audio::ChannelId)a0, a1);
-}
-
-FORCE_ALIGN_ARG_POINTER
-static int32_t CDECL audioIsChannelPlaying(int a0)
-{
-    return Audio::isChannelPlaying((Audio::ChannelId)a0) ? 1 : 0;
-}
-
 #ifdef _NO_LOCO_WIN32_
 static void STDCALL fn_40447f()
 {
@@ -108,19 +79,22 @@ static int STDCALL getNumDSoundDevices()
 
 #pragma pack(push, 1)
 
-struct palette_entry_t
+struct PaletteEntry
 {
     uint8_t b, g, r, a;
 };
 #pragma pack(pop)
-using set_palette_func = void (*)(const palette_entry_t* palette, int32_t index, int32_t count);
-static Interop::loco_global<set_palette_func, 0x0052524C> set_palette_callback;
+using SetPaletteFunc = void (*)(const PaletteEntry* palette, int32_t index, int32_t count);
+static Interop::loco_global<SetPaletteFunc, 0x0052524C> set_palette_callback;
 
 #ifdef _NO_LOCO_WIN32_
 FORCE_ALIGN_ARG_POINTER
-static void CDECL fn_4054a3(const palette_entry_t* palette, int32_t index, int32_t count)
+static void CDECL fn_4054a3(const PaletteEntry* palette, int32_t index, int32_t count)
 {
-    (*set_palette_callback)(palette, index, count);
+    if (set_palette_callback != nullptr)
+    {
+        (*set_palette_callback)(palette, index, count);
+    }
 }
 
 FORCE_ALIGN_ARG_POINTER
@@ -587,12 +561,6 @@ static void registerAudioHooks()
 {
     using namespace OpenLoco::Interop;
 
-    writeJmp(0x0040194E, (void*)&audioLoadChannel);
-    writeJmp(0x00401999, (void*)&audioPlayChannel);
-    writeJmp(0x00401A05, (void*)&audioStopChannel);
-    writeJmp(0x00401AD3, (void*)&audioSetChannelVolume);
-    writeJmp(0x00401B10, (void*)&audioIsChannelPlaying);
-
     writeRet(0x0048AB36);
     writeRet(0x00404B40);
     registerHook(
@@ -655,7 +623,7 @@ void OpenLoco::Interop::registerHooks()
             using namespace OpenLoco::Environment;
 
             auto buffer = (char*)0x009D0D72;
-            auto path = getPath((path_id)regs.ebx);
+            auto path = getPath((PathId)regs.ebx);
 
             // TODO: use Utility::strlcpy with the buffer size instead of std::strcpy, if possible
             std::strcpy(buffer, path.make_preferred().u8string().c_str());
@@ -691,7 +659,7 @@ void OpenLoco::Interop::registerHooks()
         0x00451025,
         [](registers& regs) FORCE_ALIGN_ARG_POINTER -> uint8_t {
             registers backup = regs;
-            auto pos = Gfx::drawString(*X86Pointer<Gfx::Context>(regs.edi), regs.cx, regs.dx, regs.al, X86Pointer<uint8_t>(regs.esi));
+            auto pos = Gfx::drawString(*X86Pointer<Gfx::Context>(regs.edi), regs.cx, regs.dx, static_cast<Colour>(regs.al), X86Pointer<uint8_t>(regs.esi));
             regs = backup;
             regs.cx = pos.x;
             regs.dx = pos.y;
@@ -775,10 +743,10 @@ void OpenLoco::Interop::registerHooks()
     Ui::Windows::Construction::registerHooks();
     Ui::WindowManager::registerHooks();
     Ui::ViewportManager::registerHooks();
-    Game::registerHooks();
     GameCommands::registerHooks();
     Scenario::registerHooks();
     StationManager::registerHooks();
+    TownManager::registerHooks();
     S5::registerHooks();
     Title::registerHooks();
     OpenLoco::Tutorial::registerHooks();
@@ -792,7 +760,7 @@ void OpenLoco::Interop::registerHooks()
             Map::Pos2 pos(regs.ax, regs.cx);
             Map::SurfaceElement* surface = X86Pointer<Map::SurfaceElement>(regs.esi);
 
-            WaveManager::createWave(*surface, pos);
+            Map::WaveManager::createWave(*surface, pos);
 
             regs = backup;
             return 0;

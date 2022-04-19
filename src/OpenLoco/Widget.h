@@ -11,6 +11,11 @@ namespace OpenLoco::Ui
 #pragma pack(push, 1)
     struct Widget
     {
+        // Indicates that the imageId has a colour set and not to replace it with the window colour
+        // This reuses the ImageIdFlags::translucent flag for use in widget draw
+        // Flag *MUST* be removed before passing to Gfx::drawImage functions
+        static constexpr uint32_t imageIdColourSet = (1 << 30);
+
         WidgetType type;           // 0x00
         WindowColour windowColour; // 0x01
         int16_t left;              // 0x02
@@ -36,26 +41,26 @@ namespace OpenLoco::Ui
         void draw(Gfx::Context* context, Window* window, const uint64_t pressedWidgets, const uint64_t toolWidgets, const uint64_t hoveredWidgets, uint8_t& scrollviewIndex);
 
     private:
-        void sub_4CADE8(Gfx::Context* context, const Window* window, uint8_t colour, bool enabled, bool disabled, bool activated);
+        void sub_4CADE8(Gfx::Context* context, const Window* window, AdvancedColour colour, bool enabled, bool disabled, bool activated);
 
-        void drawPanel(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour);
-        void drawFrame(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour);
+        void drawPanel(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour);
+        void drawFrame(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour);
 
-        void draw_3(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour, bool enabled, bool disabled, bool activated);
-        void draw_5(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour, bool enabled, bool disabled, bool activated);
-        void draw_9(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour, bool enabled, bool disabled, bool activated, bool hovered);
-        void draw_10(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour, bool enabled, bool disabled, bool activated, bool hovered);
-        void draw_11_a(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour, bool enabled, bool disabled, bool activated);
-        void draw_13(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour, bool enabled, bool disabled, bool activated);
-        void draw_15(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour, bool disabled);
-        void draw_17(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour);
-        void draw_22_caption(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour);
-        void draw_23_caption(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour);
-        void draw_24_caption(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour);
-        void draw_25_caption(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour);
-        void drawScrollview(Gfx::Context* context, Window* window, uint16_t flags, uint8_t colour, bool enabled, bool disabled, bool activated, bool hovered, int scrollview_index);
-        void draw_27_checkbox(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour, bool enabled, bool disabled, bool activated);
-        void draw_27_label(Gfx::Context* context, const Window* window, uint16_t flags, uint8_t colour, bool disabled);
+        void draw_3(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour, bool enabled, bool disabled, bool activated);
+        void drawTab(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour, bool enabled, bool disabled, bool activated);
+        void drawButtonWithImage(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour, bool enabled, bool disabled, bool activated, bool hovered);
+        void drawButtonWithColour(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour, bool enabled, bool disabled, bool activated, bool hovered);
+        void drawButton(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour, bool enabled, bool disabled, bool activated);
+        void draw_13(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour, bool enabled, bool disabled, bool activated);
+        void draw_15(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour, bool disabled);
+        void drawTextBox(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour);
+        void draw_22_caption(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour);
+        void draw_23_caption(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour);
+        void draw_24_caption(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour);
+        void draw_25_caption(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour);
+        void drawScrollview(Gfx::Context* context, Window* window, uint16_t flags, AdvancedColour colour, bool enabled, bool disabled, bool activated, bool hovered, int scrollview_index);
+        void draw_27_checkbox(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour, bool enabled, bool disabled, bool activated);
+        void draw_27_label(Gfx::Context* context, const Window* window, uint16_t flags, AdvancedColour colour, bool disabled);
         void draw_29(Gfx::Context* context, const Window* window);
 
         void drawGroupbox(Gfx::Context* const context, const Window* window);
@@ -99,7 +104,7 @@ namespace OpenLoco::Ui
         const uint16_t width = 11;
         const uint16_t height = 10;
 
-        return makeWidget({ xPos, yPos }, { width, height }, WidgetType::wt_11, colour, StringIds::dropdown);
+        return makeWidget({ xPos, yPos }, { width, height }, WidgetType::button, colour, StringIds::dropdown, tooltip);
     }
 
 #define makeStepperWidgets(...)                 \
@@ -114,7 +119,7 @@ namespace OpenLoco::Ui
         const uint16_t width = 13;
         const uint16_t height = size.height - 2;
 
-        return makeWidget({ xPos, yPos }, { width, height }, WidgetType::wt_11, colour, StringIds::stepper_minus);
+        return makeWidget({ xPos, yPos }, { width, height }, WidgetType::button, colour, StringIds::stepper_minus, tooltip);
     }
 
     [[maybe_unused]] static constexpr Widget makeStepperIncreaseWidget(Ui::Point origin, Ui::Size size, [[maybe_unused]] WidgetType type, WindowColour colour, [[maybe_unused]] uint32_t content = 0xFFFFFFFF, [[maybe_unused]] string_id tooltip = StringIds::null)
@@ -124,7 +129,7 @@ namespace OpenLoco::Ui
         const uint16_t width = 12;
         const uint16_t height = size.height - 2;
 
-        return makeWidget({ xPos, yPos }, { width, height }, WidgetType::wt_11, colour, StringIds::stepper_plus);
+        return makeWidget({ xPos, yPos }, { width, height }, WidgetType::button, colour, StringIds::stepper_plus, tooltip);
     }
 
     constexpr Widget makeTextWidget(Ui::Point origin, Ui::Size size, WidgetType type, WindowColour colour, string_id content, string_id tooltip = StringIds::null)

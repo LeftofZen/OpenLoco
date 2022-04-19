@@ -51,16 +51,16 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
 
         const uint64_t enabled_widgets = (1 << widx::close_button) | (1 << tab_options) | (1 << tab_land) | (1 << tab_forests) | (1 << tab_towns) | (1 << tab_industries);
 
-#define common_options_widgets(frame_height, window_caption_id)                                                                                             \
-    makeWidget({ 0, 0 }, { 366, frame_height }, WidgetType::frame, WindowColour::primary),                                                                  \
-        makeWidget({ 1, 1 }, { 364, 13 }, WidgetType::caption_25, WindowColour::primary, window_caption_id),                                                \
-        makeWidget({ 351, 2 }, { 13, 13 }, WidgetType::wt_9, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),               \
-        makeWidget({ 0, 41 }, { 366, 175 }, WidgetType::panel, WindowColour::secondary),                                                                    \
-        makeRemapWidget({ 3, 15 }, { 31, 27 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_landscape_generation_options),  \
-        makeRemapWidget({ 34, 15 }, { 31, 27 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_landscape_generation_land),    \
-        makeRemapWidget({ 65, 15 }, { 31, 27 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_landscape_generation_forests), \
-        makeRemapWidget({ 96, 15 }, { 31, 27 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_landscape_generation_towns),   \
-        makeRemapWidget({ 127, 15 }, { 31, 27 }, WidgetType::wt_8, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_landscape_generation_industries)
+#define common_options_widgets(frame_height, window_caption_id)                                                                                            \
+    makeWidget({ 0, 0 }, { 366, frame_height }, WidgetType::frame, WindowColour::primary),                                                                 \
+        makeWidget({ 1, 1 }, { 364, 13 }, WidgetType::caption_25, WindowColour::primary, window_caption_id),                                               \
+        makeWidget({ 351, 2 }, { 13, 13 }, WidgetType::buttonWithImage, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),   \
+        makeWidget({ 0, 41 }, { 366, 175 }, WidgetType::panel, WindowColour::secondary),                                                                   \
+        makeRemapWidget({ 3, 15 }, { 31, 27 }, WidgetType::tab, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_landscape_generation_options),  \
+        makeRemapWidget({ 34, 15 }, { 31, 27 }, WidgetType::tab, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_landscape_generation_land),    \
+        makeRemapWidget({ 65, 15 }, { 31, 27 }, WidgetType::tab, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_landscape_generation_forests), \
+        makeRemapWidget({ 96, 15 }, { 31, 27 }, WidgetType::tab, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_landscape_generation_towns),   \
+        makeRemapWidget({ 127, 15 }, { 31, 27 }, WidgetType::tab, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_landscape_generation_industries)
 
         // Defined at the bottom of this file.
         static void initEvents();
@@ -82,7 +82,7 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
                 };
 
                 uint32_t imageId = skin->img;
-                if (window->current_tab == widx::tab_options - widx::tab_options)
+                if (window->currentTab == widx::tab_options - widx::tab_options)
                     imageId += optionTabImageIds[(window->frame_no / 2) % std::size(optionTabImageIds)];
                 else
                     imageId += optionTabImageIds[0];
@@ -142,7 +142,7 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
         {
             window->frame_no++;
             window->callPrepareDraw();
-            WindowManager::invalidateWidget(WindowType::landscapeGeneration, window->number, window->current_tab + widx::tab_options);
+            WindowManager::invalidateWidget(WindowType::landscapeGeneration, window->number, window->currentTab + widx::tab_options);
         }
     }
 
@@ -162,9 +162,9 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
 
         static Widget widgets[] = {
             common_options_widgets(217, StringIds::title_landscape_generation_options),
-            makeStepperWidgets({ 256, 52 }, { 100, 12 }, WidgetType::wt_18, WindowColour::secondary, StringIds::start_year_value),
+            makeStepperWidgets({ 256, 52 }, { 100, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::start_year_value),
             makeWidget({ 10, 68 }, { 346, 12 }, WidgetType::checkbox, WindowColour::secondary, StringIds::label_generate_random_landscape_when_game_starts, StringIds::tooltip_generate_random_landscape_when_game_starts),
-            makeWidget({ 196, 200 }, { 160, 12 }, WidgetType::wt_11, WindowColour::secondary, StringIds::button_generate_landscape, StringIds::tooltip_generate_random_landscape),
+            makeWidget({ 196, 200 }, { 160, 12 }, WidgetType::button, WindowColour::secondary, StringIds::button_generate_landscape, StringIds::tooltip_generate_random_landscape),
             widgetEnd()
         };
 
@@ -190,15 +190,15 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
 
             commonFormatArgs[0] = S5::getOptions().scenarioStartYear;
 
-            if ((S5::getOptions().scenarioFlags & Scenario::flags::landscape_generation_done) == 0)
+            if ((S5::getOptions().scenarioFlags & Scenario::Flags::landscapeGenerationDone) == 0)
             {
-                window->activated_widgets |= (1 << widx::generate_when_game_starts);
-                window->disabled_widgets |= (1 << widx::generate_now);
+                window->activatedWidgets |= (1 << widx::generate_when_game_starts);
+                window->disabledWidgets |= (1 << widx::generate_now);
             }
             else
             {
-                window->activated_widgets &= ~(1 << widx::generate_when_game_starts);
-                window->disabled_widgets &= ~(1 << widx::generate_now);
+                window->activatedWidgets &= ~(1 << widx::generate_when_game_starts);
+                window->disabledWidgets &= ~(1 << widx::generate_now);
             }
         }
 
@@ -258,9 +258,9 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
                     break;
 
                 case widx::generate_when_game_starts:
-                    if ((S5::getOptions().scenarioFlags & Scenario::landscape_generation_done) == 0)
+                    if ((S5::getOptions().scenarioFlags & Scenario::Flags::landscapeGenerationDone) == 0)
                     {
-                        S5::getOptions().scenarioFlags |= Scenario::landscape_generation_done;
+                        S5::getOptions().scenarioFlags |= Scenario::Flags::landscapeGenerationDone;
                         Scenario::generateLandscape();
                     }
                     else
@@ -279,10 +279,10 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
         static void initEvents()
         {
             events.draw = draw;
-            events.prepare_draw = prepareDraw;
-            events.on_mouse_down = onMouseDown;
-            events.on_mouse_up = onMouseUp;
-            events.on_update = Common::update;
+            events.prepareDraw = prepareDraw;
+            events.onMouseDown = onMouseDown;
+            events.onMouseUp = onMouseUp;
+            events.onUpdate = Common::update;
         }
     }
 
@@ -306,11 +306,11 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
         {
             window = WindowManager::createWindowCentred(WindowType::landscapeGeneration, window_size, 0, &Options::events);
             window->widgets = Options::widgets;
-            window->enabled_widgets = Options::enabled_widgets;
+            window->enabledWidgets = Options::enabled_widgets;
             window->number = 0;
-            window->current_tab = 0;
+            window->currentTab = 0;
             window->frame_no = 0;
-            window->row_hover = -1;
+            window->rowHover = -1;
 
             auto interface = ObjectManager::get<InterfaceSkinObject>();
             window->setColour(WindowColour::primary, interface->colour_0B);
@@ -323,8 +323,8 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
 
         window->invalidate();
 
-        window->activated_widgets = 0;
-        window->holdable_widgets = Options::holdable_widgets;
+        window->activatedWidgets = 0;
+        window->holdableWidgets = Options::holdable_widgets;
 
         window->callOnResize();
         window->callPrepareDraw();
@@ -350,20 +350,20 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
             hill_density,
             hill_density_down,
             hill_density_up,
-            hills_edge_of_map,
+            hillsEdgeOfMap,
             scrollview,
         };
 
-        const uint64_t enabled_widgets = Common::enabled_widgets | (1 << widx::generator) | (1 << widx::generator_btn) | (1 << widx::sea_level_up) | (1 << widx::sea_level_down) | (1 << widx::min_land_height_up) | (1 << widx::min_land_height_down) | (1 << widx::topography_style) | (1 << widx::topography_style_btn) | (1 << widx::hill_density_up) | (1 << widx::hill_density_down) | (1 << widx::hills_edge_of_map);
+        const uint64_t enabled_widgets = Common::enabled_widgets | (1 << widx::generator) | (1 << widx::generator_btn) | (1 << widx::sea_level_up) | (1 << widx::sea_level_down) | (1 << widx::min_land_height_up) | (1 << widx::min_land_height_down) | (1 << widx::topography_style) | (1 << widx::topography_style_btn) | (1 << widx::hill_density_up) | (1 << widx::hill_density_down) | (1 << widx::hillsEdgeOfMap);
         const uint64_t holdable_widgets = (1 << widx::sea_level_up) | (1 << widx::sea_level_down) | (1 << widx::min_land_height_up) | (1 << widx::min_land_height_down) | (1 << widx::hill_density_up) | (1 << widx::hill_density_down);
 
         static Widget widgets[] = {
             common_options_widgets(247, StringIds::title_landscape_generation_land),
-            makeDropdownWidgets({ 176, 52 }, { 180, 12 }, WidgetType::wt_18, WindowColour::secondary),
-            makeStepperWidgets({ 256, 67 }, { 100, 12 }, WidgetType::wt_18, WindowColour::secondary, StringIds::sea_level_units),
-            makeStepperWidgets({ 256, 82 }, { 100, 12 }, WidgetType::wt_18, WindowColour::secondary, StringIds::min_land_height_units),
-            makeDropdownWidgets({ 176, 97 }, { 180, 12 }, WidgetType::wt_18, WindowColour::secondary),
-            makeStepperWidgets({ 256, 112 }, { 100, 12 }, WidgetType::wt_18, WindowColour::secondary, StringIds::hill_density_percent),
+            makeDropdownWidgets({ 176, 52 }, { 180, 12 }, WidgetType::combobox, WindowColour::secondary),
+            makeStepperWidgets({ 256, 67 }, { 100, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::sea_level_units),
+            makeStepperWidgets({ 256, 82 }, { 100, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::min_land_height_units),
+            makeDropdownWidgets({ 176, 97 }, { 180, 12 }, WidgetType::combobox, WindowColour::secondary),
+            makeStepperWidgets({ 256, 112 }, { 100, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::hill_density_percent),
             makeWidget({ 10, 128 }, { 346, 12 }, WidgetType::checkbox, WindowColour::secondary, StringIds::create_hills_right_up_to_edge_of_map),
             makeWidget({ 4, 142 }, { 358, 100 }, WidgetType::scrollview, WindowColour::secondary, Scrollbars::vertical),
             widgetEnd()
@@ -443,16 +443,16 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
                 Gfx::drawString_494BBF(context, 24, yPos + 5, 121, Colour::black, StringIds::wcolour2_stringid, &*commonFormatArgs);
 
                 // Draw rectangle.
-                Gfx::fillRectInset(context, 150, yPos + 5, 340, yPos + 16, window.getColour(WindowColour::secondary), 0b110000);
+                Gfx::fillRectInset(context, 150, yPos + 5, 340, yPos + 16, window.getColour(WindowColour::secondary).u8(), 0b110000);
 
                 // Draw current distribution setting.
-                const string_id distributionId = landDistributionLabelIds[S5::getOptions().landDistributionPatterns[i]];
+                const string_id distributionId = landDistributionLabelIds[enumValue(S5::getOptions().landDistributionPatterns[i])];
                 commonFormatArgs[0] = distributionId;
                 Gfx::drawString_494BBF(context, 151, yPos + 5, 177, Colour::black, StringIds::black_stringid, &*commonFormatArgs);
 
                 // Draw rectangle (knob).
-                const uint8_t flags = window.row_hover == i ? 0b110000 : 0;
-                Gfx::fillRectInset(context, 329, yPos + 6, 339, yPos + 15, window.getColour(WindowColour::secondary), flags);
+                const uint8_t flags = window.rowHover == i ? 0b110000 : 0;
+                Gfx::fillRectInset(context, 329, yPos + 6, 339, yPos + 15, window.getColour(WindowColour::secondary).u8(), flags);
 
                 // Draw triangle (knob).
                 Gfx::drawString_494B3F(context, 330, yPos + 6, Colour::black, StringIds::dropdown, nullptr);
@@ -511,9 +511,9 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
                     break;
 
                 case widx::scrollview:
-                    if (itemIndex != -1 && window->row_hover != -1)
+                    if (itemIndex != -1 && window->rowHover != -1)
                     {
-                        S5::getOptions().landDistributionPatterns[window->row_hover] = itemIndex;
+                        S5::getOptions().landDistributionPatterns[window->rowHover] = static_cast<S5::LandDistributionPattern>(itemIndex);
                         window->invalidate();
                     }
                     break;
@@ -601,8 +601,8 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
                     Common::switchTab(window, widgetIndex);
                     break;
 
-                case widx::hills_edge_of_map:
-                    S5::getOptions().scenarioFlags ^= Scenario::flags::hills_edge_of_map;
+                case widx::hillsEdgeOfMap:
+                    S5::getOptions().scenarioFlags ^= Scenario::Flags::hillsEdgeOfMap;
                     window->invalidate();
                     break;
             }
@@ -635,19 +635,19 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
             if (landIndex == -1)
                 return;
 
-            window->row_hover = landIndex;
+            window->rowHover = landIndex;
 
             Audio::playSound(Audio::SoundId::clickDown, window->widgets[widx::scrollview].right);
 
             const Widget& target = window->widgets[widx::scrollview];
             const int16_t dropdownX = window->x + target.left + 151;
-            const int16_t dropdownY = window->y + target.top + 6 + landIndex * rowHeight - window->scroll_areas[0].contentOffsetY;
+            const int16_t dropdownY = window->y + target.top + 6 + landIndex * rowHeight - window->scrollAreas[0].contentOffsetY;
             Dropdown::show(dropdownX, dropdownY, 188, 12, window->getColour(WindowColour::secondary), std::size(landDistributionLabelIds), 0x80);
 
             for (size_t i = 0; i < std::size(landDistributionLabelIds); i++)
                 Dropdown::add(i, StringIds::dropdown_stringid, landDistributionLabelIds[i]);
 
-            Dropdown::setItemSelected(S5::getOptions().landDistributionPatterns[landIndex]);
+            Dropdown::setItemSelected(enumValue(S5::getOptions().landDistributionPatterns[landIndex]));
         }
 
         // 0x0043DEBF
@@ -663,10 +663,10 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
             window->widgets[widx::generator].text = generatorIds[static_cast<uint8_t>(options.generator)];
             window->widgets[widx::topography_style].text = topographyStyleIds[static_cast<uint8_t>(options.topographyStyle)];
 
-            if ((options.scenarioFlags & Scenario::flags::hills_edge_of_map) != 0)
-                window->activated_widgets |= (1 << widx::hills_edge_of_map);
+            if ((options.scenarioFlags & Scenario::Flags::hillsEdgeOfMap) != 0)
+                window->activatedWidgets |= (1 << widx::hillsEdgeOfMap);
             else
-                window->activated_widgets &= ~(1 << widx::hills_edge_of_map);
+                window->activatedWidgets &= ~(1 << widx::hillsEdgeOfMap);
         }
 
         // 0x0043E2A2
@@ -683,9 +683,9 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
             Common::update(window);
 
             auto dropdown = WindowManager::find(WindowType::dropdown, 0);
-            if (dropdown == nullptr && window->row_hover != -1)
+            if (dropdown == nullptr && window->rowHover != -1)
             {
-                window->row_hover = -1;
+                window->rowHover = -1;
                 window->invalidate();
             }
         }
@@ -693,14 +693,14 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
         static void initEvents()
         {
             events.draw = draw;
-            events.draw_scroll = drawScroll;
-            events.get_scroll_size = getScrollSize;
-            events.prepare_draw = prepareDraw;
-            events.on_dropdown = onDropdown;
-            events.on_mouse_down = onMouseDown;
-            events.on_mouse_up = onMouseUp;
-            events.on_update = update;
-            events.scroll_mouse_down = scrollMouseDown;
+            events.drawScroll = drawScroll;
+            events.getScrollSize = getScrollSize;
+            events.prepareDraw = prepareDraw;
+            events.onDropdown = onDropdown;
+            events.onMouseDown = onMouseDown;
+            events.onMouseUp = onMouseUp;
+            events.onUpdate = update;
+            events.scrollMouseDown = scrollMouseDown;
             events.tooltip = tooltip;
         }
     }
@@ -740,14 +740,14 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
 
         static Widget widgets[] = {
             common_options_widgets(217, StringIds::title_landscape_generation_forests),
-            makeStepperWidgets({ 256, 52 }, { 100, 12 }, WidgetType::wt_18, WindowColour::secondary, StringIds::number_of_forests_value),
-            makeStepperWidgets({ 256, 67 }, { 100, 12 }, WidgetType::wt_18, WindowColour::secondary, StringIds::min_forest_radius_blocks),
-            makeStepperWidgets({ 256, 82 }, { 100, 12 }, WidgetType::wt_18, WindowColour::secondary, StringIds::max_forest_radius_blocks),
-            makeStepperWidgets({ 256, 97 }, { 100, 12 }, WidgetType::wt_18, WindowColour::secondary, StringIds::min_forest_density_percent),
-            makeStepperWidgets({ 256, 112 }, { 100, 12 }, WidgetType::wt_18, WindowColour::secondary, StringIds::max_forest_density_percent),
-            makeStepperWidgets({ 256, 127 }, { 100, 12 }, WidgetType::wt_18, WindowColour::secondary, StringIds::number_random_trees_value),
-            makeStepperWidgets({ 256, 142 }, { 100, 12 }, WidgetType::wt_18, WindowColour::secondary, StringIds::min_altitude_for_trees_height),
-            makeStepperWidgets({ 256, 157 }, { 100, 12 }, WidgetType::wt_18, WindowColour::secondary, StringIds::max_altitude_for_trees_height),
+            makeStepperWidgets({ 256, 52 }, { 100, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::number_of_forests_value),
+            makeStepperWidgets({ 256, 67 }, { 100, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::min_forest_radius_blocks),
+            makeStepperWidgets({ 256, 82 }, { 100, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::max_forest_radius_blocks),
+            makeStepperWidgets({ 256, 97 }, { 100, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::min_forest_density_percent),
+            makeStepperWidgets({ 256, 112 }, { 100, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::max_forest_density_percent),
+            makeStepperWidgets({ 256, 127 }, { 100, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::number_random_trees_value),
+            makeStepperWidgets({ 256, 142 }, { 100, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::min_altitude_for_trees_height),
+            makeStepperWidgets({ 256, 157 }, { 100, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::max_altitude_for_trees_height),
             widgetEnd()
         };
 
@@ -961,10 +961,10 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
         static void initEvents()
         {
             events.draw = draw;
-            events.prepare_draw = prepareDraw;
-            events.on_mouse_down = onMouseDown;
-            events.on_mouse_up = onMouseUp;
-            events.on_update = Common::update;
+            events.prepareDraw = prepareDraw;
+            events.onMouseDown = onMouseDown;
+            events.onMouseUp = onMouseUp;
+            events.onUpdate = Common::update;
         }
     }
 
@@ -984,9 +984,8 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
 
         static Widget widgets[] = {
             common_options_widgets(217, StringIds::title_landscape_generation_towns),
-            makeStepperWidgets({ 256, 52 }, { 100, 12 }, WidgetType::wt_18, WindowColour::secondary, StringIds::number_of_towns_value),
-            makeWidget({ 176, 67 }, { 180, 12 }, WidgetType::wt_18, WindowColour::secondary),
-            makeWidget({ 344, 68 }, { 11, 10 }, WidgetType::wt_11, WindowColour::secondary, StringIds::dropdown),
+            makeStepperWidgets({ 256, 52 }, { 100, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::number_of_towns_value),
+            makeDropdownWidgets({ 176, 67 }, { 180, 12 }, WidgetType::combobox, WindowColour::secondary),
             widgetEnd()
         };
 
@@ -1042,7 +1041,7 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
             {
                 case widx::number_of_towns_up:
                 {
-                    uint16_t newNumTowns = std::min<uint16_t>(options.numberOfTowns + 1, Limits::maxTowns);
+                    uint16_t newNumTowns = std::min<uint16_t>(options.numberOfTowns + 1, Limits::kMaxTowns);
                     options.numberOfTowns = newNumTowns;
                     window->invalidate();
                     break;
@@ -1050,7 +1049,7 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
 
                 case widx::number_of_towns_down:
                 {
-                    uint16_t newNumTowns = std::max<uint16_t>(0, options.numberOfTowns - 1);
+                    uint16_t newNumTowns = std::max<uint16_t>(Limits::kMinTowns, options.numberOfTowns - 1);
                     options.numberOfTowns = newNumTowns;
                     window->invalidate();
                     break;
@@ -1102,11 +1101,11 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
         static void initEvents()
         {
             events.draw = draw;
-            events.prepare_draw = prepareDraw;
-            events.on_dropdown = onDropdown;
-            events.on_mouse_down = onMouseDown;
-            events.on_mouse_up = onMouseUp;
-            events.on_update = Common::update;
+            events.prepareDraw = prepareDraw;
+            events.onDropdown = onDropdown;
+            events.onMouseDown = onMouseDown;
+            events.onMouseUp = onMouseUp;
+            events.onUpdate = Common::update;
         }
     }
 
@@ -1125,8 +1124,7 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
 
         static Widget widgets[] = {
             common_options_widgets(217, StringIds::title_landscape_generation_industries),
-            makeWidget({ 176, 52 }, { 180, 12 }, WidgetType::wt_18, WindowColour::secondary),
-            makeWidget({ 344, 53 }, { 11, 10 }, WidgetType::wt_11, WindowColour::secondary, StringIds::dropdown),
+            makeDropdownWidgets({ 176, 52 }, { 180, 12 }, WidgetType::combobox, WindowColour::secondary),
             makeWidget({ 10, 68 }, { 346, 12 }, WidgetType::checkbox, WindowColour::secondary, StringIds::allow_industries_to_close_down_during_game),
             makeWidget({ 10, 83 }, { 346, 12 }, WidgetType::checkbox, WindowColour::secondary, StringIds::allow_new_industries_to_start_up_during_game),
             widgetEnd()
@@ -1196,12 +1194,12 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
                     break;
 
                 case widx::check_allow_industries_close_down:
-                    *industryFlags ^= Scenario::industry_flags::disallow_industries_close_down;
+                    *industryFlags ^= Scenario::IndustryFlags::disallowIndustriesCloseDown;
                     window->invalidate();
                     break;
 
                 case widx::check_allow_industries_start_up:
-                    *industryFlags ^= Scenario::industry_flags::disallow_industries_start_up;
+                    *industryFlags ^= Scenario::IndustryFlags::disallowIndustriesStartUp;
                     window->invalidate();
                     break;
             }
@@ -1214,21 +1212,21 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
 
             widgets[widx::num_industries].text = numIndustriesLabels[S5::getOptions().numberOfIndustries];
 
-            window->activated_widgets &= ~((1 << widx::check_allow_industries_close_down) | (1 << widx::check_allow_industries_start_up));
-            if (!(industryFlags & Scenario::industry_flags::disallow_industries_close_down))
-                window->activated_widgets |= 1 << widx::check_allow_industries_close_down;
-            if (!(industryFlags & Scenario::industry_flags::disallow_industries_start_up))
-                window->activated_widgets |= 1 << widx::check_allow_industries_start_up;
+            window->activatedWidgets &= ~((1 << widx::check_allow_industries_close_down) | (1 << widx::check_allow_industries_start_up));
+            if (!(industryFlags & Scenario::IndustryFlags::disallowIndustriesCloseDown))
+                window->activatedWidgets |= 1 << widx::check_allow_industries_close_down;
+            if (!(industryFlags & Scenario::IndustryFlags::disallowIndustriesStartUp))
+                window->activatedWidgets |= 1 << widx::check_allow_industries_start_up;
         }
 
         static void initEvents()
         {
             events.draw = draw;
-            events.prepare_draw = prepareDraw;
-            events.on_dropdown = onDropdown;
-            events.on_mouse_down = onMouseDown;
-            events.on_mouse_up = onMouseUp;
-            events.on_update = Common::update;
+            events.prepareDraw = prepareDraw;
+            events.onDropdown = onDropdown;
+            events.onMouseDown = onMouseDown;
+            events.onMouseUp = onMouseUp;
+            events.onUpdate = Common::update;
         }
     };
 
@@ -1245,7 +1243,7 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
 
         static void switchTabWidgets(Window* window)
         {
-            window->activated_widgets = 0;
+            window->activatedWidgets = 0;
 
             static Widget* widgetCollectionsByTabId[] = {
                 Options::widgets,
@@ -1255,7 +1253,7 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
                 Industries::widgets,
             };
 
-            Widget* newWidgets = widgetCollectionsByTabId[window->current_tab];
+            Widget* newWidgets = widgetCollectionsByTabId[window->currentTab];
             if (window->widgets != newWidgets)
             {
                 window->widgets = newWidgets;
@@ -1270,8 +1268,8 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
                 tab_industries,
             };
 
-            window->activated_widgets &= ~((1 << tab_options) | (1 << tab_land) | (1 << tab_forests) | (1 << tab_towns) | (1 << tab_industries));
-            window->activated_widgets |= (1ULL << tabWidgetIdxByTabId[window->current_tab]);
+            window->activatedWidgets &= ~((1 << tab_options) | (1 << tab_land) | (1 << tab_forests) | (1 << tab_towns) | (1 << tab_industries));
+            window->activatedWidgets |= (1ULL << tabWidgetIdxByTabId[window->currentTab]);
         }
 
         // 0x0043DC98
@@ -1280,10 +1278,10 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
             if (Input::isToolActive(window->type, window->number))
                 Input::toolCancel();
 
-            window->current_tab = widgetIndex - widx::tab_options;
+            window->currentTab = widgetIndex - widx::tab_options;
             window->frame_no = 0;
             window->flags &= ~(WindowFlags::flag_16);
-            window->disabled_widgets = 0;
+            window->disabledWidgets = 0;
 
             static const uint64_t* enabledWidgetsByTab[] = {
                 &Options::enabled_widgets,
@@ -1293,7 +1291,7 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
                 &Industries::enabled_widgets,
             };
 
-            window->enabled_widgets = *enabledWidgetsByTab[window->current_tab];
+            window->enabledWidgets = *enabledWidgetsByTab[window->currentTab];
 
             static const uint64_t* holdableWidgetsByTab[] = {
                 &Options::holdable_widgets,
@@ -1303,7 +1301,7 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
                 &Industries::holdable_widgets,
             };
 
-            window->holdable_widgets = *holdableWidgetsByTab[window->current_tab];
+            window->holdableWidgets = *holdableWidgetsByTab[window->currentTab];
 
             static WindowEventList* eventsByTab[] = {
                 &Options::events,
@@ -1313,7 +1311,7 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
                 &Industries::events,
             };
 
-            window->event_handlers = eventsByTab[window->current_tab];
+            window->eventHandlers = eventsByTab[window->currentTab];
 
             switchTabWidgets(window);
 

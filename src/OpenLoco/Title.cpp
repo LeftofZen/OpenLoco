@@ -118,7 +118,7 @@ namespace OpenLoco::Title
         if (Intro::state() == Intro::State::none)
         {
             auto backupWord = _525F62;
-            auto titlePath = Environment::getPath(Environment::path_id::title);
+            auto titlePath = Environment::getPath(Environment::PathId::title);
             clearScreenFlag(ScreenFlags::networked);
             S5::load(titlePath, S5::LoadFlags::titleSequence);
 
@@ -157,7 +157,7 @@ namespace OpenLoco::Title
     // 0x0046AD7D
     void start()
     {
-        CompanyManager::updatingCompanyId(CompanyManager::getControllingId());
+        CompanyManager::setUpdatingCompanyId(CompanyManager::getControllingId());
         if (isPaused())
         {
             GameCommands::togglePause(1);
@@ -168,7 +168,7 @@ namespace OpenLoco::Title
         Ui::WindowManager::closeAllFloatingWindows();
         setAllScreenFlags(currentScreenFlags);
         setScreenFlag(ScreenFlags::title);
-        setGameSpeed(0);
+        setGameSpeed(GameSpeed::Normal);
         ObjectManager::unloadAll();
         sub_473A95(1);
         sub_474874();
@@ -224,7 +224,7 @@ namespace OpenLoco::Title
                                     {
                                         auto pos3d = Map::Pos3(pos.x, pos.y, height.landHeight);
                                         main->viewportCentreOnTile(pos3d);
-                                        main->flags &= ~Ui::WindowFlags::scrolling_to_location;
+                                        main->flags &= ~Ui::WindowFlags::scrollingToLocation;
                                         main->viewportsUpdatePosition();
                                     }
                                 }

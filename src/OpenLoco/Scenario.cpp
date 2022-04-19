@@ -33,6 +33,7 @@
 using namespace OpenLoco::Interop;
 using namespace OpenLoco::Map;
 using namespace OpenLoco::Ui;
+using namespace OpenLoco::Literals;
 
 namespace OpenLoco::Scenario
 {
@@ -45,7 +46,7 @@ namespace OpenLoco::Scenario
 
     static loco_global<uint16_t, 0x0052622E> _52622E; // tick-related?
 
-    static loco_global<uint8_t, 0x00526230> objectiveType;
+    static loco_global<ObjectiveType, 0x00526230> objectiveType;
     static loco_global<uint8_t, 0x00526231> objectiveFlags;
     static loco_global<uint32_t, 0x00526232> objectiveCompanyValue;
     static loco_global<uint32_t, 0x00526236> objectiveMonthlyVehicleProfit;
@@ -55,10 +56,7 @@ namespace OpenLoco::Scenario
     static loco_global<uint8_t, 0x00526240> objectiveTimeLimitYears;
     static loco_global<uint16_t, 0x00526241> objectiveTimeLimitUntilYear;
 
-    static loco_global<S5::Options, 0x009C8714> _activeOptions;
-
     static loco_global<char[256], 0x0050B745> _currentScenarioFilename;
-    static loco_global<char[64], 0x009C873E> _scenarioTitle;
     static loco_global<uint16_t, 0x0050C19A> _50C19A;
 
     // 0x0046115C
@@ -183,7 +181,7 @@ namespace OpenLoco::Scenario
     {
         WindowManager::closeConstructionWindows();
 
-        CompanyManager::updatingCompanyId(CompanyId::neutral);
+        CompanyManager::setUpdatingCompanyId(CompanyId::neutral);
         WindowManager::setCurrentRotation(0);
 
         CompanyManager::reset();
@@ -218,7 +216,7 @@ namespace OpenLoco::Scenario
     // 0x0043EDAD
     void eraseLandscape()
     {
-        S5::getOptions().scenarioFlags &= ~(Scenario::flags::landscape_generation_done);
+        S5::getOptions().scenarioFlags &= ~(Scenario::Flags::landscapeGenerationDone);
         Ui::WindowManager::invalidate(Ui::WindowType::landscapeGeneration, 0);
         reset();
         S5::getOptions().madeAnyChanges = 0;
@@ -238,17 +236,18 @@ namespace OpenLoco::Scenario
     // 0x0049685C
     void initialiseDate(uint16_t year)
     {
-        // NB: this base value was already 1800 in Locomotion.
-        uint32_t dayCount = 0;
-        for (int y = 1800; y < year; y++)
-        {
-            dayCount += 365;
-            if (isLeapYear(y))
-                dayCount += 1;
-        }
+        initialiseDate(year, MonthId::january, 1);
+    }
 
-        setDate(Date(year, MonthId::january, 1));
+    void initialiseDate(uint16_t year, MonthId month, uint8_t day)
+    {
+        // NB: this base value was already 1800 in Locomotion.
+        auto date = Date(year, month, day);
+        uint32_t dayCount = calcDays(date);
+
         setCurrentDay(dayCount);
+        setDate(date);
+
         setDayProgression(0);
 
         _scenario_ticks = 0;
@@ -300,10 +299,11 @@ namespace OpenLoco::Scenario
         fs::path fullPath = path;
         if (!fullPath.has_root_path())
         {
-            auto scenarioPath = Environment::getPath(Environment::path_id::scenarios);
+            auto scenarioPath = Environment::getPath(Environment::PathId::scenarios);
             fullPath = scenarioPath / path;
         }
 
+        Audio::pauseSound();
         static loco_global<char[512], 0x00112CE04> scenarioFilename;
         std::strncpy(&*scenarioFilename, fullPath.u8string().c_str(), std::size(scenarioFilename));
         auto flags = call(0x00442837);
@@ -321,7 +321,7 @@ namespace OpenLoco::Scenario
         Audio::resetMusic();
 
         auto& gameState = getGameState();
-        if (gameState.flags & flags::landscape_generation_done)
+        if (gameState.flags & Flags::landscapeGenerationDone)
         {
             auto mainWindow = WindowManager::getMainWindow();
             if (mainWindow != nullptr)
@@ -346,8 +346,8 @@ namespace OpenLoco::Scenario
         sub_4BAEC4();
         Title::sub_4284C8();
 
-        std::memcpy(gameState.scenarioDetails, _activeOptions->scenarioDetails, sizeof(gameState.scenarioDetails));
-        std::memcpy(gameState.scenarioName, _activeOptions->scenarioName, sizeof(gameState.scenarioName));
+        std::memcpy(gameState.scenarioDetails, S5::getOptions().scenarioDetails, sizeof(gameState.scenarioDetails));
+        std::memcpy(gameState.scenarioName, S5::getOptions().scenarioName, sizeof(gameState.scenarioName));
 
         const auto* stexObj = ObjectManager::get<ScenarioTextObject>();
         if (stexObj != nullptr)
@@ -357,18 +357,18 @@ namespace OpenLoco::Scenario
             std::strncpy(gameState.scenarioDetails, buffer, sizeof(gameState.scenarioDetails));
         }
 
-        auto savePath = Environment::getPath(Environment::path_id::save);
-        savePath /= std::string(_scenarioTitle) + S5::extensionSV5;
-        std::strcat(_currentScenarioFilename, savePath.u8string().c_str());
+        auto savePath = Environment::getPath(Environment::PathId::save);
+        savePath /= std::string(S5::getOptions().scenarioName) + S5::extensionSV5;
+        std::strncpy(_currentScenarioFilename, savePath.u8string().c_str(), std::size(_currentScenarioFilename));
 
         call(0x004C159C);
         call(0x0046E07B); // load currency gfx
         CompanyManager::reset();
         CompanyManager::createPlayerCompany();
-        initialiseDate(_activeOptions->scenarioStartYear);
+        initialiseDate(S5::getOptions().scenarioStartYear);
         initialiseSnowLine();
         sub_4748D4();
-        std::memset(gameState.recordType, 0, sizeof(gameState.recordType));
+        std::fill(std::begin(gameState.recordSpeed), std::end(gameState.recordSpeed), 0_mph);
         gameState.objectiveTimeLimitUntilYear = gameState.objectiveTimeLimitYears - 1 + gameState.currentYear;
         gameState.objectiveMonthsInChallenge = 0;
         call(0x0049B546);
@@ -396,6 +396,7 @@ namespace OpenLoco::Scenario
             return false;
 
         gameState.rng = Utility::prng(Platform::getTime() ^ oldRng.srand_0(), oldRng.srand_1());
+        std::strncpy(gameState.scenarioFileName, path.u8string().c_str(), std::size(gameState.scenarioFileName) - 1);
         start();
     }
 
@@ -408,17 +409,17 @@ namespace OpenLoco::Scenario
     {
         switch (objectiveType)
         {
-            case Scenario::objective_type::company_value:
+            case Scenario::ObjectiveType::companyValue:
                 args.push(StringIds::achieve_a_company_value_of);
                 args.push(*objectiveCompanyValue);
                 break;
 
-            case Scenario::objective_type::vehicle_profit:
+            case Scenario::ObjectiveType::vehicleProfit:
                 args.push(StringIds::achieve_a_monthly_profit_from_vehicles_of);
                 args.push(*objectiveMonthlyVehicleProfit);
                 break;
 
-            case Scenario::objective_type::performance_index:
+            case Scenario::ObjectiveType::performanceIndex:
             {
                 args.push(StringIds::achieve_a_performance_index_of);
                 int16_t performanceIndex = objectivePerformanceIndex * 10;
@@ -426,7 +427,7 @@ namespace OpenLoco::Scenario
                 break;
             }
 
-            case Scenario::objective_type::cargo_delivery:
+            case Scenario::ObjectiveType::cargoDelivery:
             {
                 args.push(StringIds::deliver);
                 CargoObject* cargoObject = _50D15C;
@@ -440,15 +441,15 @@ namespace OpenLoco::Scenario
             }
         }
 
-        if ((objectiveFlags & Scenario::objective_flags::be_top_company) != 0)
+        if ((objectiveFlags & Scenario::ObjectiveFlags::beTopCompany) != 0)
         {
             args.push(StringIds::and_be_the_top_performing_company);
         }
-        if ((objectiveFlags & Scenario::objective_flags::be_within_top_three_companies) != 0)
+        if ((objectiveFlags & Scenario::ObjectiveFlags::beWithinTopThreeCompanies) != 0)
         {
             args.push(StringIds::and_be_one_of_the_top_3_performing_companies);
         }
-        if ((objectiveFlags & Scenario::objective_flags::within_time_limit) != 0)
+        if ((objectiveFlags & Scenario::ObjectiveFlags::withinTimeLimit) != 0)
         {
             if (isTitleMode() || isEditorMode())
             {

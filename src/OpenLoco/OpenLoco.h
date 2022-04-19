@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/FileSystem.hpp"
 #include "Utility/Prng.hpp"
 #include <cstdint>
 #include <functional>
@@ -32,11 +33,17 @@ namespace OpenLoco
 
     extern const char version[];
 
+    enum class GameSpeed : uint8_t
+    {
+        Normal = 0,
+        FastForward = 1,
+        ExtraFastForward = 2,
+        MAX = ExtraFastForward,
+    };
+
     std::string getVersionInfo();
 
     void* hInstance();
-    const char* lpCmdLine();
-    void lpCmdLine(const char* path);
     void resetScreenAge();
     uint16_t getScreenAge();
     uint16_t getScreenFlags();
@@ -56,14 +63,15 @@ namespace OpenLoco
     uint8_t getPauseFlags();
     void setPauseFlag(uint8_t value);
     void unsetPauseFlag(uint8_t value);
-    uint8_t getGameSpeed();
-    void setGameSpeed(uint8_t speed);
-    uint32_t scenarioTicks();
+    GameSpeed getGameSpeed();
+    void setGameSpeed(const GameSpeed speed);
     Utility::prng& gPrng();
     void initialiseViewports();
+    void simulateGame(const fs::path& path, int32_t ticks);
 
     void sub_431695(uint16_t var_F253A0);
-    void main();
+    int main(int argc, const char** argv);
+    int main(const char* args);
     void promptTickLoop(std::function<bool()> tickAction);
     [[noreturn]] void exitCleanly();
     [[noreturn]] void exitWithError(OpenLoco::string_id message, uint32_t errorCode);

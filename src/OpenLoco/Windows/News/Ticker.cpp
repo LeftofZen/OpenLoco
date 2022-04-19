@@ -24,14 +24,15 @@ namespace OpenLoco::Ui::Windows::NewsWindow::Ticker
         if (widgetIndex != 0)
             return;
 
-        if (_activeMessageIndex == MessageId::null)
+        if (MessageManager::getActiveIndex() == MessageId::null)
             return;
 
-        auto news = MessageManager::get(_activeMessageIndex);
-        news->var_C8 = 1;
+        auto news = MessageManager::get(MessageManager::getActiveIndex());
+        news->setActive(true);
+        news->timeActive++;
 
-        auto activeMessageIndex = _activeMessageIndex;
-        _activeMessageIndex = MessageId::null;
+        auto activeMessageIndex = MessageManager::getActiveIndex();
+        MessageManager::setActiveIndex(MessageId::null);
 
         WindowManager::close(self);
         open(activeMessageIndex);
@@ -81,9 +82,9 @@ namespace OpenLoco::Ui::Windows::NewsWindow::Ticker
 
             if (!(_word_525CE0 & 0x8007))
             {
-                if (_activeMessageIndex != MessageId::null)
+                if (MessageManager::getActiveIndex() != MessageId::null)
                 {
-                    auto news = MessageManager::get(_activeMessageIndex);
+                    auto news = MessageManager::get(MessageManager::getActiveIndex());
                     auto cx = _word_525CE0 >> 2;
                     char* newsString = news->messageString;
                     auto newsStringChar = *newsString;
@@ -128,10 +129,10 @@ namespace OpenLoco::Ui::Windows::NewsWindow::Ticker
             }
         }
 
-        if (_activeMessageIndex != MessageId::null)
+        if (MessageManager::getActiveIndex() != MessageId::null)
             return;
 
-        _activeMessageIndex = MessageId::null;
+        MessageManager::setActiveIndex(MessageId::null);
 
         WindowManager::close(self);
     }
@@ -158,7 +159,7 @@ namespace OpenLoco::Ui::Windows::NewsWindow::Ticker
         if (getPauseFlags() & (1 << 2))
             return;
 
-        auto news = MessageManager::get(_activeMessageIndex);
+        auto news = MessageManager::get(MessageManager::getActiveIndex());
 
         auto x = self->x;
         auto y = self->y;
@@ -170,12 +171,12 @@ namespace OpenLoco::Ui::Windows::NewsWindow::Ticker
         if (!clipped)
             return;
 
-        auto colour = Colour::getShade(Colour::white, 5);
+        auto colour = Colours::getShade(Colour::white, 5);
         const auto& mtd = getMessageTypeDescriptor(news->type);
 
         if (!mtd.hasFlag(MessageTypeFlags::unk1))
         {
-            colour = Colour::getShade(Colour::mutedDarkRed, 5);
+            colour = Colours::getShade(Colour::mutedDarkRed, 5);
         }
 
         Gfx::clearSingle(*clipped, colour);
@@ -227,9 +228,9 @@ namespace OpenLoco::Ui::Windows::NewsWindow::Ticker
 
     void initEvents()
     {
-        events.on_mouse_up = onMouseUp;
-        events.on_resize = onResize;
-        events.on_update = onUpdate;
+        events.onMouseUp = onMouseUp;
+        events.onResize = onResize;
+        events.onUpdate = onUpdate;
         events.draw = draw;
     }
 }

@@ -6,6 +6,7 @@
 #include "Objects/CargoObject.h"
 #include "Objects/IndustryObject.h"
 #include "Objects/ObjectManager.h"
+#include "StationManager.h"
 #include "Utility/Numeric.hpp"
 #include <algorithm>
 
@@ -14,24 +15,23 @@ using namespace OpenLoco::Map;
 
 namespace OpenLoco
 {
-    struct Unk4F9274
+    const std::array<Unk4F9274, 1> word_4F9274 = {
+        Unk4F9274{ { 0, 0 }, 0 },
+    };
+    const std::array<Unk4F9274, 4> word_4F927C = {
+        Unk4F9274{ { 0, 0 }, 0 },
+        Unk4F9274{ { 0, 32 }, 1 },
+        Unk4F9274{ { 32, 32 }, 2 },
+        Unk4F9274{ { 32, 0 }, 3 },
+    };
+    const stdx::span<const Unk4F9274> getUnk4F9274(bool type)
     {
-        Pos2 pos;
-        uint8_t unk;
-    };
-    static const Unk4F9274 word_4F9274[] = {
-        { { 0, 0 }, 0 },
-        { { Location::null, 0 }, 0 }
-    };
-    static const Unk4F9274 word_4F927C[] = {
-        { { 0, 0 }, 0 },
-        { { 0, 32 }, 1 },
-        { { 32, 32 }, 2 },
-        { { 32, 0 }, 3 },
-        { { Location::null, 0 }, 0 }
-    };
+        if (type)
+            return word_4F927C;
+        return word_4F9274;
+    }
 
-    IndustryObject* Industry::object() const
+    const IndustryObject* Industry::getObject() const
     {
         return ObjectManager::get<IndustryObject>(object_id);
     }
@@ -82,7 +82,7 @@ namespace OpenLoco
     {
         char* ptr = (char*)buffer;
         *ptr = '\0';
-        auto industryObj = object();
+        const auto* industryObj = getObject();
 
         // Closing Down
         if (flags & IndustryFlags::closingDown)
@@ -156,7 +156,7 @@ namespace OpenLoco
                 if (surface->industryId() == id())
                 {
                     uint8_t bl = surface->var_6_SLR5();
-                    auto obj = object();
+                    const auto* obj = getObject();
                     if (bl == 0 || bl != obj->var_EA)
                     {
                         // loc_4532E5
@@ -179,7 +179,7 @@ namespace OpenLoco
         int16_t tmp_c = var_DB - tmp_b;
         int16_t tmp_d = std::min(tmp_c / 25, 255);
 
-        auto obj = object();
+        const auto* obj = getObject();
         if (tmp_d < obj->var_EB)
         {
             var_DF = ((tmp_d * 256) / obj->var_EB) & 0xFF;
@@ -247,22 +247,79 @@ namespace OpenLoco
                 auto tileIndustry = industryEl->industry();
                 if (tileIndustry != nullptr)
                 {
-                    auto industryObject = tileIndustry->object();
+                    const auto* industryObject = tileIndustry->getObject();
                     if (industryObject != nullptr)
                     {
-                        auto animOffsets = word_4F9274;
-                        if (industryObject->var_C6 & (1 << industryEl->var_6_1F()))
+                        auto animOffsets = getUnk4F9274(industryObject->var_C6 & (1 << industryEl->var_6_1F()));
+                        for (auto animOffset : animOffsets)
                         {
-                            animOffsets = word_4F927C;
-                        }
-                        while (animOffsets[0].pos.x != Location::null)
-                        {
-                            AnimationManager::createAnimation(3, animOffsets->pos + tilePos, baseZ);
-                            animOffsets++;
+                            AnimationManager::createAnimation(3, animOffset.pos + tilePos, baseZ);
                         }
                     }
                 }
             }
         }
+    }
+
+    // 0x004574F7
+    void Industry::updateProducedCargoStats()
+    {
+        const auto* industryObj = getObject();
+
+        for (auto cargoNum = 0; cargoNum < 2; ++cargoNum)
+        {
+            auto& indStatsStation = producedCargoStatsStation[cargoNum];
+            auto& indStatsRating = producedCargoStatsRating[cargoNum];
+            std::fill(std::begin(indStatsStation), std::end(indStatsStation), StationId::null);
+            const auto cargoType = industryObj->produced_cargo_type[cargoNum];
+            if (cargoType == 0xFF)
+            {
+                continue;
+            }
+
+            for (auto dword = 0; dword < 32; ++dword)
+            {
+                auto bits = var_E1[dword];
+                for (auto bit = Utility::bitScanForward(bits); bit != -1; bit = Utility::bitScanForward(bits))
+                {
+                    bits &= ~(1 << bit);
+                    const auto stationId = static_cast<StationId>((dword << 5) | bit);
+                    const auto* station = StationManager::get(stationId);
+                    if (station->empty())
+                    {
+                        continue;
+                    }
+
+                    const auto& cargoStats = station->cargoStats[cargoType];
+                    if (!(cargoStats.flags & (1 << 1)))
+                    {
+                        continue;
+                    }
+
+                    const auto rating = cargoStats.rating;
+                    for (auto index = 0; index < 4; ++index)
+                    {
+                        if (indStatsStation[index] == StationId::null || indStatsRating[index] <= rating)
+                        {
+                            // This is an insertion sort.
+                            // Rotate so that we overwrite the last entry
+                            std::rotate(std::begin(indStatsStation) + index, std::end(indStatsStation) - 1, std::end(indStatsStation));
+                            std::rotate(std::begin(indStatsRating) + index, std::end(indStatsRating) - 1, std::end(indStatsRating));
+                            indStatsStation[index] = stationId;
+                            indStatsRating[index] = rating;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            uint8_t ratingFraction = 0xFF;
+            for (auto& rating : indStatsRating)
+            {
+                rating = (rating * ratingFraction) / 256;
+                ratingFraction = -rating;
+            }
+        }
+        std::fill(std::begin(var_E1), std::end(var_E1), 0);
     }
 }

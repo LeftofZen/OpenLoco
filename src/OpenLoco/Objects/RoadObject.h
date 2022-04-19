@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Speed.hpp"
 #include "../Types.hpp"
 #include "Object.h"
 
@@ -14,7 +15,7 @@ namespace OpenLoco
     {
         constexpr uint8_t unk_01 = 1 << 1;
         constexpr uint8_t unk_02 = 1 << 2;
-        constexpr uint8_t unk_03 = 1 << 3;
+        constexpr uint8_t unk_03 = 1 << 3; // Likely isTram
         constexpr uint8_t isRoad = 1 << 6; // If not set this is tram track
     }
 
@@ -40,7 +41,8 @@ namespace OpenLoco
         uint16_t sell_cost_factor;   // 0x06
         uint16_t tunnel_cost_factor; // 0x08
         uint8_t cost_index;          // 0x0A
-        uint8_t pad_0B[0x0E - 0x0B];
+        uint8_t pad_0B;
+        Speed16 maxSpeed;     // 0x0C
         uint32_t image;       // 0x0E
         uint16_t flags;       // 0x12
         uint8_t num_bridges;  // 0x14

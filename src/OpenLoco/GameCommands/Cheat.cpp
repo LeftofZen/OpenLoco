@@ -1,24 +1,31 @@
 #include "Cheat.h"
 #include "../CompanyManager.h"
+#include "../Console.h"
 #include "../Economy/Currency.h"
 #include "../Entities/EntityManager.h"
 #include "../Interop/Interop.hpp"
 #include "../Map/TileManager.h"
+#include "../MessageManager.h"
+#include "../Scenario.h"
 #include "../StationManager.h"
 #include "../TownManager.h"
 #include "../Types.hpp"
+#include "../Ui/WindowManager.h"
 #include "../Vehicles/Vehicle.h"
 #include "GameCommands.h"
 
 using namespace OpenLoco::Interop;
+using namespace OpenLoco::Map;
 
 namespace OpenLoco::GameCommands
 {
+    static loco_global<CompanyId, 0x009C68EB> _updatingCompanyId;
+
     namespace Cheats
     {
         static uint32_t acquireAssets(CompanyId targetCompanyId)
         {
-            auto ourCompanyId = CompanyManager::updatingCompanyId();
+            auto ourCompanyId = CompanyManager::getUpdatingCompanyId();
 
             // First phase: change ownership of all tile elements that currently belong to the target company.
             for (auto& element : TileManager::getElements())
@@ -53,7 +60,7 @@ namespace OpenLoco::GameCommands
                 if (vehicle->owner != targetCompanyId)
                     continue;
 
-                Vehicles::Vehicle train(vehicle);
+                Vehicles::Vehicle train(*vehicle);
                 train.head->owner = ourCompanyId;
                 train.veh1->owner = ourCompanyId;
                 train.veh2->owner = ourCompanyId;
@@ -83,7 +90,7 @@ namespace OpenLoco::GameCommands
         static uint32_t clearLoan()
         {
             auto company = CompanyManager::getPlayerCompany();
-            company->current_loan = 0;
+            company->currentLoan = 0;
             return 0;
         }
 
@@ -100,17 +107,17 @@ namespace OpenLoco::GameCommands
                 int16_t newRanking{};
                 if (absolute)
                 {
-                    newRanking = value * max_company_rating;
+                    newRanking = value * kMaxCompanyRating;
                 }
                 else
                 {
-                    newRanking = town.company_ratings[enumValue(companyId)] + max_company_rating;
+                    newRanking = town.company_ratings[enumValue(companyId)] + kMaxCompanyRating;
                     newRanking *= 1.0f + (1.0f / value);
-                    newRanking -= max_company_rating;
+                    newRanking -= kMaxCompanyRating;
                 }
 
                 // Set the new rating.
-                town.company_ratings[enumValue(companyId)] = std::clamp<int16_t>(newRanking, min_company_rating, max_company_rating);
+                town.company_ratings[enumValue(companyId)] = std::clamp<int16_t>(newRanking, kMinCompanyRating, kMaxCompanyRating);
             }
 
             return 0;
@@ -141,32 +148,42 @@ namespace OpenLoco::GameCommands
         static uint32_t toggleBankruptcy(CompanyId targetCompanyId)
         {
             auto company = CompanyManager::get(targetCompanyId);
-            company->challenge_flags ^= CompanyFlags::bankrupt;
+            company->challengeFlags ^= CompanyFlags::bankrupt;
             return 0;
         }
 
         static uint32_t toggleJail(CompanyId targetCompanyId)
         {
             auto company = CompanyManager::get(targetCompanyId);
-            company->jail_status = 30;
+            company->jailStatus = 30;
             return 0;
         }
 
         static uint32_t vehicleReliability(int32_t newReliablity)
         {
-            auto ourCompanyId = CompanyManager::updatingCompanyId();
+            auto ourCompanyId = CompanyManager::getUpdatingCompanyId();
 
             for (auto vehicle : EntityManager::VehicleList())
             {
                 if (vehicle->owner != ourCompanyId)
                     continue;
 
-                Vehicles::Vehicle train(vehicle);
+                Vehicles::Vehicle train(*vehicle);
                 train.veh2->reliability = newReliablity;
 
-                // Set reliability for the first car's front bogie component.
-                train.cars.firstCar.front->reliability = newReliablity * 256;
+                // Set reliability for the front bogie component on each car.
+                for (auto& car : train.cars)
+                {
+                    car.front->reliability = newReliablity * 256;
+                }
             }
+            return 0;
+        }
+
+        static uint32_t modifyDateCheat(int32_t year, int32_t month, int32_t day)
+        {
+            OpenLoco::Scenario::initialiseDate(static_cast<uint16_t>(year), static_cast<MonthId>(month), static_cast<uint8_t>(day));
+            Console::log("Date set to: Day=%u Month=%u Year=%u", day, month, year);
             return 0;
         }
     }
@@ -199,6 +216,9 @@ namespace OpenLoco::GameCommands
             case CheatCommand::vehicleReliability:
                 return Cheats::vehicleReliability(param1);
 
+            case CheatCommand::modifyDate:
+                return Cheats::modifyDateCheat(param1, param2, param3);
+
             default:
                 break;
         }
@@ -209,5 +229,47 @@ namespace OpenLoco::GameCommands
     void cheat(registers& regs)
     {
         regs.ebx = cheat(CheatCommand(regs.eax), regs.ebx, regs.ecx, regs.edx);
+    }
+
+    // 0x004BAC53
+    static uint32_t vehicleShuntCheat(EntityId head, uint8_t flags)
+    {
+        auto* veh = EntityManager::get<Vehicles::VehicleHead>(head);
+        if (veh == nullptr)
+        {
+            return GameCommands::FAILURE;
+        }
+        if (flags & Flags::apply)
+        {
+            veh->var_0C |= Vehicles::Flags0C::shuntCheat;
+        }
+        return 0;
+    }
+
+    void vehicleShuntCheat(registers& regs)
+    {
+        VehicleApplyShuntCheatArgs args(regs);
+        regs.ebx = vehicleShuntCheat(args.head, regs.bl);
+    }
+
+    // 0x00438A08
+    static uint32_t freeCashCheat(uint8_t flags)
+    {
+        if (flags & Flags::apply)
+        {
+            auto* company = CompanyManager::get(_updatingCompanyId);
+            company->jailStatus = 30;
+            Ui::WindowManager::invalidate(Ui::WindowType::company, static_cast<Ui::WindowNumber_t>(*_updatingCompanyId));
+            Ui::WindowManager::invalidate(Ui::WindowType::news);
+            Ui::WindowManager::invalidate(static_cast<Ui::WindowType>(0x2E));
+            MessageManager::post(MessageType::companyCheated, CompanyId::null, static_cast<uint16_t>(*_updatingCompanyId), 0xFFFF);
+            StationManager::sub_437F29(_updatingCompanyId, 4);
+        }
+        return 0;
+    }
+
+    void freeCashCheat(registers& regs)
+    {
+        regs.ebx = freeCashCheat(regs.bl);
     }
 }

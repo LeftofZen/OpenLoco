@@ -27,6 +27,7 @@
 #include "WindowManager.h"
 
 using namespace OpenLoco::Interop;
+using namespace OpenLoco::Map;
 
 namespace OpenLoco::Ui::ViewportInteraction
 {
@@ -134,9 +135,9 @@ namespace OpenLoco::Ui::ViewportInteraction
 
         buffer = StringManager::formatString(buffer, StringIds::station_accepts);
         bool seperator = false; // First cargo item does not need a seperator
-        for (uint32_t cargoId = 0; cargoId < max_cargo_stats; cargoId++)
+        for (uint32_t cargoId = 0; cargoId < kMaxCargoStats; cargoId++)
         {
-            auto& stats = station->cargo_stats[cargoId];
+            auto& stats = station->cargoStats[cargoId];
 
             if (!stats.isAccepted())
             {
@@ -206,13 +207,16 @@ namespace OpenLoco::Ui::ViewportInteraction
     static bool getVehicleArguments(const InteractionArg& interaction)
     {
         auto* entity = reinterpret_cast<EntityBase*>(interaction.object);
-        auto vehicle = entity->asVehicle();
+        auto vehicle = entity->asBase<Vehicles::VehicleBase>();
         if (vehicle == nullptr)
         {
             return false;
         }
         auto head = EntityManager::get<Vehicles::VehicleHead>(vehicle->getHead());
-
+        if (head == nullptr)
+        {
+            return false;
+        }
         auto company = CompanyManager::get(head->owner);
         Windows::MapToolTip::setOwner(head->owner);
         auto status = head->getStatus();
@@ -231,9 +235,9 @@ namespace OpenLoco::Ui::ViewportInteraction
         args.push(head->name);
         args.push(head->ordinalNumber);
         args.push(status.status1);
-        args.push(status.status1Args); //32bit
+        args.push(status.status1Args); // 32bit
         args.push(status.status2);
-        args.push(status.status2Args); //32bit
+        args.push(status.status2Args); // 32bit
         return true;
     }
 
@@ -257,7 +261,7 @@ namespace OpenLoco::Ui::ViewportInteraction
 
         for (auto& company : CompanyManager::companies())
         {
-            if (company.headquarters_x != pos.x || company.headquarters_y != pos.y || company.headquarters_z != pos.z)
+            if (company.headquartersX != pos.x || company.headquartersY != pos.y || company.headquartersZ != pos.z)
             {
                 continue;
             }
@@ -372,7 +376,7 @@ namespace OpenLoco::Ui::ViewportInteraction
         if (viewport == nullptr)
             return InteractionArg{};
 
-        if (viewport->zoom > Config::get().vehicles_min_scale)
+        if (viewport->zoom > Config::get().vehiclesMinScale)
             return InteractionArg{};
 
         uint32_t nearestDistance = std::numeric_limits<uint32_t>().max();
@@ -381,7 +385,7 @@ namespace OpenLoco::Ui::ViewportInteraction
 
         for (auto v : EntityManager::VehicleList())
         {
-            auto train = Vehicles::Vehicle(v);
+            auto train = Vehicles::Vehicle(*v);
             checkAndSetNearestVehicle(nearestDistance, nearestVehicle, *train.veh2, targetPosition);
             for (auto car : train.cars)
             {
@@ -741,7 +745,7 @@ namespace OpenLoco::Ui::ViewportInteraction
             return false;
         }
 
-        auto* buildingObj = building->object();
+        const auto* buildingObj = building->getObject();
         auto args = FormatArguments::mapToolTip();
         if (isEditorMode() || !(buildingObj->flags & BuildingObjectFlags::undestructible))
         {
@@ -765,7 +769,7 @@ namespace OpenLoco::Ui::ViewportInteraction
         auto height = building->baseZ();
         for (auto& company : CompanyManager::companies())
         {
-            if (company.headquarters_x == firstTile.x && company.headquarters_y == firstTile.y && company.headquarters_z == height)
+            if (company.headquartersX == firstTile.x && company.headquartersY == firstTile.y && company.headquartersZ == height)
             {
                 FormatArguments::mapToolTip(StringIds::stringid_right_click_to_remove, StringIds::stringid_headquarters, company.name);
                 return true;
@@ -801,7 +805,7 @@ namespace OpenLoco::Ui::ViewportInteraction
             return false;
         }
 
-        auto* buildingObj = building->object();
+        const auto* buildingObj = building->getObject();
         auto* buffer = const_cast<char*>(StringManager::getString(StringIds::buffer_338));
         buffer = StringManager::formatString(buffer, buildingObj->name);
         if (!building->isConstructed())
@@ -1012,7 +1016,7 @@ namespace OpenLoco::Ui::ViewportInteraction
             interaction = session->getNormalInteractionInfo(flags);
             if (!(vp->flags & ViewportFlags::station_names_displayed))
             {
-                if (_context2->zoom_level <= Config::get().station_names_min_scale)
+                if (_context2->zoom_level <= Config::get().stationNamesMinScale)
                 {
                     auto stationInteraction = session->getStationNameInteractionInfo(flags);
                     if (stationInteraction.type != InteractionItem::noInteraction)
@@ -1045,6 +1049,8 @@ namespace OpenLoco::Ui::ViewportInteraction
     // regs.ecx = closestEdge (unsure if ever used)
     std::optional<Pos2> getSurfaceOrWaterLocFromUi(const Point& screenCoords)
     {
+        // TODO: modify getSurfaceOrWaterLocFromUi to return the viewport then can use viewports rotation
+
         auto [info, viewport] = getMapCoordinatesFromPos(screenCoords.x, screenCoords.y, ~(InteractionItemFlags::surface | InteractionItemFlags::water));
 
         if (info.type == InteractionItem::noInteraction)

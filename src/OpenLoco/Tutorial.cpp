@@ -19,8 +19,8 @@ namespace OpenLoco::Tutorial
     static loco_global<State, 0x00508F19> _state;
 
     // The following two globals are unused, but left here for documentation purposes.
-    static loco_global<uint16_t*, 0x009C86FC> _tutorialOffset;
-    static loco_global<uint16_t*, 0x009C8704> _tutorialEnd;
+    // static loco_global<uint16_t*, 0x009C86FC> _tutorialOffset;
+    // static loco_global<uint16_t*, 0x009C8704> _tutorialEnd;
 
     static loco_global<string_id, 0x009C8708> _tutorialString;
     static loco_global<uint8_t, 0x009C870A> _tutorialNumber;
@@ -87,9 +87,9 @@ namespace OpenLoco::Tutorial
         // Figure out what dimensions to use for the tutorial, and whether we can continue using scaling.
         const auto& config = Config::getNew();
         Config::Resolution newResolution = tutorialResolution;
-        if (config.scale_factor > 1.0)
+        if (config.scaleFactor > 1.0)
         {
-            newResolution *= config.scale_factor;
+            newResolution *= config.scaleFactor;
             Config::Resolution desktopResolution = Ui::getDesktopResolution();
 
             // Don't scale if it means the new window won't fit the desktop.
@@ -109,10 +109,10 @@ namespace OpenLoco::Tutorial
         }
 
         // Get the environment file for this tutorial.
-        static constexpr Environment::path_id tutorialFileIds[] = {
-            Environment::path_id::tut1024_1,
-            Environment::path_id::tut1024_2,
-            Environment::path_id::tut1024_3,
+        static constexpr Environment::PathId tutorialFileIds[] = {
+            Environment::PathId::tut1024_1,
+            Environment::PathId::tut1024_2,
+            Environment::PathId::tut1024_3,
         };
 
         auto fileId = tutorialFileIds[tutorialNumber];
@@ -132,7 +132,7 @@ namespace OpenLoco::Tutorial
         *_tutorialString = openingStringIds[*_tutorialNumber];
 
         // Load the scenario
-        auto scPath = Environment::getPath(Environment::path_id::boulder_breakers);
+        auto scPath = Environment::getPath(Environment::PathId::boulderBreakers);
         Scenario::load(scPath);
 
         // Set fixed rng seed

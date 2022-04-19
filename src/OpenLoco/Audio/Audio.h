@@ -4,11 +4,10 @@
 #include "../Location.hpp"
 #include "../Map/Map.hpp"
 #include "../Types.hpp"
+#include <optional>
 #include <string>
 #include <tuple>
 #include <vector>
-
-struct Mix_Chunk;
 
 namespace OpenLoco::Vehicles
 {
@@ -17,13 +16,6 @@ namespace OpenLoco::Vehicles
 
 namespace OpenLoco::Audio
 {
-    struct Sample
-    {
-        void* pcm{};
-        size_t len{};
-        Mix_Chunk* chunk{};
-    };
-
     // TODO: This should only be a byte needs to be split off from sound object
     enum class SoundId : uint16_t
     {
@@ -71,16 +63,16 @@ namespace OpenLoco::Audio
         title,
         vehicle_0, // * 10
     };
-    constexpr int32_t num_reserved_channels = 4 + 10;
+    constexpr int32_t kNumReservedChannels = 4 + 10;
 
     using MusicId = uint8_t;
 
     struct MusicInfo
     {
-        Environment::path_id path_id;
-        string_id title_id;
-        uint16_t start_year;
-        uint16_t end_year;
+        Environment::PathId pathId;
+        string_id titleId;
+        uint16_t startYear;
+        uint16_t endYear;
     };
 
     void initialiseDSound();
@@ -92,7 +84,7 @@ namespace OpenLoco::Audio
     size_t getCurrentDevice();
     void setDevice(size_t index);
 
-    Sample* getSoundSample(SoundId id);
+    std::optional<uint32_t> getSoundSample(SoundId id);
     bool shouldSoundLoop(SoundId id);
 
     void toggleSound();
@@ -100,16 +92,15 @@ namespace OpenLoco::Audio
     void unpauseSound();
     void playSound(Vehicles::Vehicle2or6* t);
     void playSound(SoundId id, const Map::Pos3& loc);
+
+    // FOR HOOKS ONLY DO NOT USE THIS FUNCTION FOR OPENLOCO CODE
+    // INSTEAD USE playSound(SoundId id, const Map::Pos3& loc) OR playSound(SoundId id, int32_t pan)
     void playSound(SoundId id, const Map::Pos3& loc, int32_t pan);
+
     void playSound(SoundId id, int32_t pan);
     void playSound(SoundId id, const Map::Pos3& loc, int32_t volume, int32_t frequency);
     void updateSounds();
 
-    bool loadChannel(ChannelId id, const char* path, int32_t c);
-    bool playChannel(ChannelId id, int32_t loop, int32_t volume, int32_t d, int32_t freq);
-    void stopChannel(ChannelId id);
-    void setChannelVolume(ChannelId id, int32_t volume);
-    bool isChannelPlaying(ChannelId id);
     void setBgmVolume(int32_t volume);
 
     void updateVehicleNoise();
@@ -126,47 +117,22 @@ namespace OpenLoco::Audio
     void playTitleScreenMusic();
     void stopTitleMusic();
 
+    void resetSoundObjects();
+
     bool isAudioEnabled();
 
     const MusicInfo* getMusicInfo(MusicId track);
-    constexpr int32_t num_music_tracks = 29;
-
-    /**
-     * Converts a Locomotion volume range to SDL2.
-     * @remarks Not constexpr as it requires an SDL2 macro and we avoid
-     *          library header includes in our own headers.
-     */
-    int32_t volumeLocoToSDL(int32_t loco);
+    constexpr int32_t kNumMusicTracks = 29;
 
     constexpr bool isObjectSoundId(SoundId id)
     {
-        return ((int32_t)id & 0x8000);
+        return static_cast<int32_t>(id) & 0x8000;
     }
 
     constexpr SoundId makeObjectSoundId(SoundObjectId_t id)
     {
-        return (SoundId)((int32_t)id | 0x8000);
+        return static_cast<SoundId>((static_cast<int32_t>(id) | 0x8000));
     }
 
-    /**
-     * Converts a Locomotion pan range to a left and right value for SDL2 mixer.
-     */
-    constexpr std::pair<int32_t, int32_t> panLocoToSDL(int32_t pan)
-    {
-        constexpr auto range = 2048.0f;
-        if (pan == 0)
-        {
-            return { 0, 0 };
-        }
-        else if (pan < 0)
-        {
-            auto r = (int32_t)(255 - ((pan / -range) * 255));
-            return { 255, r };
-        }
-        else
-        {
-            auto r = (int32_t)(255 - ((pan / range) * 255));
-            return { r, 255 };
-        }
-    }
+    int32_t calculatePan(const coord_t coord, const int32_t screenSize);
 }

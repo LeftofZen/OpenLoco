@@ -49,11 +49,11 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
     static Widget widgets[] = {
         makeWidget({ 0, 0 }, { 500, 380 }, WidgetType::frame, WindowColour::primary),
         makeWidget({ 1, 1 }, { 498, 13 }, WidgetType::caption_25, WindowColour::primary, StringIds::empty),
-        makeWidget({ 485, 2 }, { 13, 13 }, WidgetType::wt_9, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
+        makeWidget({ 485, 2 }, { 13, 13 }, WidgetType::buttonWithImage, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
         makeWidget({ 0, 15 }, { 500, 365 }, WidgetType::panel, WindowColour::secondary),
-        makeWidget({ 473, 18 }, { 24, 24 }, WidgetType::wt_9, WindowColour::secondary, ImageIds::icon_parent_folder, StringIds::window_browse_parent_folder_tooltip),
-        makeWidget({ 88, 348 }, { 408, 14 }, WidgetType::wt_17, WindowColour::secondary),
-        makeWidget({ 426, 364 }, { 70, 12 }, WidgetType::wt_11, WindowColour::secondary, StringIds::label_button_ok),
+        makeWidget({ 473, 18 }, { 24, 24 }, WidgetType::buttonWithImage, WindowColour::secondary, ImageIds::icon_parent_folder, StringIds::window_browse_parent_folder_tooltip),
+        makeWidget({ 88, 348 }, { 408, 14 }, WidgetType::textbox, WindowColour::secondary),
+        makeWidget({ 426, 364 }, { 70, 12 }, WidgetType::button, WindowColour::secondary, StringIds::label_button_ok),
         makeWidget({ 3, 45 }, { 494, 323 }, WidgetType::scrollview, WindowColour::secondary, Scrollbars::vertical),
         widgetEnd(),
     };
@@ -119,7 +119,7 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
         auto window = WindowManager::createWindowCentred(
             WindowType::fileBrowserPrompt,
             { 500, 380 },
-            Ui::WindowFlags::stick_to_front | Ui::WindowFlags::resizable | Ui::WindowFlags::flag_12,
+            Ui::WindowFlags::stickToFront | Ui::WindowFlags::resizable | Ui::WindowFlags::flag_12,
             &_events);
 
         if (window != nullptr)
@@ -127,10 +127,10 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
             window->widgets = widgets;
             window->widgets[widx::caption].text = titleId;
 
-            window->enabled_widgets = (1 << widx::close_button) | (1 << widx::parent_button) | (1 << widx::ok_button);
+            window->enabledWidgets = (1 << widx::close_button) | (1 << widx::parent_button) | (1 << widx::ok_button);
             window->initScrollWidgets();
 
-            window->row_height = 11;
+            window->rowHeight = 11;
             window->var_85A = -1;
 
             _9DA285 = 0;
@@ -214,13 +214,13 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
     // 0x004464A1
     static void getScrollSize(Ui::Window* window, uint32_t scrollIndex, uint16_t* scrollWidth, uint16_t* scrollHeight)
     {
-        *scrollHeight = window->row_height * static_cast<uint16_t>(_files.size());
+        *scrollHeight = window->rowHeight * static_cast<uint16_t>(_files.size());
     }
 
     // 0x004464F7
     static void onScrollMouseDown(Window* self, int16_t x, int16_t y, uint8_t scrollIndex)
     {
-        auto index = size_t(y / self->row_height);
+        auto index = size_t(y / self->rowHeight);
         if (index >= _files.size())
             return;
 
@@ -261,7 +261,7 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
         if (WindowManager::getCurrentModalType() != WindowType::fileBrowserPrompt)
             return;
 
-        auto index = y / self->row_height;
+        auto index = y / self->rowHeight;
         if (index >= static_cast<uint16_t>(_files.size()))
             return;
 
@@ -301,12 +301,12 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
             self->widgets[widx::ok_button].right = self->width - 16;
             self->widgets[widx::ok_button].top = self->height - 15;
             self->widgets[widx::ok_button].bottom = self->height - 4;
-            self->widgets[widx::ok_button].type = WidgetType::wt_11;
+            self->widgets[widx::ok_button].type = WidgetType::button;
 
             self->widgets[widx::text_filename].right = self->width - 4;
             self->widgets[widx::text_filename].top = self->height - 31;
             self->widgets[widx::text_filename].bottom = self->height - 18;
-            self->widgets[widx::text_filename].type = WidgetType::wt_17;
+            self->widgets[widx::text_filename].type = WidgetType::textbox;
 
             self->widgets[widx::scrollview].bottom = self->height - 34;
         }
@@ -377,7 +377,7 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
         {
             auto folder = &_displayFolderBuffer[0];
             auto args = getStringPtrFormatArgs(folder);
-            Gfx::drawString_494B3F(*context, window->x + 3, window->y + window->widgets[widx::parent_button].top + 6, 0, StringIds::window_browse_folder, &args);
+            Gfx::drawString_494B3F(*context, window->x + 3, window->y + window->widgets[widx::parent_button].top + 6, Colour::black, StringIds::window_browse_folder, &args);
         }
 
         auto selectedIndex = window->var_85A;
@@ -399,7 +399,7 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
                     x + (width / 2),
                     y,
                     width,
-                    0,
+                    Colour::black,
                     StringIds::wcolour2_stringid,
                     &args);
                 y += 12;
@@ -424,7 +424,7 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
         if (filenameBox.type != WidgetType::none)
         {
             // Draw filename label
-            Gfx::drawString_494B3F(*context, window->x + 3, window->y + filenameBox.top + 2, 0, StringIds::window_browse_filename, nullptr);
+            Gfx::drawString_494B3F(*context, window->x + 3, window->y + filenameBox.top + 2, Colour::black, StringIds::window_browse_filename, nullptr);
 
             // Clip to text box
             auto context2 = Gfx::clipContext(*context, Ui::Rect(window->x + filenameBox.left + 1, window->y + filenameBox.top + 1, filenameBox.right - filenameBox.left - 1, filenameBox.bottom - filenameBox.top - 1));
@@ -437,7 +437,7 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
 
     static void drawSavePreview(Ui::Window& window, Gfx::Context& context, int32_t x, int32_t y, int32_t width, int32_t height, const S5::SaveDetails& saveInfo)
     {
-        Gfx::fillRectInset(context, x, y, x + width, y + height, window.getColour(WindowColour::secondary), 0x30);
+        Gfx::fillRectInset(context, x, y, x + width, y + height, window.getColour(WindowColour::secondary).u8(), 0x30);
 
         auto imageId = 0;
         auto g1 = Gfx::getG1Element(imageId);
@@ -472,7 +472,7 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
         y = Gfx::drawString_495224(context, x, y, maxWidth, Colour::black, StringIds::window_browse_date, &saveInfo.date);
 
         // Challenge progress
-        auto flags = saveInfo.challenge_flags;
+        auto flags = saveInfo.challengeFlags;
         if (!(flags & CompanyFlags::challengeBeatenByOpponent))
         {
             auto stringId = StringIds::window_browse_challenge_completed;
@@ -492,9 +492,9 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
 
     static void drawLandscapePreview(Ui::Window& window, Gfx::Context& context, int32_t x, int32_t y, int32_t width, int32_t height)
     {
-        Gfx::fillRectInset(context, x, y, x + width, y + height, window.getColour(WindowColour::secondary), 0x30);
+        Gfx::fillRectInset(context, x, y, x + width, y + height, window.getColour(WindowColour::secondary).u8(), 0x30);
 
-        if (S5::getPreviewOptions().scenarioFlags & Scenario::flags::landscape_generation_done)
+        if (S5::getPreviewOptions().scenarioFlags & Scenario::Flags::landscapeGenerationDone)
         {
             // Height map
             auto imageId = 0;
@@ -516,10 +516,10 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
         else
         {
             // Randomly generated landscape
-            auto imageId = Gfx::recolour(ImageIds::random_map_watermark, window.getColour(WindowColour::secondary));
+            auto imageId = Gfx::recolour(ImageIds::random_map_watermark, window.getColour(WindowColour::secondary).c());
             Gfx::drawImage(&context, x, y, imageId);
             auto origin = Ui::Point(x + 64, y + 60);
-            Gfx::drawStringCentredWrapped(context, origin, 128, 0, StringIds::randomly_generated_landscape);
+            Gfx::drawStringCentredWrapped(context, origin, 128, Colour::black, StringIds::randomly_generated_landscape);
         }
     }
 
@@ -529,7 +529,7 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
         Ui::Point origin = { 0, 1 };
         {
             auto args = getStringPtrFormatArgs(text);
-            Gfx::drawString_494B3F(context, &origin, 0, StringIds::black_stringid, &args);
+            Gfx::drawString_494B3F(context, &origin, Colour::black, StringIds::black_stringid, &args);
         }
 
         if (showCaret)
@@ -537,7 +537,7 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
             if (caret == -1)
             {
                 // Draw horizontal caret
-                Gfx::drawString_494B3F(context, &origin, 0, StringIds::window_browse_input_caret, nullptr);
+                Gfx::drawString_494B3F(context, &origin, Colour::black, StringIds::window_browse_input_caret, nullptr);
             }
             else
             {
@@ -546,10 +546,10 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
                 const std::string gbuffer = std::string(text, caret);
                 auto args = getStringPtrFormatArgs(gbuffer.c_str());
                 origin = { 0, 1 };
-                Gfx::drawString_494B3F(context, &origin, 0, StringIds::black_stringid, &args);
+                Gfx::drawString_494B3F(context, &origin, Colour::black, StringIds::black_stringid, &args);
 
                 // Draw vertical caret
-                Gfx::drawRect(context, origin.x, origin.y, 1, 9, Colour::getShade(window->getColour(WindowColour::secondary), 9));
+                Gfx::drawRect(context, origin.x, origin.y, 1, 9, Colours::getShade(window->getColour(WindowColour::secondary).c(), 9));
             }
         }
     }
@@ -563,12 +563,12 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
     static void drawScroll(Ui::Window& window, Gfx::Context& context, const uint32_t scrollIndex)
     {
         // Background
-        Gfx::clearSingle(context, Colour::getShade(window.getColour(WindowColour::secondary), 4));
+        Gfx::clearSingle(context, Colours::getShade(window.getColour(WindowColour::secondary).c(), 4));
 
         // Directories / files
         auto i = 0;
         auto y = 0;
-        auto lineHeight = window.row_height;
+        auto lineHeight = window.rowHeight;
         for (const auto& entry : _files)
         {
             if (y + lineHeight >= context.y && y <= context.y + context.height)
@@ -594,7 +594,7 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
 
                 // Draw the name
                 auto args = getStringPtrFormatArgs(nameBuffer.c_str());
-                Gfx::drawString_494B3F(context, x, y, 0, stringId, &args);
+                Gfx::drawString_494B3F(context, x, y, Colour::black, stringId, &args);
             }
             y += lineHeight;
             i++;
@@ -828,9 +828,9 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
         if (_fileType == BrowseFileType::savedGame)
         {
             if (!fs::is_directory(_currentDirectory))
-                Config::getNew().last_save_path = _currentDirectory.parent_path().u8string();
+                Config::getNew().lastSavePath = _currentDirectory.parent_path().u8string();
             else
-                Config::getNew().last_save_path = _currentDirectory.u8string();
+                Config::getNew().lastSavePath = _currentDirectory.u8string();
             Config::writeNewConfig();
             Environment::resolvePaths();
         }
@@ -900,16 +900,16 @@ namespace OpenLoco::Ui::Windows::PromptBrowse
 
     static void initEvents()
     {
-        _events.on_close = onClose;
-        _events.on_mouse_up = onMouseUp;
-        _events.on_resize = onResize;
-        _events.on_update = onUpdate;
-        _events.get_scroll_size = getScrollSize;
-        _events.scroll_mouse_down = onScrollMouseDown;
-        _events.scroll_mouse_over = onScrollMouseOver;
+        _events.onClose = onClose;
+        _events.onMouseUp = onMouseUp;
+        _events.onResize = onResize;
+        _events.onUpdate = onUpdate;
+        _events.getScrollSize = getScrollSize;
+        _events.scrollMouseDown = onScrollMouseDown;
+        _events.scrollMouseOver = onScrollMouseOver;
         _events.tooltip = tooltip;
-        _events.prepare_draw = prepareDraw;
+        _events.prepareDraw = prepareDraw;
         _events.draw = draw;
-        _events.draw_scroll = drawScroll;
+        _events.drawScroll = drawScroll;
     }
 }

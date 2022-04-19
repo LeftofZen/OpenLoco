@@ -34,5 +34,9 @@ namespace OpenLoco::Map::TileManager
     uint16_t countSurroundingWaterTiles(const Pos2& pos);
     uint16_t countSurroundingTrees(const Pos2& pos);
     void update();
+    void updateYearly();
     void registerHooks();
+    void removeSurfaceIndustry(const Pos2& pos);
+    void createDestructExplosion(const Map::Pos3& pos);
+    void removeBuildingElement(BuildingElement& element, const Map::Pos2& pos);
 }

@@ -11,21 +11,25 @@
 namespace OpenLoco::CompanyManager
 {
     void reset();
-    CompanyId updatingCompanyId();
-    void updatingCompanyId(CompanyId id);
+    CompanyId getUpdatingCompanyId();
+    void setUpdatingCompanyId(CompanyId id);
 
-    FixedVector<Company, Limits::maxCompanies> companies();
+    FixedVector<Company, Limits::kMaxCompanies> companies();
     Company* get(CompanyId id);
     CompanyId getControllingId();
     CompanyId getSecondaryPlayerId();
     void setControllingId(CompanyId id);
     void setSecondaryPlayerId(CompanyId id);
     Company* getPlayerCompany();
-    uint8_t getCompanyColour(CompanyId id);
-    uint8_t getPlayerCompanyColour();
+    Colour getCompanyColour(CompanyId id);
+    Colour getPlayerCompanyColour();
     bool isPlayerCompany(CompanyId id);
     void update();
+    void updateDaily();
+    void updateMonthly1();
+    void updateMonthlyHeadquarters();
     void updateQuarterly();
+    void updateYearly();
     void determineAvailableVehicles();
     currency32_t calculateDeliveredCargoPayment(uint8_t cargoItem, int32_t numUnits, int32_t distance, uint16_t numDays);
 
@@ -41,4 +45,5 @@ namespace OpenLoco::CompanyManager
     uint32_t competingColourMask();
 
     void createPlayerCompany();
+    uint8_t getHeadquarterBuildingType();
 }
