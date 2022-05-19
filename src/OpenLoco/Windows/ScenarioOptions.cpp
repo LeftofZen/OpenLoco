@@ -12,6 +12,7 @@
 #include "../S5/S5.h"
 #include "../Scenario.h"
 #include "../ScenarioObjective.h"
+#include "../StringManager.h"
 #include "../Ui/Dropdown.h"
 #include "../Ui/WindowManager.h"
 #include "../Widget.h"
@@ -34,8 +35,6 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
     static loco_global<uint16_t, 0x0052624A> forbiddenVehiclesCompetitors;
 
     static loco_global<uint16_t, 0x00523376> _clickRepeatTicks;
-
-    static loco_global<uint16_t[10], 0x0112C826> commonFormatArgs;
 
     namespace Common
     {
@@ -429,22 +428,23 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
             switch (Scenario::getObjective().type)
             {
                 case Scenario::ObjectiveType::companyValue:
-                    *(int32_t*)&*commonFormatArgs = Scenario::getObjective().companyValue;
+                    auto commonFormatArgs = StringManager::getCommonFormatArgs<int32_t>();
+                    commonFormatArgs = Scenario::getObjective().companyValue;
                     widgets[widx::objective_value].text = StringIds::challenge_monetary_value;
                     break;
 
                 case Scenario::ObjectiveType::vehicleProfit:
-                    *(int32_t*)&*commonFormatArgs = Scenario::getObjective().monthlyVehicleProfit;
+                    &commonFormatArgs = Scenario::getObjective().monthlyVehicleProfit;
                     widgets[widx::objective_value].text = StringIds::challenge_monetary_value;
                     break;
 
                 case Scenario::ObjectiveType::performanceIndex:
-                    *(int16_t*)&*commonFormatArgs = Scenario::getObjective().performanceIndex * 10;
+                    commonFormatArgs = Scenario::getObjective().performanceIndex * 10;
                     widgets[widx::objective_value].text = StringIds::challenge_performance_index;
                     break;
 
                 case Scenario::ObjectiveType::cargoDelivery:
-                    *(int32_t*)&*commonFormatArgs = Scenario::getObjective().deliveredCargoAmount;
+                    commonFormatArgs = Scenario::getObjective().deliveredCargoAmount;
                     widgets[widx::objective_value].text = StringIds::challenge_delivered_cargo;
 
                     auto cargo = ObjectManager::get<CargoObject>(Scenario::getObjective().deliveredCargoType);
@@ -469,7 +469,8 @@ namespace OpenLoco::Ui::Windows::ScenarioOptions
                 widgets[widx::time_limit_value].type = WidgetType::textbox;
                 widgets[widx::time_limit_value_down].type = WidgetType::button;
                 widgets[widx::time_limit_value_up].type = WidgetType::button;
-                commonFormatArgs[3] = Scenario::getObjective().timeLimitYears;
+                auto commonFmtArgs = StringManager::getCommonFormatArgs<uint8_t*>();
+                commonFmtArgs[3] = Scenario::getObjective().timeLimitYears;
             }
         }
 

@@ -16,6 +16,7 @@
 #include "../Objects/InterfaceSkinObject.h"
 #include "../Objects/ObjectManager.h"
 #include "../OpenLoco.h"
+#include "../StringManager.h"
 #include "../TownManager.h"
 #include "../Ui/WindowManager.h"
 #include "../ViewportManager.h"
@@ -27,8 +28,6 @@ using namespace OpenLoco::GameCommands;
 namespace OpenLoco::Ui::Windows::Town
 {
     static const Ui::Size windowSize = { 223, 161 };
-
-    static loco_global<uint16_t[10], 0x0112C826> commonFormatArgs;
 
     namespace Common
     {
@@ -631,6 +630,7 @@ namespace OpenLoco::Ui::Windows::Town
             self->activatedWidgets |= (1ULL << widgetIndex);
 
             // Put town name in place.
+            auto commonFormatArgs = StringManager::getCommonFormatArgs<std::array<uint16_t, 10>>();
             commonFormatArgs[0] = TownManager::get(TownId(self->number))->name;
 
             // Resize common widgets.
@@ -673,6 +673,7 @@ namespace OpenLoco::Ui::Windows::Town
         static void renameTownPrompt(Window* self, WidgetIndex_t widgetIndex)
         {
             auto town = TownManager::get(TownId(self->number));
+            auto commonFormatArgs = StringManager::getCommonFormatArgs<std::array<uint16_t, 10>>();
             commonFormatArgs[4] = town->name;
             commonFormatArgs[8] = town->name;
 

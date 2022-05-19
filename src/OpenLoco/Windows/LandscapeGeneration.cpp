@@ -11,6 +11,7 @@
 #include "../Objects/ObjectManager.h"
 #include "../S5/S5.h"
 #include "../Scenario.h"
+#include "../StringManager.h"
 #include "../TownManager.h"
 #include "../Ui/Dropdown.h"
 #include "../Ui/WindowManager.h"
@@ -30,8 +31,6 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
     static loco_global<uint8_t, 0x00526247> industryFlags;
 
     static constexpr size_t maxLandObjects = ObjectManager::getMaxObjects(ObjectType::land);
-
-    static loco_global<uint16_t[10], 0x0112C826> commonFormatArgs;
 
     namespace Common
     {
@@ -187,6 +186,7 @@ namespace OpenLoco::Ui::Windows::LandscapeGeneration
         {
             Common::prepareDraw(window);
 
+            auto commonFormatArgs = StringManager::getCommonFormatArgs<std::array<uint16_t, 10>>();
             commonFormatArgs[0] = S5::getOptions().scenarioStartYear;
 
             if ((S5::getOptions().scenarioFlags & Scenario::Flags::landscapeGenerationDone) == 0)

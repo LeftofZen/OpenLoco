@@ -9,6 +9,7 @@
 #include "../Intro.h"
 #include "../Localisation/StringIds.h"
 #include "../OpenLoco.h"
+#include "../StringManager.h"
 #include "../Tutorial.h"
 #include "../Ui.h"
 #include "../Ui/Screenshot.h"
@@ -42,7 +43,6 @@ namespace OpenLoco::Input
     static loco_global<int8_t, 0x00508F16> _screenshotCountdown;
     static loco_global<uint8_t, 0x00508F18> _keyModifier;
     static loco_global<Ui::WindowType, 0x005233B6> _modalWindowType;
-    static loco_global<char[16], 0x0112C826> _commonFormatArgs;
     static std::string _cheatBuffer; // 0x0011364A5
     static loco_global<key[64], 0x0113E300> _keyQueue;
     static loco_global<uint32_t, 0x00525388> _keyQueueLastWrite;
@@ -490,7 +490,9 @@ namespace OpenLoco::Input
                 try
                 {
                     std::string fileName = saveScreenshot();
-                    *((const char**)(&_commonFormatArgs[0])) = fileName.c_str();
+
+                    auto commonFmtArgsPtr = (const char**)(StringManager::getCommonFormatArgs<char*>());
+                    *commonFmtArgsPtr = fileName.c_str();
                     Windows::showError(StringIds::screenshot_saved_as, StringIds::null, false);
                 }
                 catch (const std::exception&)
