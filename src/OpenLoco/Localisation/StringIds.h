@@ -1826,4 +1826,9 @@ namespace OpenLoco::StringIds
     constexpr string_id object_selection_length = 2260;
     constexpr string_id stats_length = 2261;
     constexpr string_id vehicle_details_tooltip_length = 2262;
+
+    constexpr string_id bgmVolume = 2263;
+    constexpr string_id ambientVolume = 2264;
+    constexpr string_id titleVolume = 2265;
+    constexpr string_id vehicleVolume = 2266;
 }

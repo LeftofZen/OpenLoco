@@ -1233,10 +1233,22 @@ namespace OpenLoco::Audio
 		*channelIdToConfig.at(channelId) = volume;
 		Config::write();
 
-		auto* channel = getChannel(channelId);
-		if (channel != nullptr && _audioInitialised)
-		{
-			channel->setVolume(volume);
-		}
-	}
+        if (!_audioInitialised)
+        {
+            return;
+        }
+
+        // 10 channels for vehicles, otherwise 1 channel for each other type
+        auto channelCount = channelId == ChannelId::vehicle_0 ? kNumReservedVehicleChannels : 1;
+        auto startingChannel = static_cast<int32_t>(channelId);
+
+        for (int i = 0; i < channelCount; ++i)
+        {
+            auto* channel = getChannel(static_cast<ChannelId>(startingChannel + i));
+            if (channel != nullptr)
+            {
+                channel->setVolume(volume);
+            }
+        }
+    }
 }

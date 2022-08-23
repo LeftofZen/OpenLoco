@@ -67,7 +67,8 @@ namespace OpenLoco::Audio
         title,
         vehicle_0, // * 10
     };
-    constexpr int32_t kNumReservedChannels = 4 + 10;
+    constexpr int32_t kNumReservedVehicleChannels = 10;
+    constexpr int32_t kNumReservedChannels = 4 + kNumReservedVehicleChannels;
 
     using MusicId = uint8_t;
 

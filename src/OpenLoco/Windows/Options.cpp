@@ -880,7 +880,7 @@ namespace OpenLoco::Ui::Windows::Options
 
     namespace Music
     {
-        static const Ui::Size _window_size = { 366, 129 };
+        static const Ui::Size _window_size = { 366, 229 };
 
         namespace Widx
         {
@@ -891,14 +891,17 @@ namespace OpenLoco::Ui::Windows::Options
                 music_controls_stop,
                 music_controls_play,
                 music_controls_next,
-                volume,
+                bgmVolume,
+                ambientVolume,
+                titleVolume,
+                vehicleVolume,
                 music_playlist,
                 music_playlist_btn,
                 edit_selection
             };
         }
 
-        static constexpr uint64_t enabledWidgets = Common::enabledWidgets | (1 << Music::Widx::currently_playing) | (1 << Music::Widx::currently_playing_btn) | (1 << Music::Widx::music_controls_stop) | (1 << Music::Widx::music_controls_play) | (1 << Music::Widx::music_controls_next) | (1 << Music::Widx::volume) | (1 << Music::Widx::music_playlist) | (1 << Music::Widx::music_playlist_btn) | (1 << Music::Widx::edit_selection);
+        static constexpr uint64_t enabledWidgets = Common::enabledWidgets | (1 << Music::Widx::currently_playing) | (1 << Music::Widx::currently_playing_btn) | (1 << Music::Widx::music_controls_stop) | (1 << Music::Widx::music_controls_play) | (1 << Music::Widx::music_controls_next) | (1 << Music::Widx::bgmVolume) | (1 << Music::Widx::ambientVolume) | (1 << Music::Widx::titleVolume) | (1 << Music::Widx::vehicleVolume) | (1 << Music::Widx::music_playlist) | (1 << Music::Widx::music_playlist_btn) | (1 << Music::Widx::edit_selection);
 
         static Widget _widgets[] = {
             common_options_widgets(_window_size, StringIds::options_title_music),
@@ -906,13 +909,20 @@ namespace OpenLoco::Ui::Windows::Options
             makeWidget({ 10, 64 }, { 24, 24 }, WidgetType::buttonWithImage, WindowColour::secondary, ImageIds::music_controls_stop, StringIds::music_controls_stop_tip),
             makeWidget({ 34, 64 }, { 24, 24 }, WidgetType::buttonWithImage, WindowColour::secondary, ImageIds::music_controls_play, StringIds::music_controls_play_tip),
             makeWidget({ 58, 64 }, { 24, 24 }, WidgetType::buttonWithImage, WindowColour::secondary, ImageIds::music_controls_next, StringIds::music_controls_next_tip),
-            makeWidget({ 256, 64 }, { 109, 24 }, WidgetType::wt_5, WindowColour::secondary, Widget::kContentNull, StringIds::set_volume_tip),
-            makeDropdownWidgets({ 10, 93 }, { 346, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::arg2_stringid),
-            makeWidget({ 183, 108 }, { 173, 12 }, WidgetType::button, WindowColour::secondary, StringIds::edit_music_selection, StringIds::edit_music_selection_tip),
+            makeWidget({ 256, 64 + (24 * 0) }, { 109, 24 }, WidgetType::wt_5, WindowColour::secondary, Widget::kContentNull, StringIds::set_volume_tip), // bgm
+            makeWidget({ 256, 64 + (24 * 1) }, { 109, 24 }, WidgetType::wt_5, WindowColour::secondary, Widget::kContentNull, StringIds::set_volume_tip), // ambient
+            makeWidget({ 256, 64 + (24 * 2) }, { 109, 24 }, WidgetType::wt_5, WindowColour::secondary, Widget::kContentNull, StringIds::set_volume_tip), // title
+            makeWidget({ 256, 64 + (24 * 3) }, { 109, 24 }, WidgetType::wt_5, WindowColour::secondary, Widget::kContentNull, StringIds::set_volume_tip), // vehicle
+            makeDropdownWidgets({ 10, 180 }, { 346, 12 }, WidgetType::combobox, WindowColour::secondary, StringIds::arg2_stringid),
+            makeWidget({ 183, 195 }, { 173, 12 }, WidgetType::button, WindowColour::secondary, StringIds::edit_music_selection, StringIds::edit_music_selection_tip),
             widgetEnd(),
         };
 
-        static void volumeMouseDown(Window* w);
+        static void bgmVolumeMouseDown(Window* w);
+        static void ambientVolumeMouseDown(Window* w);
+        static void titleVolumeMouseDown(Window* w);
+        static void vehicleVolumeMouseDown(Window* w);
+        static void volumeMouseDown(Window* w, int32_t widx, Audio::ChannelId channelId);
         static void stopMusic(Window* w);
         static void playMusic(Window* w);
         static void playNextSong(Window* w);
@@ -987,12 +997,26 @@ namespace OpenLoco::Ui::Windows::Options
 
             Gfx::drawStringLeft(*context, w->x + 10, w->y + w->widgets[Widx::currently_playing_btn].top, Colour::black, StringIds::currently_playing, nullptr);
 
-            Gfx::drawStringLeft(*context, w->x + 183, w->y + w->widgets[Widx::volume].top + 7, Colour::black, StringIds::volume, nullptr);
+            // volume sliders
+            Gfx::drawStringLeft(*context, w->x + 178, w->y + w->widgets[Widx::bgmVolume].top + 6, Colour::black, StringIds::bgmVolume, nullptr);
+            Gfx::drawImage(context, w->x + w->widgets[Widx::bgmVolume].left, w->y + w->widgets[Widx::bgmVolume].top, Gfx::recolour(ImageIds::volume_slider_track, w->getColour(WindowColour::secondary).c()));
+            int16_t x1 = 90 + (Config::getNew().audio.bgmVolume / 32);
+            Gfx::drawImage(context, w->x + w->widgets[Widx::bgmVolume].left + x1, w->y + w->widgets[Widx::bgmVolume].top, Gfx::recolour(ImageIds::volume_slider_thumb, w->getColour(WindowColour::secondary).c()));
 
-            Gfx::drawImage(context, w->x + w->widgets[Widx::volume].left, w->y + w->widgets[Widx::volume].top, Gfx::recolour(ImageIds::volume_slider_track, w->getColour(WindowColour::secondary).c()));
+            Gfx::drawStringLeft(*context, w->x + 166, w->y + w->widgets[Widx::ambientVolume].top + 6, Colour::black, StringIds::ambientVolume, nullptr);
+            Gfx::drawImage(context, w->x + w->widgets[Widx::ambientVolume].left, w->y + w->widgets[Widx::ambientVolume].top, Gfx::recolour(ImageIds::volume_slider_track, w->getColour(WindowColour::secondary).c()));
+            int16_t x2 = 90 + (Config::getNew().audio.ambientVolume / 32);
+            Gfx::drawImage(context, w->x + w->widgets[Widx::ambientVolume].left + x2, w->y + w->widgets[Widx::ambientVolume].top, Gfx::recolour(ImageIds::volume_slider_thumb, w->getColour(WindowColour::secondary).c()));
 
-            int16_t x = 90 + (Config::getNew().audio.bgmVolume / 32);
-            Gfx::drawImage(context, w->x + w->widgets[Widx::volume].left + x, w->y + w->widgets[Widx::volume].top, Gfx::recolour(ImageIds::volume_slider_thumb, w->getColour(WindowColour::secondary).c()));
+            Gfx::drawStringLeft(*context, w->x + 185, w->y + w->widgets[Widx::titleVolume].top + 6, Colour::black, StringIds::titleVolume, nullptr);
+            Gfx::drawImage(context, w->x + w->widgets[Widx::titleVolume].left, w->y + w->widgets[Widx::titleVolume].top, Gfx::recolour(ImageIds::volume_slider_track, w->getColour(WindowColour::secondary).c()));
+            int16_t x3 = 90 + (Config::getNew().audio.titleVolume / 32);
+            Gfx::drawImage(context, w->x + w->widgets[Widx::titleVolume].left + x3, w->y + w->widgets[Widx::titleVolume].top, Gfx::recolour(ImageIds::volume_slider_thumb, w->getColour(WindowColour::secondary).c()));
+
+            Gfx::drawStringLeft(*context, w->x + 170, w->y + w->widgets[Widx::vehicleVolume].top + 6, Colour::black, StringIds::vehicleVolume, nullptr);
+            Gfx::drawImage(context, w->x + w->widgets[Widx::vehicleVolume].left, w->y + w->widgets[Widx::vehicleVolume].top, Gfx::recolour(ImageIds::volume_slider_track, w->getColour(WindowColour::secondary).c()));
+            int16_t x4 = 90 + (Config::getNew().audio.vehicleVolume / 32);
+            Gfx::drawImage(context, w->x + w->widgets[Widx::vehicleVolume].left + x4, w->y + w->widgets[Widx::vehicleVolume].top, Gfx::recolour(ImageIds::volume_slider_thumb, w->getColour(WindowColour::secondary).c()));
         }
 
         static void onMouseUp(Window* w, WidgetIndex_t wi)
@@ -1041,8 +1065,17 @@ namespace OpenLoco::Ui::Windows::Options
                 case Widx::currently_playing_btn:
                     currentlyPlayingMouseDown(w);
                     break;
-                case Widx::volume:
-                    volumeMouseDown(w);
+                case Widx::bgmVolume:
+                    bgmVolumeMouseDown(w);
+                    break;
+                case Widx::ambientVolume:
+                    ambientVolumeMouseDown(w);
+                    break;
+                case Widx::titleVolume:
+                    titleVolumeMouseDown(w);
+                    break;
+                case Widx::vehicleVolume:
+                    vehicleVolumeMouseDown(w);
                     break;
             }
         }
@@ -1065,15 +1098,35 @@ namespace OpenLoco::Ui::Windows::Options
         static loco_global<uint16_t, 0x00523376> _clickRepeatTicks;
 
         // 0x004C072A
-        static void volumeMouseDown(Window* w)
+        static void bgmVolumeMouseDown(Window* w)
+        {
+            volumeMouseDown(w, Widx::bgmVolume, Audio::ChannelId::bgm);
+        }
+
+        static void ambientVolumeMouseDown(Window* w)
+        {
+            volumeMouseDown(w, Widx::ambientVolume, Audio::ChannelId::ambient);
+        }
+
+        static void titleVolumeMouseDown(Window* w)
+        {
+            volumeMouseDown(w, Widx::titleVolume, Audio::ChannelId::title);
+        }
+
+        static void vehicleVolumeMouseDown(Window* w)
+        {
+            volumeMouseDown(w, Widx::vehicleVolume, Audio::ChannelId::vehicle_0);
+        }
+
+        static void volumeMouseDown(Window* w, int32_t widx, Audio::ChannelId channelId)
         {
             _clickRepeatTicks = 31;
 
-            int x = _5233A4 - w->x - w->widgets[Widx::volume].left - 10;
+            // BUG: _5233A4 appears to be getting the value of ONLY the first slider, ie bgmVolume (which was the original single slider)
+            // this means smooth sliding doesn't work with the new sliders
+            int x = _5233A4 - w->x - w->widgets[widx].left - 10;
             x = std::clamp(x, 0, 80);
-
-            Audio::setChannelVolume(Audio::ChannelId::bgm, (x * 32) - 2560);
-
+            Audio::setChannelVolume(channelId, (x * 32) - 2560);
             w->invalidate();
         }
 
@@ -2491,7 +2544,7 @@ namespace OpenLoco::Ui::Windows::Options
             Display::applyScreenModeRestrictions(w);
 
         else if ((Common::tab)w->currentTab == Common::tab::music)
-            w->holdableWidgets = (1 << Music::Widx::volume);
+            w->holdableWidgets = (1 << Music::Widx::bgmVolume);
 
         w->callOnResize();
         w->callPrepareDraw();
