@@ -1094,7 +1094,6 @@ namespace OpenLoco::Ui::Windows::Options
             }
         }
 
-        static loco_global<int16_t, 0x005233A4> _5233A4;
         static loco_global<uint16_t, 0x00523376> _clickRepeatTicks;
 
         // 0x004C072A
@@ -1122,9 +1121,9 @@ namespace OpenLoco::Ui::Windows::Options
         {
             _clickRepeatTicks = 31;
 
-            // BUG: _5233A4 appears to be getting the value of ONLY the first slider, ie bgmVolume (which was the original single slider)
+            // BUG: `Input::getScrollLastLocation().x` appears to be getting the value of ONLY the first slider, ie bgmVolume (which was the original single slider)
             // this means smooth sliding doesn't work with the new sliders
-            int x = _5233A4 - w->x - w->widgets[widx].left - 10;
+            int x = Input::getScrollLastLocation().x - w->x - w->widgets[widx].left - 10;
             x = std::clamp(x, 0, 80);
             Audio::setChannelVolume(channelId, (x * 32) - 2560);
             w->invalidate();
