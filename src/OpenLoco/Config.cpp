@@ -154,6 +154,16 @@ namespace OpenLoco::Config
             audioConfig.device = audioNode["device"].as<std::string>("");
             if (audioNode["play_title_music"])
                 audioConfig.playTitleMusic = audioNode["play_title_music"].as<bool>();
+
+            // volumes
+            if (audioNode["bgmVolume"])
+                audioConfig.bgmVolume = audioNode["bgmVolume"].as<int32_t>();
+            if (audioNode["ambientVolume"])
+                audioConfig.ambientVolume = audioNode["ambientVolume"].as<int32_t>();
+            if (audioNode["titleVolume"])
+                audioConfig.titleVolume = audioNode["titleVolume"].as<int32_t>();
+            if (audioNode["vehicleVolume"])
+                audioConfig.vehicleVolume = audioNode["vehicleVolume"].as<int32_t>();
         }
 
         auto& networkNode = config["network"];
@@ -239,6 +249,11 @@ namespace OpenLoco::Config
             audioNode.remove("device");
         }
         audioNode["play_title_music"] = audioConfig.playTitleMusic;
+        audioNode["bgmVolume"] = audioConfig.bgmVolume;
+        audioNode["ambientVolume"] = audioConfig.ambientVolume;
+        audioNode["titleVolume"] = audioConfig.titleVolume;
+        audioNode["vehicleVolume"] = audioConfig.vehicleVolume;
+
         node["audio"] = audioNode;
 
         // Network

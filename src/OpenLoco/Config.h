@@ -88,7 +88,7 @@ namespace OpenLoco::Config
         ObjectHeader preferredCurrency;                 // 0x7C
         uint8_t enabledMusic[29];                       // 0x50AF40, 0x8C
         uint8_t pad_A9[0xCC - 0xA9];                    // 0xA9
-        int32_t volume;                                 // 0x50AF80, 0xCC
+        int32_t volume_;                                // 0x50AF80, 0xCC, deprecated for NewConfig::audio.bgmVolume
         uint32_t connectionTimeout;                     // 0xD0
         char lastHost[64];                              // 0xD4
         uint8_t stationNamesMinScale;                   // 0x114
@@ -147,6 +147,12 @@ namespace OpenLoco::Config
     {
         std::string device;
         bool playTitleMusic = true;
+        // these 4 correspond to the channels in OpenLoco::Audio::ChannelId
+        // unk_1 is omitted, and all vehicle channel volumes are scaled together
+        int32_t bgmVolume;
+        int32_t ambientVolume;
+        int32_t titleVolume;
+        int32_t vehicleVolume;
     };
 
     struct KeyboardShortcut

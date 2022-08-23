@@ -991,7 +991,7 @@ namespace OpenLoco::Ui::Windows::Options
 
             Gfx::drawImage(context, w->x + w->widgets[Widx::volume].left, w->y + w->widgets[Widx::volume].top, Gfx::recolour(ImageIds::volume_slider_track, w->getColour(WindowColour::secondary).c()));
 
-            int16_t x = 90 + (Config::get().volume / 32);
+            int16_t x = 90 + (Config::getNew().audio.bgmVolume / 32);
             Gfx::drawImage(context, w->x + w->widgets[Widx::volume].left + x, w->y + w->widgets[Widx::volume].top, Gfx::recolour(ImageIds::volume_slider_thumb, w->getColour(WindowColour::secondary).c()));
         }
 
@@ -1072,7 +1072,7 @@ namespace OpenLoco::Ui::Windows::Options
             int x = _5233A4 - w->x - w->widgets[Widx::volume].left - 10;
             x = std::clamp(x, 0, 80);
 
-            Audio::setBgmVolume((x * 32) - 2560);
+            Audio::setChannelVolume(Audio::ChannelId::bgm, (x * 32) - 2560);
 
             w->invalidate();
         }
