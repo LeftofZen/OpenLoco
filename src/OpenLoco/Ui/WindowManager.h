@@ -329,12 +329,16 @@ namespace OpenLoco::Ui::Windows
 
     namespace Terraform
     {
-        Window* open();
-        void openClearArea();
-        void openAdjustLand();
-        void openAdjustWater();
-        void openPlantTrees();
-        void openBuildWalls();
+        enum class Tab
+        {
+            clearArea = 0,
+            adjustLand = 1,
+            adjustWater = 2,
+            plantTrees = 3,
+            buildWalls = 4,
+        };
+
+        Window* open(Tab tab);
         bool rotate(Window*);
         void setLastPlacedTree(Map::TreeElement* elTree);
     }

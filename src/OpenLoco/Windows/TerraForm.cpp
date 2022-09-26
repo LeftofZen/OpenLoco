@@ -69,11 +69,12 @@ namespace OpenLoco::Ui::Windows::Terraform
             caption = 1,
             close_button = 2,
             panel = 3,
-            tab_clear_area,
-            tab_adjust_land,
-            tab_adjust_water,
-            tab_plant_trees,
-            tab_build_walls,
+            tab_MIN = 4,
+            tab_clear_area = enumValue(Tab::clearArea) + tab_MIN,
+            tab_adjust_land = enumValue(Tab::adjustLand) + tab_MIN,
+            tab_adjust_water = enumValue(Tab::adjustWater) + tab_MIN,
+            tab_plant_trees = enumValue(Tab::plantTrees) + tab_MIN,
+            tab_build_walls = enumValue(Tab::buildWalls) + tab_MIN,
         };
 
         const uint64_t enabledWidgets = (1 << widx::close_button) | (1 << widx::tab_adjust_land) | (1 << widx::tab_adjust_water) | (1 << widx::tab_build_walls) | (1 << widx::tab_clear_area) | (1 << widx::tab_plant_trees);
@@ -819,15 +820,42 @@ namespace OpenLoco::Ui::Windows::Terraform
         }
     }
 
+    // very similar to
+    // static void switchTab(Window* self, WidgetIndex_t widgetIndex)
+    void switchTab(Window* window, Tab tab)
+    {
+        switch (tab)
+        {
+            case Tab::adjustLand:
+                Common::switchTab(window, Common::widx::tab_adjust_land);
+                break;
+            case Tab::adjustWater:
+                Common::switchTab(window, Common::widx::tab_adjust_water);
+                break;
+            case Tab::buildWalls:
+                Common::switchTab(window, Common::widx::tab_build_walls);
+                break;
+            case Tab::clearArea:
+                Common::switchTab(window, Common::widx::tab_clear_area);
+                break;
+            case Tab::plantTrees:
+                Common::switchTab(window, Common::widx::tab_plant_trees);
+                break;
+        }
+    }
+
+    // int32_t tabToWidgetIndex(Tab tab)
+    //{
+    //     return enumValue(tab) + Common::widx::tab_MIN; // the thing we add to enumValue(...) should be the lowest tab index
+    // }
+
     // 0x004BB4A3
-    Window* open()
+    Window* open(Tab tab)
     {
         auto window = WindowManager::bringToFront(WindowType::terraform, 0);
-        if (window != nullptr)
-        {
-            window->callOnMouseUp(Common::widx::tab_plant_trees);
-        }
-        else
+
+        // auto tabIndex = tabToWidgetIndex(tab);
+        if (window == nullptr)
         {
             // 0x004BB586
             auto origin = Ui::Point(Ui::width() - PlantTrees::windowSize.width, 30);
@@ -840,7 +868,7 @@ namespace OpenLoco::Ui::Windows::Terraform
                 &PlantTrees::events);
 
             window->number = 0;
-            window->currentTab = Common::widx::tab_plant_trees - Common::widx::tab_clear_area;
+            window->currentTab = Common::widx::tab_plant_trees - Common::widx::tab_MIN;
             window->frame_no = 0;
             _terraformGhostPlaced = 0;
             _lastTreeCost = 0x80000000;
@@ -888,6 +916,9 @@ namespace OpenLoco::Ui::Windows::Terraform
 
             Input::setFlag(Input::Flags::flag6);
         }
+
+        switchTab(window, tab);
+
         return window;
     }
 
@@ -2563,40 +2594,40 @@ namespace OpenLoco::Ui::Windows::Terraform
         }
     }
 
-    // 0x004BB566
-    void openClearArea()
-    {
-        auto terraform_window = open();
-        terraform_window->callOnMouseUp(Common::widx::tab_clear_area);
-    }
+    //// 0x004BB566
+    // void openClearArea()
+    //{
+    //     auto window = open();
+    //     Common::switchTab(window, Common::widx::tab_clear_area);
+    // }
 
-    // 0x004BB546
-    void openAdjustLand()
-    {
-        auto terraform_window = open();
-        terraform_window->callOnMouseUp(Common::widx::tab_adjust_land);
-    }
+    //// 0x004BB546
+    // void openAdjustLand()
+    //{
+    //     auto window = open();
+    //     Common::switchTab(window, Common::widx::tab_adjust_land);
+    // }
 
-    // 0x004BB556
-    void openAdjustWater()
-    {
-        auto terraform_window = open();
-        terraform_window->callOnMouseUp(Common::widx::tab_adjust_water);
-    }
+    //// 0x004BB556
+    // void openAdjustWater()
+    //{
+    //     auto window = open();
+    //     Common::switchTab(window, Common::widx::tab_adjust_water);
+    // }
 
-    // 0x004BB4A3
-    void openPlantTrees()
-    {
-        auto terraform_window = open();
-        terraform_window->callOnMouseUp(Common::widx::tab_plant_trees);
-    }
+    //// 0x004BB4A3
+    // void openPlantTrees()
+    //{
+    //     auto window = open();
+    //     Common::switchTab(window, Common::widx::tab_plant_trees);
+    // }
 
-    // 0x004BB576
-    void openBuildWalls()
-    {
-        auto terraform_window = open();
-        terraform_window->callOnMouseUp(Common::widx::tab_build_walls);
-    }
+    //// 0x004BB576
+    // void openBuildWalls()
+    //{
+    //     auto window = open();
+    //     Common::switchTab(window, Common::widx::tab_build_walls);
+    // }
 
     bool rotate(Window* self)
     {

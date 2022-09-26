@@ -304,7 +304,7 @@ namespace OpenLoco::Input::ShortcutManager
         auto window = WindowManager::find(windowType);
 
         // window isn't open
-        if (window == nullptr)
+        if (window == nullptr || windowType == WindowType::terraform)
         {
             windowOpener();
             return;
@@ -333,7 +333,7 @@ namespace OpenLoco::Input::ShortcutManager
         if (isEditorMode() && S5::getOptions().editorStep == EditorController::Step::objectSelection)
             return;
 
-        toggleWindow(WindowType::terraform, Windows::Terraform::openAdjustLand);
+        toggleWindow(WindowType::terraform, Windows::Terraform::open, Windows::Terraform::Tab::adjustLand);
     }
 
     // 0x004BF1E1
@@ -342,7 +342,7 @@ namespace OpenLoco::Input::ShortcutManager
         if (isEditorMode() && S5::getOptions().editorStep == EditorController::Step::objectSelection)
             return;
 
-        toggleWindow(WindowType::terraform, Windows::Terraform::openAdjustWater);
+        toggleWindow(WindowType::terraform, Windows::Terraform::open, Windows::Terraform::Tab::adjustWater);
     }
 
     // 0x004BF1FC
@@ -351,7 +351,7 @@ namespace OpenLoco::Input::ShortcutManager
         if (isEditorMode() && S5::getOptions().editorStep == EditorController::Step::objectSelection)
             return;
 
-        toggleWindow(WindowType::terraform, Windows::Terraform::openPlantTrees);
+        toggleWindow(WindowType::terraform, Windows::Terraform::open, Windows::Terraform::Tab::plantTrees);
     }
 
     // 0x004BF217
@@ -360,8 +360,10 @@ namespace OpenLoco::Input::ShortcutManager
         if (isEditorMode() && S5::getOptions().editorStep == EditorController::Step::objectSelection)
             return;
 
-        toggleWindow(WindowType::terraform, Windows::Terraform::openClearArea);
+        toggleWindow(WindowType::terraform, Windows::Terraform::open, Windows::Terraform::Tab::clearArea);
     }
+
+    // TODO: buildWalls is missing, add in future
 
     // 0x004BF232
     static void buildTracks()

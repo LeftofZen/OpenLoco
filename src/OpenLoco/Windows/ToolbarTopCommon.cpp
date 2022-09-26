@@ -180,11 +180,11 @@ namespace OpenLoco::Ui::Windows::ToolbarTop::Common
         auto land = ObjectManager::get<LandObject>(LastGameOptionManager::getLastLand());
         auto water = ObjectManager::get<WaterObject>();
 
-        Dropdown::add(0, StringIds::menu_sprite_stringid, { interface->img + InterfaceSkin::ImageIds::toolbar_menu_bulldozer, StringIds::menu_clear_area });
-        Dropdown::add(1, StringIds::menu_sprite_stringid, { land->var_16 + Land::ImageIds::toolbar_terraform_land, StringIds::menu_adjust_land });
-        Dropdown::add(2, StringIds::menu_sprite_stringid, { water->image + Water::ImageIds::toolbar_terraform_water, StringIds::menu_adjust_water });
-        Dropdown::add(3, StringIds::menu_sprite_stringid, { interface->img + InterfaceSkin::ImageIds::toolbar_menu_plant_trees, StringIds::menu_plant_trees });
-        Dropdown::add(4, StringIds::menu_sprite_stringid, { interface->img + InterfaceSkin::ImageIds::toolbar_menu_build_walls, StringIds::menu_build_walls });
+        Dropdown::add(enumValue(Terraform::Tab::clearArea), StringIds::menu_sprite_stringid, { interface->img + InterfaceSkin::ImageIds::toolbar_menu_bulldozer, StringIds::menu_clear_area });
+        Dropdown::add(enumValue(Terraform::Tab::adjustLand), StringIds::menu_sprite_stringid, { land->var_16 + Land::ImageIds::toolbar_terraform_land, StringIds::menu_adjust_land });
+        Dropdown::add(enumValue(Terraform::Tab::adjustWater), StringIds::menu_sprite_stringid, { water->image + Water::ImageIds::toolbar_terraform_water, StringIds::menu_adjust_water });
+        Dropdown::add(enumValue(Terraform::Tab::plantTrees), StringIds::menu_sprite_stringid, { interface->img + InterfaceSkin::ImageIds::toolbar_menu_plant_trees, StringIds::menu_plant_trees });
+        Dropdown::add(enumValue(Terraform::Tab::buildWalls), StringIds::menu_sprite_stringid, { interface->img + InterfaceSkin::ImageIds::toolbar_menu_build_walls, StringIds::menu_build_walls });
         Dropdown::showBelow(window, widgetIndex, 5, 25, (1 << 6));
         Dropdown::setHighlightedItem(0);
     }
@@ -334,28 +334,7 @@ namespace OpenLoco::Ui::Windows::ToolbarTop::Common
         if (itemIndex == -1)
             itemIndex = Dropdown::getHighlightedItem();
 
-        switch (itemIndex)
-        {
-            case 0:
-                Terraform::openClearArea();
-                break;
-
-            case 1:
-                Terraform::openAdjustLand();
-                break;
-
-            case 2:
-                Terraform::openAdjustWater();
-                break;
-
-            case 3:
-                Terraform::openPlantTrees();
-                break;
-
-            case 4:
-                Terraform::openBuildWalls();
-                break;
-        }
+        Terraform::open(static_cast<Terraform::Tab>(itemIndex));
     }
 
     // 0x0043A28C
