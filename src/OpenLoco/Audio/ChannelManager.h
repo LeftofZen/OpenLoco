@@ -74,5 +74,6 @@ namespace OpenLoco::Audio
 
         // vehicle specific
         void updateVehicleChannels();
+        void stopVehicleNoise(EntityId id);
     };
 }

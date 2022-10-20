@@ -451,11 +451,11 @@ namespace OpenLoco::Audio
     }
 
     // 0x0048A4BF
-    void playSound(Vehicles::Vehicle2or6* v)
+    void playVehicleSound(Vehicles::Vehicle2or6* v)
     {
         if (v->var_4A & 1)
         {
-            Console::logVerbose("playSound(vehicle #%d)", v->id);
+            Console::logVerbose("playVehicleSound(vehicle #%d)", v->id);
             channelManager.play(ChannelId::vehicle, PlaySoundParams(), v->id);
         }
     }
@@ -612,7 +612,7 @@ namespace OpenLoco::Audio
         channelManager.stopChannels(id);
     }
 
-    static void sub_48A274(Vehicles::Vehicle2or6* v)
+    static void playVehicleSoundIfInViewport(Vehicles::Vehicle2or6* v)
     {
         if (v == nullptr)
             return;
@@ -681,7 +681,7 @@ namespace OpenLoco::Audio
         }
     }
 
-    static void off_4FEB58(Vehicles::Vehicle2or6* v, int32_t x)
+    static void playVehicleSoundForComponent(Vehicles::Vehicle2or6* v, int32_t x)
     {
         switch (x)
         {
@@ -691,34 +691,29 @@ namespace OpenLoco::Audio
             case 1:
                 if (!(v->var_4A & 2))
                 {
-                    sub_48A274(v);
+                    playVehicleSoundIfInViewport(v);
                 }
                 break;
             case 2:
                 if (v->var_4A & 2)
                 {
-                    sub_48A274(v);
+                    playVehicleSoundIfInViewport(v);
                 }
                 break;
             case 3:
-                playSound(v);
+                playVehicleSound(v);
                 break;
         }
     }
 
     // 0x0048A1FA
-    static void sub_48A1FA(int32_t x)
+    static void playVehicleSound(int32_t x)
     {
-        if (x == 0)
-        {
-            _numActiveVehicleSounds = 0;
-        }
-
         for (auto v : EntityManager::VehicleList())
         {
             Vehicles::Vehicle train(*v);
-            off_4FEB58(reinterpret_cast<Vehicles::Vehicle2or6*>(train.veh2), x);
-            off_4FEB58(reinterpret_cast<Vehicles::Vehicle2or6*>(train.tail), x);
+            playVehicleSoundForComponent(reinterpret_cast<Vehicles::Vehicle2or6*>(train.veh2), x);
+            playVehicleSoundForComponent(reinterpret_cast<Vehicles::Vehicle2or6*>(train.tail), x);
         }
     }
 
@@ -729,11 +724,12 @@ namespace OpenLoco::Audio
         {
             if (!_audioIsPaused && _audioIsEnabled)
             {
-                sub_48A1FA(0);
-                sub_48A1FA(1);
-                sub_48A1FA(2);
+                _numActiveVehicleSounds = 0;
+                playVehicleSound(0);
+                playVehicleSound(1);
+                playVehicleSound(2);
+                playVehicleSound(3);
                 channelManager.updateVehicleChannels();
-                sub_48A1FA(3);
             }
         }
     }
@@ -747,14 +743,8 @@ namespace OpenLoco::Audio
     void stopVehicleNoise(EntityId head)
     {
         Vehicles::Vehicle train(head);
-        for (auto& channel : channelManager.getVirtualChannel(ChannelId::vehicle).channels)
-        {
-            auto vehicleChannel = *static_cast<VehicleChannel*>(channel);
-            if (vehicleChannel.getId() == train.veh2->id || vehicleChannel.getId() == train.tail->id)
-            {
-                vehicleChannel.stop();
-            }
-        }
+        channelManager.stopVehicleNoise(train.veh2->id);
+        channelManager.stopVehicleNoise(train.tail->id);
     }
 
     static constexpr auto kAmbientMinVolume = -3500;

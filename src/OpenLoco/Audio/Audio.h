@@ -85,7 +85,7 @@ namespace OpenLoco::Audio
     void toggleSound();
     void pauseSound();
     void unpauseSound();
-    void playSound(Vehicles::Vehicle2or6* t);
+    void playVehicleSound(Vehicles::Vehicle2or6* t);
     void playSound(SoundId id, const Map::Pos3& loc);
 
     // FOR HOOKS ONLY DO NOT USE THIS FUNCTION FOR OPENLOCO CODE

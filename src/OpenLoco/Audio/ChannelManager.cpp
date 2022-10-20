@@ -137,6 +137,16 @@ namespace OpenLoco::Audio
         }
     }
 
+    void ChannelManager::stopVehicleNoise(EntityId id)
+    {
+        for (auto& channel : virtualChannels.at(ChannelId::vehicle).channels)
+        {
+            auto vehicleChannel = *static_cast<VehicleChannel*>(channel);
+            if (vehicleChannel.getId() == id)
+                vehicleChannel.stop();
+        }
+    }
+
     VirtualChannel::VirtualChannel(float gain)
         : gain(gain)
     {
