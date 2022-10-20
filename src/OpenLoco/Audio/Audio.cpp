@@ -453,7 +453,7 @@ namespace OpenLoco::Audio
     // 0x0048A4BF
     void playVehicleSound(Vehicles::Vehicle2or6* v)
     {
-        if (v->var_4A & 1)
+        if (v->soundFlags & 1)
         {
             Console::logVerbose("playVehicleSound(vehicle #%d)", v->id);
             channelManager.play(ChannelId::vehicle, PlaySoundParams(), v->id);
@@ -612,7 +612,7 @@ namespace OpenLoco::Audio
         channelManager.stopChannels(id);
     }
 
-    static void playVehicleSoundIfInViewport(Vehicles::Vehicle2or6* v)
+    static void updateSoundFlagsFromViewport(Vehicles::Vehicle2or6* v)
     {
         if (v == nullptr)
             return;
@@ -646,7 +646,7 @@ namespace OpenLoco::Audio
             {
                 // jump + return
                 _numActiveVehicleSounds += 1;
-                v->var_4A |= 1;
+                v->soundFlags |= 1;
                 v->soundWindowType = main->type;
                 v->soundWindowNumber = main->number;
                 return;
@@ -673,7 +673,7 @@ namespace OpenLoco::Audio
             if (viewport->contains(spritePosition))
             {
                 _numActiveVehicleSounds += 1;
-                v->var_4A |= 1;
+                v->soundFlags |= 1;
                 v->soundWindowType = w->type;
                 v->soundWindowNumber = w->number;
                 return;
@@ -686,18 +686,18 @@ namespace OpenLoco::Audio
         switch (x)
         {
             case 0:
-                v->var_4A &= ~1;
+                v->soundFlags &= ~1;
                 break;
             case 1:
-                if (!(v->var_4A & 2))
+                if (!(v->soundFlags & 2))
                 {
-                    playVehicleSoundIfInViewport(v);
+                    updateSoundFlagsFromViewport(v);
                 }
                 break;
             case 2:
-                if (v->var_4A & 2)
+                if (v->soundFlags & 2)
                 {
-                    playVehicleSoundIfInViewport(v);
+                    updateSoundFlagsFromViewport(v);
                 }
                 break;
             case 3:

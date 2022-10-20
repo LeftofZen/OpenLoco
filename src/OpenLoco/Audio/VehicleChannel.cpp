@@ -108,14 +108,14 @@ namespace OpenLoco::Audio
         auto sample = Audio::getSoundSample(sid);
         if (sample)
         {
-            vehicleId = vid;
-            soundId = sid;
+            _vehicleId = vid;
+            _soundId = sid;
 
-            load(*sample);
-            play(loop);
-            setVolume(sa.volume);
-            setPan(sa.pan);
-            setFrequency(sa.freq);
+            _channel.load(*sample);
+            _channel.play(loop);
+            _channel.setVolume(sa.volume);
+            _channel.setPan(sa.pan);
+            _channel.setFrequency(sa.freq);
         }
     }
 
@@ -125,7 +125,7 @@ namespace OpenLoco::Audio
         {
             return;
         }
-        auto v = EntityManager::get<Vehicles::VehicleBase>(vehicleId);
+        auto v = EntityManager::get<Vehicles::VehicleBase>(_vehicleId);
         if (v == nullptr)
         {
             stop();
@@ -140,22 +140,31 @@ namespace OpenLoco::Audio
         }
 
         auto [sid, sa] = getChannelAttributesFromVehicle(veh26);
-        if (soundId != sid)
+        if (_soundId != sid)
         {
             stop();
             return;
         }
 
         veh26->var_4A &= ~1;
-
-        setVolume(sa.volume);
-        setPan(sa.pan);
-        setFrequency(sa.freq);
+        const auto& attributes = _channel.getAttributes();
+        if (attributes.volume != sa.volume)
+        {
+            _channel.setVolume(sa.volume);
+        }
+        if (attributes.pan != sa.pan)
+        {
+            _channel.setPan(sa.pan);
+        }
+        if (attributes.freq != sa.freq)
+        {
+            _channel.setFrequency(sa.freq);
+        }
     }
 
     void VehicleChannel::stop()
     {
-        Channel::stop();
-        vehicleId = EntityId::null;
+        _channel.stop();
+        _vehicleId = EntityId::null;
     }
 }

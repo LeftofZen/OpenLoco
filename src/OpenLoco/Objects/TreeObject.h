@@ -47,7 +47,7 @@ namespace OpenLoco
         int16_t clearCostFactor; // 0x42
         uint32_t colours;        // 0x44
         int16_t rating;          // 0x48
-        uint16_t var_4A;
+        uint16_t soundFlags;
 
         void drawPreviewImage(Gfx::RenderTarget& rt, const int16_t x, const int16_t y) const;
         uint8_t getTreeGrowthDisplayOffset() const;
