@@ -30,7 +30,7 @@ namespace OpenLoco::Audio
         //{ ChannelId::unk_1, VirtualChannelAttributes{ 0, 0 } },
         { ChannelId::ambient, VirtualChannelAttributes{ 1, 1 } },
         //{ ChannelId::title_deprecated, VirtualChannelAttributes{ 0, 0 } },
-        { ChannelId::vehicle, VirtualChannelAttributes{ 10, 64 } },
+        //{ ChannelId::vehicle, VirtualChannelAttributes{ 10, 64 } },
         { ChannelId::soundFX, VirtualChannelAttributes{ 16, 64 } },
     };
 

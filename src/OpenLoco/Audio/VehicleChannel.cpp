@@ -133,7 +133,7 @@ namespace OpenLoco::Audio
         }
 
         auto* veh26 = v->asVehicle2Or6();
-        if (veh26 == nullptr || !(veh26->var_4A & 1))
+        if (veh26 == nullptr || !(veh26->soundFlags & 1))
         {
             stop();
             return;
@@ -146,7 +146,7 @@ namespace OpenLoco::Audio
             return;
         }
 
-        veh26->var_4A &= ~1;
+        veh26->soundFlags &= ~1;
         const auto& attributes = _channel.getAttributes();
         if (attributes.volume != sa.volume)
         {

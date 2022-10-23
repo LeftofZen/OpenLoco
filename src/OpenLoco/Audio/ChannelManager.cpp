@@ -8,10 +8,10 @@ namespace OpenLoco::Audio
 {
     static Channel* makeNewChannel(OpenAL::SourceManager& sourceManager, ChannelId channelId)
     {
-        if (channelId == ChannelId::vehicle)
-            return new VehicleChannel(sourceManager.allocate());
-        else
-            return new Channel(sourceManager.allocate());
+        // if (channelId == ChannelId::vehicle)
+        //     return new VehicleChannel(sourceManager.allocate());
+        // else
+        return new Channel(sourceManager.allocate());
     }
 
     ChannelManager::ChannelManager(OpenAL::SourceManager& sourceManager)
@@ -38,7 +38,7 @@ namespace OpenLoco::Audio
             }
         }
 
-        stopChannels(ChannelId::vehicle);
+        // stopChannels(ChannelId::vehicle);
     }
 
     Channel* ChannelManager::getFreeChannel(ChannelId channelId)
@@ -49,9 +49,7 @@ namespace OpenLoco::Audio
             std::begin(channels),
             std::end(channels),
             [&](auto& channel) {
-                return channelId == ChannelId::vehicle
-                    ? static_cast<const VehicleChannel*>(channel)->isFree()
-                    : !channel->isPlaying();
+                return !channel->isPlaying();
             });
 
         Channel* channel = nullptr;
@@ -89,8 +87,8 @@ namespace OpenLoco::Audio
 
     bool ChannelManager::play(ChannelId channelId, PlaySoundParams&& soundParams, EntityId entityId)
     {
-        auto vehicleChannel = *static_cast<VehicleChannel*>(getFreeChannel(ChannelId::vehicle));
-        vehicleChannel.begin(entityId);
+        // auto vehicleChannel = *static_cast<VehicleChannel*>(getFreeChannel(ChannelId::vehicle));
+        // vehicleChannel.begin(entityId);
         return true;
     }
 
@@ -130,21 +128,21 @@ namespace OpenLoco::Audio
     }
     void ChannelManager::updateVehicleChannels()
     {
-        for (auto& channel : virtualChannels.at(ChannelId::vehicle).channels)
+        /*for (auto& channel : virtualChannels.at(ChannelId::vehicle).channels)
         {
             auto vehicleChannel = *static_cast<VehicleChannel*>(channel);
             vehicleChannel.update();
-        }
+        }*/
     }
 
     void ChannelManager::stopVehicleNoise(EntityId id)
     {
-        for (auto& channel : virtualChannels.at(ChannelId::vehicle).channels)
-        {
-            auto vehicleChannel = *static_cast<VehicleChannel*>(channel);
+        // for (auto& channel : virtualChannels.at(ChannelId::vehicle).channels)
+        //{
+        /*    auto vehicleChannel = *static_cast<VehicleChannel*>(channel);
             if (vehicleChannel.getId() == id)
                 vehicleChannel.stop();
-        }
+        }*/
     }
 
     VirtualChannel::VirtualChannel(float gain)
