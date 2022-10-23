@@ -3,6 +3,7 @@
 #include "../Location.hpp"
 #include "../Map/Map.hpp"
 #include "../Types.hpp"
+#include "./ChannelManager.h"
 #include <optional>
 #include <string>
 #include <tuple>
@@ -59,16 +60,6 @@ namespace OpenLoco::Audio
         null = 0xFF
     };
 
-    enum class ChannelId
-    {
-        music,
-        unk_1,
-        ambient,
-        title_deprecated,
-        vehicle_0, // * 10
-    };
-    constexpr int32_t kNumReservedChannels = 4 + 10;
-
     using MusicId = uint8_t;
 
     struct MusicInfo
@@ -94,7 +85,7 @@ namespace OpenLoco::Audio
     void toggleSound();
     void pauseSound();
     void unpauseSound();
-    void playSound(Vehicles::Vehicle2or6* t);
+    void playVehicleSound(Vehicles::Vehicle2or6* t);
     void playSound(SoundId id, const Map::Pos3& loc);
 
     // FOR HOOKS ONLY DO NOT USE THIS FUNCTION FOR OPENLOCO CODE
