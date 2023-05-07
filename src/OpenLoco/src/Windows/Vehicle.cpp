@@ -184,8 +184,8 @@ namespace OpenLoco::Ui::Windows::Vehicle
             localMode,
             expressMode,
             routeList,
-            orderForceUnload,
-            orderWait,
+            orderWaitForUnload,
+            orderWaitForLoad,
             orderSkip,
             orderDelete,
             orderUp,
@@ -194,7 +194,7 @@ namespace OpenLoco::Ui::Windows::Vehicle
 
         // 0x00500554
         static WindowEventList events;
-        constexpr uint64_t enabledWidgets = (1 << widx::routeList) | (1 << widx::orderForceUnload) | (1 << widx::orderWait) | (1 << widx::orderSkip) | (1 << widx::orderDelete) | (1 << widx::orderUp) | (1 << widx::orderDown) | Common::enabledWidgets;
+        constexpr uint64_t enabledWidgets = (1 << widx::routeList) | (1 << widx::orderWaitForUnload) | (1 << widx::orderWaitForLoad) | (1 << widx::orderSkip) | (1 << widx::orderDelete) | (1 << widx::orderUp) | (1 << widx::orderDown) | Common::enabledWidgets;
         constexpr uint64_t holdableWidgets = 0;
         constexpr auto lineHeight = 10;
 
@@ -2375,6 +2375,7 @@ namespace OpenLoco::Ui::Windows::Vehicle
 
     namespace Route
     {
+        static void orderDelete(OpenLoco::Vehicles::VehicleHead* head, OpenLoco::Ui::Window& self, bool& retflag);
         static loco_global<uint8_t, 0x00113646A> _113646A;
 
         static Vehicles::OrderRingView getOrderTable(const Vehicles::VehicleHead* const head)
@@ -2489,20 +2490,10 @@ namespace OpenLoco::Ui::Windows::Vehicle
                 case widx::orderDelete:
                 {
 
-                    onOrderDelete(head, self.var_842);
-                    if (self.var_842 == -1)
-                    {
+                    bool retflag;
+                    orderDelete(head, self, retflag);
+                    if (retflag)
                         return;
-                    }
-
-                    // Refresh selection (check if we are now at no order selected)
-                    auto* order = getOrderTable(head).atIndex(self.var_842);
-
-                    // If no order selected anymore
-                    if (order == nullptr)
-                    {
-                        self.var_842 = -1;
-                    }
                     break;
                 }
                 case widx::localMode:
@@ -2562,6 +2553,26 @@ namespace OpenLoco::Ui::Windows::Vehicle
             }
         }
 
+        void orderDelete(OpenLoco::Vehicles::VehicleHead* head, OpenLoco::Ui::Window& self, bool& retflag)
+        {
+            retflag = true;
+            onOrderDelete(head, self.var_842);
+            if (self.var_842 == -1)
+            {
+                return;
+            }
+
+            // Refresh selection (check if we are now at no order selected)
+            auto* order = getOrderTable(head).atIndex(self.var_842);
+
+            // If no order selected anymore
+            if (order == nullptr)
+            {
+                self.var_842 = -1;
+            }
+            retflag = false;
+        }
+
         // 0x004B564E
         static void onResize(Window& self)
         {
@@ -2602,16 +2613,33 @@ namespace OpenLoco::Ui::Windows::Vehicle
             Dropdown::setHighlightedItem(0);
         }
 
+        static void createDeleteDropdown(Window* const self, const WidgetIndex_t i)
+        {
+            FormatArguments args{};
+            args.push(StringIds::deleteAllOrders);
+            Dropdown::add(0, StringIds::stringid, args);
+
+            auto x = self->widgets[i].left + self->x;
+            auto y = self->widgets[i].top + self->y;
+            auto width = self->widgets[i].width();
+            auto height = self->widgets[i].height();
+            Dropdown::showText(x, y, width, height, self->getColour(WindowColour::secondary), 1, 0);
+            Dropdown::setHighlightedItem(0);
+        }
+
         // 0x004B4B8C
         static void onMouseDown(Window& self, const WidgetIndex_t i)
         {
             switch (i)
             {
-                case widx::orderForceUnload:
+                case widx::orderWaitForUnload:
                     createOrderDropdown(&self, i, StringIds::orders_unload_all2);
                     break;
-                case widx::orderWait:
+                case widx::orderWaitForLoad:
                     createOrderDropdown(&self, i, StringIds::orders_wait_for_full_load_of2);
+                    break;
+                case widx::orderDelete:
+                    createDeleteDropdown(&self, i);
                     break;
             }
         }
@@ -2653,6 +2681,23 @@ namespace OpenLoco::Ui::Windows::Vehicle
             self->var_842++;
         }
 
+        static void deleteAllOrders(Window* const self)
+        {
+            auto head = Common::getVehicle(self);
+            if (head == nullptr)
+            {
+                return;
+            }
+
+            // No deleteable orders
+            for (const auto& order : getOrderTable(head))
+            {
+                orderDeleteCommand(head, order.getOffset());
+            }
+
+            return;
+        }
+
         // 0x004B4BAC
         static void onDropdown(Window& self, const WidgetIndex_t i, const int16_t dropdownIndex)
         {
@@ -2663,16 +2708,21 @@ namespace OpenLoco::Ui::Windows::Vehicle
             }
             switch (i)
             {
-                case widx::orderForceUnload:
+                case widx::orderWaitForUnload:
                 {
                     Vehicles::OrderUnloadAll unload(Dropdown::getItemArgument(item, 3));
                     addNewOrder(&self, unload);
                     break;
                 }
-                case widx::orderWait:
+                case widx::orderWaitForLoad:
                 {
                     Vehicles::OrderWaitFor wait(Dropdown::getItemArgument(item, 3));
                     addNewOrder(&self, wait);
+                    break;
+                }
+                case widx::orderDelete:
+                {
+                    deleteAllOrders(&self);
                     break;
                 }
             }
@@ -3019,27 +3069,27 @@ namespace OpenLoco::Ui::Windows::Vehicle
 
             self.widgets[widx::routeList].right = self.width - 26;
             self.widgets[widx::routeList].bottom = self.height - 14;
-            self.widgets[widx::orderForceUnload].right = self.width - 2;
-            self.widgets[widx::orderWait].right = self.width - 2;
+            self.widgets[widx::orderWaitForUnload].right = self.width - 2;
+            self.widgets[widx::orderWaitForLoad].right = self.width - 2;
             self.widgets[widx::orderSkip].right = self.width - 2;
             self.widgets[widx::orderDelete].right = self.width - 2;
             self.widgets[widx::orderUp].right = self.width - 2;
             self.widgets[widx::orderDown].right = self.width - 2;
-            self.widgets[widx::orderForceUnload].left = self.width - 25;
-            self.widgets[widx::orderWait].left = self.width - 25;
+            self.widgets[widx::orderWaitForUnload].left = self.width - 25;
+            self.widgets[widx::orderWaitForLoad].left = self.width - 25;
             self.widgets[widx::orderSkip].left = self.width - 25;
             self.widgets[widx::orderDelete].left = self.width - 25;
             self.widgets[widx::orderUp].left = self.width - 25;
             self.widgets[widx::orderDown].left = self.width - 25;
 
-            self.disabledWidgets |= (1 << widx::orderForceUnload) | (1 << widx::orderWait) | (1 << widx::orderSkip) | (1 << widx::orderDelete);
+            self.disabledWidgets |= (1 << widx::orderWaitForUnload) | (1 << widx::orderWaitForLoad) | (1 << widx::orderSkip) | (1 << widx::orderDelete);
             if (head->sizeOfOrderTable != 1)
             {
                 self.disabledWidgets &= ~((1 << widx::orderSkip) | (1 << widx::orderDelete));
             }
             if (head->var_4E != 0)
             {
-                self.disabledWidgets &= ~((1 << widx::orderWait) | (1 << widx::orderForceUnload));
+                self.disabledWidgets &= ~((1 << widx::orderWaitForLoad) | (1 << widx::orderWaitForUnload));
             }
 
             // Express / local
@@ -3051,8 +3101,8 @@ namespace OpenLoco::Ui::Windows::Vehicle
                 self.activatedWidgets |= (1 << widx::localMode);
 
             WidgetType type = head->owner == CompanyManager::getControllingId() ? WidgetType::buttonWithImage : WidgetType::none;
-            self.widgets[widx::orderForceUnload].type = type;
-            self.widgets[widx::orderWait].type = type;
+            self.widgets[widx::orderWaitForUnload].type = type;
+            self.widgets[widx::orderWaitForLoad].type = type;
             self.widgets[widx::orderSkip].type = type;
             self.widgets[widx::orderDelete].type = type;
             self.widgets[widx::orderUp].type = type;
