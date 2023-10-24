@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ChannelManager.h"
 #include "Location.hpp"
 #include "Types.hpp"
 #include <OpenLoco/Engine/World.hpp>
@@ -58,16 +59,6 @@ namespace OpenLoco::Audio
 
         null = 0xFF
     };
-
-    enum class ChannelId
-    {
-        music,
-        unk_1,
-        ambient,
-        title_deprecated,
-        vehicle_0, // * 10
-    };
-    constexpr int32_t kNumReservedChannels = 4 + 10;
 
     using MusicId = uint8_t;
 
