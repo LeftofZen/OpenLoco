@@ -1,6 +1,8 @@
 #pragma once
 
 #include "HeightMap.h"
+#include "HeightMapRange.h"
+#include "ITerrainGenerator.h"
 #include "Types.hpp"
 
 #include <array>
@@ -19,7 +21,7 @@ namespace OpenLoco::Gfx
 
 namespace OpenLoco::World::MapGenerator
 {
-    class OriginalTerrainGenerator
+    class OriginalTerrainGenerator : public ITerrainGenerator
     {
     private:
         // 0x004626B7
@@ -44,6 +46,6 @@ namespace OpenLoco::World::MapGenerator
 
     public:
         // 0x004624F0
-        void generate(const S5::Options& options, HeightMap& heightMap);
+        void generateHeightMap(const S5::Options& options, HeightMapRange& heightMap);
     };
 }

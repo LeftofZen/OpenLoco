@@ -1,6 +1,8 @@
 #pragma once
 
 #include "HeightMapRange.h"
+#include "ITerrainGenerator.h"
+#include "PngImage.h"
 #include <OpenLoco/Core/FileSystem.hpp>
 
 namespace OpenLoco::S5
@@ -10,9 +12,11 @@ namespace OpenLoco::S5
 
 namespace OpenLoco::World::MapGenerator
 {
-    class PngTerrainGenerator
+    class PngTerrainGenerator : public ITerrainGenerator
     {
     public:
-        void generate(const S5::Options& options, const fs::path& path, HeightMapRange heightMap);
+        void loadImage(const fs::path& path);
+        void generateHeightMap(const S5::Options& options, HeightMapRange& heightMap);
+        std::unique_ptr<PngImage> pngImage;
     };
 }

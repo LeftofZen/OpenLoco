@@ -220,8 +220,9 @@ namespace OpenLoco::World::MapGenerator
         }
     }
 
-    void OriginalTerrainGenerator::generate(const S5::Options& options, HeightMap& heightMap)
+    void OriginalTerrainGenerator::generateHeightMap(const S5::Options& options, HeightMapRange& heightMapRange)
     {
+        auto heightMap = heightMapRange.getHeightMap();
         std::fill_n(heightMap.data(), heightMap.size(), options.minLandHeight);
 
         auto hillShapesObj = ObjectManager::get<HillShapesObject>();

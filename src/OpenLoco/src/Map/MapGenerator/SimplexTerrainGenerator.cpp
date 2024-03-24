@@ -1,12 +1,18 @@
 #include "SimplexTerrainGenerator.h"
 #include "S5/S5.h"
 #include <algorithm>
+#include <random>
 
 using namespace OpenLoco::S5;
 
 namespace OpenLoco::World::MapGenerator
 {
-    void SimplexTerrainGenerator::generate(const S5::Options& options, HeightMapRange heightMap, uint32_t seed)
+    void SimplexTerrainGenerator::generateHeightMap(const S5::Options& options, HeightMapRange& heightMap)
+    {
+        generateHeightMap(options, heightMap, std::random_device{}());
+    }
+
+    void SimplexTerrainGenerator::generateHeightMap(const S5::Options& options, HeightMapRange& heightMap, uint32_t seed)
     {
         initialiseRng(seed);
 
@@ -23,31 +29,31 @@ namespace OpenLoco::World::MapGenerator
                 settings.high = options.minLandHeight + 8;
                 settings.baseFreq = 4.0f * hillDensity;
                 settings.octaves = 5;
-                generate(settings, heightMap);
+                generateHeightMap(settings, heightMap);
                 break;
             case TopographyStyle::smallHills:
                 settings.high = options.minLandHeight + 14;
                 settings.baseFreq = 6.0f * hillDensity;
                 settings.octaves = 6;
-                generate(settings, heightMap);
+                generateHeightMap(settings, heightMap);
                 break;
             case TopographyStyle::mountains:
                 settings.high = 32;
                 settings.baseFreq = 4.0f * hillDensity;
                 settings.octaves = 6;
-                generate(settings, heightMap);
+                generateHeightMap(settings, heightMap);
                 break;
             case TopographyStyle::halfMountainsHills:
                 settings.high = 32;
                 settings.baseFreq = 8.0f * hillDensity;
                 settings.octaves = 6;
-                generate(settings, heightMap);
+                generateHeightMap(settings, heightMap);
                 break;
             case TopographyStyle::halfMountainsFlat:
                 settings.high = 32;
                 settings.baseFreq = 6.0f * hillDensity;
                 settings.octaves = 5;
-                generate(settings, heightMap);
+                generateHeightMap(settings, heightMap);
                 break;
         }
     }
@@ -57,7 +63,7 @@ namespace OpenLoco::World::MapGenerator
         _pprng.seed(seed);
     }
 
-    void SimplexTerrainGenerator::generate(const SimplexSettings& settings, HeightMapRange heightMap)
+    void SimplexTerrainGenerator::generateHeightMap(const SimplexSettings& settings, HeightMapRange& heightMap)
     {
         generateSimplex(settings, heightMap);
         smooth(settings.smooth, heightMap);

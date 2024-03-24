@@ -12,7 +12,7 @@ using namespace OpenLoco::Diagnostics;
 
 namespace OpenLoco::World::MapGenerator
 {
-    void PngTerrainGenerator::generate(const S5::Options& options, const fs::path& path, HeightMapRange heightMap)
+    void PngTerrainGenerator::loadImage(const fs::path& path)
     {
         if (!fs::is_regular_file(path))
         {
@@ -20,19 +20,28 @@ namespace OpenLoco::World::MapGenerator
             return;
         }
 
-        auto pngImage = PngOps::loadPng(path.string());
+        pngImage = PngOps::loadPng(path.string());
         if (pngImage == nullptr)
         {
             Logging::error("Can't load terrain file ({})", path);
+            return;
+        }
+    }
+
+    void PngTerrainGenerator::generateHeightMap(const S5::Options& options, HeightMapRange& heightMap)
+    {
+        if (pngImage == nullptr)
+        {
+            Logging::error("png image was null");
             return;
         }
 
         const int maxHeightmapLevels = 64 - options.minLandHeight;
         const float scalingFactor = maxHeightmapLevels / 255.f;
 
-        for (int32_t y = 0; y < World::kMapRows; y++)
+        for (auto y = 0; y < World::kMapRows; y++)
         {
-            for (int32_t x = 0; x < World::kMapColumns; x++)
+            for (auto x = 0; x < World::kMapColumns; x++)
             {
                 if (y >= pngImage->height || x >= pngImage->width)
                 {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HeightMapRange.h"
+#include "ITerrainGenerator.h"
 #include <cstdint>
 #include <random>
 
@@ -11,10 +12,11 @@ namespace OpenLoco::S5
 
 namespace OpenLoco::World::MapGenerator
 {
-    class SimplexTerrainGenerator
+    class SimplexTerrainGenerator : public ITerrainGenerator
     {
     public:
-        void generate(const S5::Options& options, HeightMapRange heightMap, uint32_t seed);
+        void generateHeightMap(const S5::Options& options, HeightMapRange& heightMap);
+        void generateHeightMap(const S5::Options& options, HeightMapRange& heightMap, uint32_t seed);
 
     private:
         struct SimplexSettings
@@ -30,7 +32,7 @@ namespace OpenLoco::World::MapGenerator
 
         void initialiseRng(uint32_t seed);
 
-        void generate(const SimplexSettings& settings, HeightMapRange heightMap);
+        void generateHeightMap(const SimplexSettings& settings, HeightMapRange& heightMap);
 
         void generateSimplex(const SimplexSettings& settings, HeightMapRange heightMap);
 

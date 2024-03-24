@@ -71,7 +71,7 @@ namespace OpenLoco::GameCommands
 
         StringId oldStringId = station->name;
 
-        // If an empty string is given, generate one instead.
+        // If an empty string is given, generateHeightMap one instead.
         if (strlen(renameStringBuffer) == 0)
         {
             // Are we bailing out early?

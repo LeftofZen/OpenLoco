@@ -36,6 +36,11 @@ namespace OpenLoco::World::MapGenerator
         {
         }
 
+        HeightMap& getHeightMap()
+        {
+            return _heightMap;
+        }
+
         uint8_t& operator[](Point pos)
         {
             pos.x += _minX;

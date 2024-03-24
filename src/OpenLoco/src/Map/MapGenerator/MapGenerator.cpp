@@ -9,6 +9,7 @@
 #include "GameCommands/GameCommands.h"
 #include "GameCommands/Town/CreateTown.h"
 #include "GameState.h"
+#include "ITerrainGenerator.h"
 #include "LastGameOptionManager.h"
 #include "Localisation/StringIds.h"
 #include "Objects/BuildingObject.h"
@@ -42,22 +43,24 @@ namespace OpenLoco::World::MapGenerator
     static fs::path _pngHeightmapPath{};
 
     // 0x004624F0
-    static void generateHeightMap(const S5::Options& options, HeightMap& heightMap)
+    // static void generateHeightMap(const S5::Options& options, HeightMapRange& heightMap) {}
+    // this was moved into individual generator classes
+
+    static std::unique_ptr<ITerrainGenerator> makeGenerator(const S5::Options& options)
     {
         if (options.generator == LandGeneratorType::Original)
         {
-            OriginalTerrainGenerator generator;
-            generator.generate(options, heightMap);
+            return std::make_unique<OriginalTerrainGenerator>();
         }
         else if (options.generator == LandGeneratorType::Simplex)
         {
-            SimplexTerrainGenerator generator;
-            generator.generate(options, heightMap, std::random_device{}());
+            return std::make_unique<SimplexTerrainGenerator>();
         }
         else
         {
-            PngTerrainGenerator generator;
-            generator.generate(options, _pngHeightmapPath, heightMap);
+            auto gen = std::make_unique<PngTerrainGenerator>();
+            gen->loadImage(_pngHeightmapPath);
+            return gen;
         }
     }
 
@@ -649,8 +652,11 @@ namespace OpenLoco::World::MapGenerator
         {
             // Should be 384x384 (but generateLandscape goes out of bounds?)
             HeightMap heightMap(512, 512, 512);
+            HeightMapRange heightMapRange{ heightMap };
 
-            generateHeightMap(options, heightMap);
+            auto generator = makeGenerator(options);
+            generator->generateHeightMap(options, heightMapRange);
+
             updateProgress(17);
 
             generateLand(heightMap);
@@ -659,6 +665,7 @@ namespace OpenLoco::World::MapGenerator
             generateWater(heightMap);
             updateProgress(25);
 
+            // generator->generateTerrain(options, heightMap);
             generateTerrain(heightMap);
             updateProgress(35);
         }
