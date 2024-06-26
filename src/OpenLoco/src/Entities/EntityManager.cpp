@@ -46,10 +46,10 @@ namespace OpenLoco::EntityManager
         std::fill(std::begin(rawListCounts()), std::end(rawListCounts()), 0);
         std::fill(std::begin(rawListHeads()), std::end(rawListHeads()), EntityId::null);
 
-        // Remake null entities (size maxNormalEntities)
+        // Remake null entities (size kMaxNormalEntities)
         EntityBase* previous = nullptr;
         uint16_t id = 0;
-        for (; id < Limits::maxNormalEntities; ++id)
+        for (; id < Limits::kMaxNormalEntities; ++id)
         {
             auto& ent = rawEntities()[id];
             ent.baseType = EntityBaseType::null;
@@ -68,7 +68,7 @@ namespace OpenLoco::EntityManager
             }
             previous = &ent;
         }
-        rawListCounts()[enumValue(EntityListType::null)] = Limits::maxNormalEntities;
+        rawListCounts()[enumValue(EntityListType::null)] = Limits::kMaxNormalEntities;
 
         // Remake null money entities (size kMaxMoneyEntities)
         previous = nullptr;

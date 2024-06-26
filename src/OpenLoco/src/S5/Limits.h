@@ -22,7 +22,7 @@ namespace OpenLoco::S5::Limits
     // There is a separate pool of 200 entities dedicated for money
     constexpr size_t kMaxMoneyEntities = 200;
     // This is the main pool for everything that isn't money
-    constexpr size_t maxNormalEntities = kMaxEntities - kMaxMoneyEntities;
+    constexpr size_t kMaxNormalEntities = kMaxEntities - kMaxMoneyEntities;
     // Money is not counted in this limit
     constexpr size_t kMaxMiscEntities = 4000;
 }
