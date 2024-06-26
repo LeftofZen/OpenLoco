@@ -439,16 +439,17 @@ namespace OpenLoco::S5
             // 0x004420B2
         }
 
+        // Load required objects
+        fs.readChunk(file->requiredObjects, sizeof(file->requiredObjects));
+
+        // Load game state
+        fs.readChunk(&file->gameState, sizeof(file->gameState));
+
         if (file->header.type == S5Type::scenario)
         {
-            // Load required objects
-            fs.readChunk(file->requiredObjects, sizeof(file->requiredObjects));
-
-            // Load game state up to just before companies
-            fs.readChunk(&file->gameState, sizeof(file->gameState));
             // Load game state towns industry and stations
             fs.readChunk(&file->gameState.towns, sizeof(file->gameState));
-            // Load the rest of gamestate after animations
+            // Load the rest of game state after animations
             fs.readChunk(&file->gameState.animations, sizeof(file->gameState));
             file->gameState.fixFlags |= S5FixFlags::fixFlag1;
             fixState(file->gameState);
@@ -464,11 +465,6 @@ namespace OpenLoco::S5
         }
         else
         {
-            // Load required objects
-            fs.readChunk(file->requiredObjects, sizeof(file->requiredObjects));
-
-            // Load game state
-            fs.readChunk(&file->gameState, sizeof(file->gameState));
             fixState(file->gameState);
 
             // Load tile elements
