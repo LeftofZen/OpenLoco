@@ -423,21 +423,19 @@ namespace OpenLoco::S5
             file->landscapeOptions = std::make_unique<S5::Options>();
             fs.readChunk(&*file->landscapeOptions, sizeof(S5::Options));
         }
+
         // Read packed objects
-        if (file->header.numPackedObjects > 0)
+        for (auto i = 0; i < file->header.numPackedObjects; ++i)
         {
-            for (auto i = 0; i < file->header.numPackedObjects; ++i)
-            {
-                ObjectHeader object;
-                fs.read(&object, sizeof(ObjectHeader));
-                auto unownedObjectData = fs.readChunk();
-                std::vector<std::byte> objectData;
-                objectData.resize(unownedObjectData.size());
-                std::copy(std::begin(unownedObjectData), std::end(unownedObjectData), std::begin(objectData));
-                file->packedObjects.push_back(std::make_pair(object, std::move(objectData)));
-            }
-            // 0x004420B2
+            ObjectHeader object;
+            fs.read(&object, sizeof(ObjectHeader));
+            auto unownedObjectData = fs.readChunk();
+            std::vector<std::byte> objectData;
+            objectData.resize(unownedObjectData.size());
+            std::copy(std::begin(unownedObjectData), std::end(unownedObjectData), std::begin(objectData));
+            file->packedObjects.push_back(std::make_pair(object, std::move(objectData)));
         }
+        // 0x004420B2
 
         // Load required objects
         fs.readChunk(file->requiredObjects, sizeof(file->requiredObjects));
@@ -593,7 +591,7 @@ namespace OpenLoco::S5
                 auto currentProgress = 100;
                 bool objectInstalled = false;
 
-                for (auto [object, data] : file->packedObjects)
+                for (auto& [object, data] : file->packedObjects)
                 {
                     if (ObjectManager::tryInstallObject(object, data))
                     {
@@ -712,7 +710,7 @@ namespace OpenLoco::S5
                 auto* stexObj = ObjectManager::get<ScenarioTextObject>();
                 if (stexObj != nullptr)
                 {
-                    auto header = ObjectManager::getHeader(LoadedObjectHandle{ ObjectType::scenarioText, 0 });
+                    auto& header = ObjectManager::getHeader(LoadedObjectHandle{ ObjectType::scenarioText, 0 });
                     ObjectManager::unload(header);
                     ObjectManager::reloadAll();
                     ObjectManager::sub_4748FA();
