@@ -106,7 +106,7 @@ namespace OpenLoco
     }
 
     // 0x00438205
-    void Company::updateDailyLogic()
+    void Company::updateDailyLogic() const
     {
         if (CompanyManager::isPlayerCompany(id()))
         {
@@ -378,7 +378,7 @@ namespace OpenLoco
         }
     }
 
-    void Company::updateDailyControllingPlayer()
+    void Company::updateDailyControllingPlayer() const
     {
         updateLoanAutorepay();
     }
@@ -637,7 +637,7 @@ namespace OpenLoco
         }
     }
 
-    void Company::updateLoanAutorepay()
+    void Company::updateLoanAutorepay() const
     {
         if (currentLoan > 0 && cash > 0 && ((challengeFlags & CompanyFlags::autopayLoan) != CompanyFlags::none))
         {
@@ -650,7 +650,7 @@ namespace OpenLoco
     }
 
     // 0x004B8ED2
-    void Company::updateVehicleColours()
+    void Company::updateVehicleColours() const
     {
         for (auto* v : VehicleManager::VehicleList())
         {
@@ -692,7 +692,7 @@ namespace OpenLoco
     }
 
     // 0x0042F07B
-    void Company::updateHeadquartersColour()
+    void Company::updateHeadquartersColour() const
     {
         if (headquartersX == -1)
             return;
@@ -910,7 +910,7 @@ namespace OpenLoco
     }
 
     // 0x0042F142
-    void Company::setHeadquartersVariation(const uint8_t variation, const World::TilePos2& pos)
+    void Company::setHeadquartersVariation(const uint8_t variation, const World::TilePos2& pos) const
     {
         auto tile = World::TileManager::get(pos);
         for (auto& el : tile)

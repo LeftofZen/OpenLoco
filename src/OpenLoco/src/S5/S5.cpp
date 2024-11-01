@@ -64,12 +64,12 @@ namespace OpenLoco::S5
 
     static bool exportGameState(Stream& stream, const S5File& file, const std::vector<ObjectHeader>& packedObjects);
 
-    constexpr bool hasSaveFlags(SaveFlags flags, SaveFlags flagsToTest)
+    static constexpr bool hasSaveFlags(SaveFlags flags, SaveFlags flagsToTest)
     {
         return (flags & flagsToTest) != SaveFlags::none;
     }
 
-    constexpr bool hasLoadFlags(LoadFlags flags, LoadFlags flagsToTest)
+    static constexpr bool hasLoadFlags(LoadFlags flags, LoadFlags flagsToTest)
     {
         return (flags & flagsToTest) != LoadFlags::none;
     }
@@ -519,11 +519,11 @@ namespace OpenLoco::S5
             // 0x004420B2
         }
 
+        // Load required objects
+        fs.readChunk(file->requiredObjects, sizeof(file->requiredObjects));
+
         if (file->header.type == S5Type::scenario)
         {
-            // Load required objects
-            fs.readChunk(file->requiredObjects, sizeof(file->requiredObjects));
-
             // Load game state up to just before companies
             fs.readChunk(&file->gameState, sizeof(file->gameState));
             // Load game state towns industry and stations
@@ -544,9 +544,6 @@ namespace OpenLoco::S5
         }
         else
         {
-            // Load required objects
-            fs.readChunk(file->requiredObjects, sizeof(file->requiredObjects));
-
             // Load game state
             fs.readChunk(&file->gameState, sizeof(file->gameState));
             fixState(file->gameState);
@@ -677,7 +674,7 @@ namespace OpenLoco::S5
                 auto currentProgress = 100;
                 bool objectInstalled = false;
 
-                for (auto [object, data] : file->packedObjects)
+                for (auto& [object, data] : file->packedObjects)
                 {
                     if (ObjectManager::tryInstallObject(object, data))
                     {
@@ -797,7 +794,7 @@ namespace OpenLoco::S5
                 auto* stexObj = ObjectManager::get<ScenarioTextObject>();
                 if (stexObj != nullptr)
                 {
-                    auto header = ObjectManager::getHeader(LoadedObjectHandle{ ObjectType::scenarioText, 0 });
+                    auto& header = ObjectManager::getHeader(LoadedObjectHandle{ ObjectType::scenarioText, 0 });
                     ObjectManager::unload(header);
                     ObjectManager::reloadAll();
                     ObjectManager::sub_4748FA();

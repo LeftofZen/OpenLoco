@@ -224,16 +224,16 @@ namespace OpenLoco
         void recalculateTransportCounts();
         void clearOwnerStatusForDeletedVehicle(EntityId vehicleId);
         void updateDaily();
-        void updateDailyLogic();
+        void updateDailyLogic() const;
         void updateDailyPlayer();
         void evaluateChallengeProgress();
-        void updateDailyControllingPlayer();
+        void updateDailyControllingPlayer() const;
         void updateMonthlyHeadquarters();
         void updateMonthly1();
-        void updateLoanAutorepay();
+        void updateLoanAutorepay() const;
         void updateQuarterly();
-        void updateVehicleColours();
-        void updateHeadquartersColour();
+        void updateVehicleColours() const;
+        void updateHeadquartersColour() const;
         void updateOwnerEmotion();
         std::vector<uint8_t> getAvailableRailTracks() const;
         std::vector<uint8_t> getAvailableRoads() const;
@@ -241,7 +241,7 @@ namespace OpenLoco
 
     private:
         void setHeadquartersVariation(const uint8_t variation);
-        void setHeadquartersVariation(const uint8_t variation, const World::TilePos2& pos);
+        void setHeadquartersVariation(const uint8_t variation, const World::TilePos2& pos) const;
 
         uint8_t getNewChallengeProgress() const;
     };
