@@ -262,11 +262,11 @@ namespace OpenLoco
         uint8_t cargoTypeSpriteOffsets[32];                   // 0xEC
         uint8_t numSimultaneousCargoTypes;                    // 0x10C
         VehicleObjectSimpleAnimation animation[2];            // 0x10D
-        uint8_t var_113;
-        uint16_t designed;                 // 0x114
-        uint16_t obsolete;                 // 0x116
-        uint8_t rackRailType;              // 0x118
-        DrivingSoundType drivingSoundType; // 0x119
+        uint8_t shipWakeOffset;                               // 0x113 if 0, ship has a single wake animation. if > 0, ship has 2 wakes, offset horizontally by this value. unused by non-ship
+        uint16_t designed;                                    // 0x114
+        uint16_t obsolete;                                    // 0x116
+        uint8_t rackRailType;                                 // 0x118
+        DrivingSoundType drivingSoundType;                    // 0x119
         union
         {
             VehicleObjectFrictionSound friction;

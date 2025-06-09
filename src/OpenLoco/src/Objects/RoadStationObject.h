@@ -46,13 +46,13 @@ namespace OpenLoco
         uint8_t costIndex;                       // 0x0A
         RoadStationFlags flags;                  // 0x0B
         uint32_t image;                          // 0x0C
-        uint32_t var_10[4];                      // 0x10
+        uint32_t baseImageOffset[4];             // 0x10
         uint8_t numCompatible;                   // 0x20
         uint8_t mods[7];                         // 0x21
         uint16_t designedYear;                   // 0x28
         uint16_t obsoleteYear;                   // 0x2A
         uint8_t cargoType;                       // 0x2C
-        uint8_t pad_2D;
+        uint8_t pad_2D;                          // 0x2D
         const std::byte* cargoOffsetBytes[4][4]; // 0x2E
 
         void drawPreviewImage(Gfx::DrawingContext& drawingCtx, const int16_t x, const int16_t y) const;
@@ -76,8 +76,8 @@ namespace OpenLoco
         constexpr uint32_t preview_image = 0;
         constexpr uint32_t preview_image_windows = 1;
         constexpr uint32_t totalPreviewImages = 2;
-        // These are relative to var_10
-        // var_10 is the imageIds per sequenceIndex (for start/middle/end of the platform)
+        // These are relative to baseImageOffset
+        // baseImageOffset is the imageIds per sequenceIndex (for start/middle/end of the platform)
         namespace Style0
         {
             constexpr uint32_t straightBackNE = 0;

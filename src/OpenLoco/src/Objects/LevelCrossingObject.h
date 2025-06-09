@@ -27,10 +27,10 @@ namespace OpenLoco
         uint8_t animationSpeed; // 0x07
         uint8_t closingFrames;  // 0x08
         uint8_t closedFrames;   // 0x09
-        uint8_t var_0A;         // 0x0A
-        uint8_t pad_0B;
-        uint16_t designedYear; // 0x0C
-        uint32_t image;        // 0x0E
+        uint8_t var_0A;         // 0x0A IdleAnimationFrames?
+        uint8_t pad_0B;         // 0x0B
+        uint16_t designedYear;  // 0x0C
+        uint32_t image;         // 0x0E
 
         bool validate() const;
         void load(const LoadedObjectHandle& handle, std::span<const std::byte> data, ObjectManager::DependentObjects*);

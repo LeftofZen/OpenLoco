@@ -36,7 +36,7 @@ namespace OpenLoco
         uint8_t numCargoInflunceObjects;                          // 0x08 length of cargoInfluenceObjectIds and cargoInfluenceTownFilter
         uint8_t cargoInfluenceObjectIds[4];                       // 0x09
         CargoInfluenceTownFilterType cargoInfluenceTownFilter[4]; // 0x0D valid values 0, 1, 2
-        uint8_t pad_11;
+        uint8_t pad_11;                                           // 0x11
 
         void drawPreviewImage(Gfx::DrawingContext& drawingCtx, const int16_t x, const int16_t y) const;
         // 0x0043CB89

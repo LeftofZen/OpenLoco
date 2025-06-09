@@ -33,8 +33,8 @@ namespace OpenLoco::World
             _type &= ~0xC0;
             _type |= (quad & 0x3) << 6;
         }
-        uint8_t unk5l() const { return _5 & 0xF; }
-        void setUnk5l(uint8_t unk)
+        uint8_t getGrowthStage() const { return _5 & 0xF; }
+        void setGrowthStage(uint8_t unk)
         {
             _5 &= ~0xF;
             _5 |= unk & 0xF;

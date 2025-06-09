@@ -42,14 +42,14 @@ namespace OpenLoco
         uint8_t var_04;                  // 0x04
         uint8_t var_05;                  // 0x05
         uint8_t numRotations;            // 0x06 (1,2,4)
-        uint8_t growth;                  // 0x07 (number of tree size images)
+        uint8_t numGrowthStages;         // 0x07 (number of tree size images)
         TreeObjectFlags flags;           // 0x08
         uint32_t sprites[6];             // 0x0A
         uint32_t snowSprites[6];         // 0x22
         uint16_t shadowImageOffset;      // 0x3A
         uint8_t var_3C;                  // 0x3C
         uint8_t seasonState;             // 0x3D (index for sprites, seasons + dying)
-        uint8_t var_3E;                  // 0x3E
+        uint8_t season;                  // 0x3E
         uint8_t costIndex;               // 0x3F
         int16_t buildCostFactor;         // 0x40
         int16_t clearCostFactor;         // 0x42

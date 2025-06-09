@@ -610,7 +610,7 @@ namespace OpenLoco::CompanyManager
                 sfl::static_vector<uint8_t, 32> availableNamePrefixes;
                 for (auto j = 0U; j < 32; ++j)
                 {
-                    if (competitorObj->var_04 & (1U << j))
+                    if (competitorObj->availableNamePrefixes & (1U << j))
                     {
                         availableNamePrefixes.push_back(j);
                     }
@@ -621,7 +621,7 @@ namespace OpenLoco::CompanyManager
                 sfl::static_vector<uint8_t, 32> availablePlaystyles;
                 for (auto j = 0U; j < 32; ++j)
                 {
-                    if (competitorObj->var_08 & (1U << j))
+                    if (competitorObj->availablePlaystyles & (1U << j))
                     {
                         availablePlaystyles.push_back(j);
                     }

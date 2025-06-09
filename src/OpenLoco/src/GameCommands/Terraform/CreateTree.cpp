@@ -104,18 +104,18 @@ namespace OpenLoco::GameCommands
             elTree->setRotation(args.rotation);
             elTree->setQuadrant(args.quadrant);
             elTree->setTreeObjectId(args.type);
-            elTree->setUnk5l(0);
+            elTree->setGrowthStage(0);
             elTree->setUnk5h(0);
             elTree->setColour(args.colour);
             elTree->setUnk6_80(false);
             elTree->setSnow(false);
-            elTree->setSeason(treeObj->var_3E);
+            elTree->setSeason(treeObj->season);
             elTree->setUnk7l(7);
             elTree->setClearZ(treeObj->initialHeight / World::kSmallZStep + elTree->baseZ());
             Scenario::getOptions().madeAnyChanges = 1;
             if (args.buildImmediately)
             {
-                elTree->setUnk5l(treeObj->growth - 1);
+                elTree->setGrowthStage(treeObj->numGrowthStages - 1);
                 elTree->setClearZ(treeObj->height / World::kSmallZStep + elTree->baseZ());
                 if (elTree->baseZ() - 4 > Scenario::getCurrentSnowLine() && treeObj->hasFlags(TreeObjectFlags::hasSnowVariation))
                 {

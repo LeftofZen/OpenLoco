@@ -69,7 +69,7 @@ namespace OpenLoco
 
     uint8_t TreeObject::getTreeGrowthDisplayOffset() const
     {
-        return treeGrowth[growth];
+        return treeGrowth[numGrowthStages];
     }
 
     // 0x004BE24D
@@ -95,7 +95,7 @@ namespace OpenLoco
             case 4:
                 break;
         }
-        if (growth < 1 || growth > 8)
+        if (numGrowthStages < 1 || numGrowthStages > 8)
         {
             return false;
         }
@@ -131,7 +131,7 @@ namespace OpenLoco
             sprites[variant] = imageOffset;
         }
 
-        auto numVariantImages = numRotations * growth;
+        auto numVariantImages = numRotations * numGrowthStages;
         auto totalImageCount = 0;
         for (auto variant = 0; variant < 6; variant++)
         {

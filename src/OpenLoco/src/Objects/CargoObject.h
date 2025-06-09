@@ -56,7 +56,7 @@ namespace OpenLoco
         CargoCategory cargoCategory;   // 0x10
         CargoObjectFlags flags;        // 0x12
         uint8_t numPlatformVariations; // 0x13
-        uint8_t var_14;
+        uint8_t stationCargoDensity;
         uint8_t premiumDays;       // 0x15
         uint8_t maxNonPremiumDays; // 0x16
         uint16_t nonPremiumRate;   // 0x17
