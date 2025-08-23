@@ -104,7 +104,7 @@ namespace OpenLoco::Ui::ScrollView
             return;
         }
 
-        uint16_t trackWidth = widget->width() - 2 - kThumbSize - kThumbSize;
+        uint16_t trackWidth = widget->width() - (kScrollbarMargin * 2) - (kThumbSize * 2);
         if (scrollArea.hasFlags(ScrollFlags::vscrollbarVisible))
         {
             trackWidth -= kScrollbarSize;
@@ -118,7 +118,7 @@ namespace OpenLoco::Ui::ScrollView
 
         int16_t newOffset = scrollArea.contentOffsetX + contentDeltaX;
 
-        int frameWidth = widget->width() - 2;
+        int frameWidth = widget->width() - (kScrollbarMargin * 2);
         if (scrollArea.hasFlags(ScrollFlags::vscrollbarVisible))
         {
             frameWidth -= kScrollbarSize;
@@ -144,7 +144,7 @@ namespace OpenLoco::Ui::ScrollView
             return;
         }
 
-        uint16_t trackHeight = widget->height() - 2 - kThumbSize - kThumbSize;
+        uint16_t trackHeight = widget->height() - (kScrollbarMargin * 2) - (kThumbSize * 2);
         if (scrollArea.hasFlags(ScrollFlags::hscrollbarVisible))
         {
             trackHeight -= kScrollbarSize;
@@ -158,7 +158,7 @@ namespace OpenLoco::Ui::ScrollView
 
         int16_t newOffset = scrollArea.contentOffsetY + contentDeltaY;
 
-        int frameHeight = widget->height() - 2;
+        int frameHeight = widget->height() - (kScrollbarMargin * 2);
         if (scrollArea.hasFlags(ScrollFlags::hscrollbarVisible))
         {
             frameHeight -= kScrollbarSize;
@@ -355,7 +355,7 @@ namespace OpenLoco::Ui::ScrollView
     static void hButtonRight(Ui::Window& window, const size_t scrollAreaIndex, const WidgetIndex_t widgetIndex)
     {
         window.scrollAreas[scrollAreaIndex].flags |= ScrollFlags::hscrollbarRightPressed;
-        int16_t trackWidth = window.widgets[widgetIndex].width() - 2;
+        int16_t trackWidth = window.widgets[widgetIndex].width() - (kScrollbarMargin * 2);
         if (window.scrollAreas[scrollAreaIndex].hasFlags(ScrollFlags::vscrollbarVisible))
         {
             trackWidth -= kScrollbarSize;
@@ -369,7 +369,7 @@ namespace OpenLoco::Ui::ScrollView
     // 0x004C8A36
     static void hTrackLeft(Ui::Window& window, const size_t scrollAreaIndex, const WidgetIndex_t widgetIndex)
     {
-        int16_t trackWidth = window.widgets[widgetIndex].width() - 2;
+        int16_t trackWidth = window.widgets[widgetIndex].width() - (kScrollbarMargin * 2);
         if (window.scrollAreas[scrollAreaIndex].hasFlags(ScrollFlags::vscrollbarVisible))
         {
             trackWidth -= kScrollbarSize;
@@ -382,7 +382,7 @@ namespace OpenLoco::Ui::ScrollView
     // 0x004C8AA6
     static void hTrackRight(Ui::Window& window, const size_t scrollAreaIndex, const WidgetIndex_t widgetIndex)
     {
-        int16_t trackWidth = window.widgets[widgetIndex].width() - 2;
+        int16_t trackWidth = window.widgets[widgetIndex].width() - (kScrollbarMargin * 2);
         if (window.scrollAreas[scrollAreaIndex].hasFlags(ScrollFlags::vscrollbarVisible))
         {
             trackWidth -= kScrollbarSize;
@@ -409,7 +409,7 @@ namespace OpenLoco::Ui::ScrollView
 
     void verticalNudgeDown(Ui::Window& window, const size_t scrollAreaIndex, const WidgetIndex_t widgetIndex)
     {
-        int16_t trackHeight = window.widgets[widgetIndex].height() - 2;
+        int16_t trackHeight = window.widgets[widgetIndex].height() - (kScrollbarMargin * 2);
         if (window.scrollAreas[scrollAreaIndex].hasFlags(ScrollFlags::hscrollbarVisible))
         {
             trackHeight -= kScrollbarSize;
@@ -430,7 +430,7 @@ namespace OpenLoco::Ui::ScrollView
     // 0x004C8C0D
     static void vTrackTop(Ui::Window& window, const size_t scrollAreaIndex, const WidgetIndex_t widgetIndex)
     {
-        int16_t trackHeight = window.widgets[widgetIndex].height() - 2;
+        int16_t trackHeight = window.widgets[widgetIndex].height() - (kScrollbarMargin * 2);
         if (window.scrollAreas[scrollAreaIndex].hasFlags(ScrollFlags::hscrollbarVisible))
         {
             trackHeight -= kScrollbarSize;
@@ -443,7 +443,7 @@ namespace OpenLoco::Ui::ScrollView
     // 0x004C8C7D
     static void vTrackBottom(Ui::Window& window, const size_t scrollAreaIndex, const WidgetIndex_t widgetIndex)
     {
-        int16_t trackHeight = window.widgets[widgetIndex].height() - 2;
+        int16_t trackHeight = window.widgets[widgetIndex].height() - (kScrollbarMargin * 2);
         if (window.scrollAreas[scrollAreaIndex].hasFlags(ScrollFlags::hscrollbarVisible))
         {
             trackHeight -= kScrollbarSize;
