@@ -7080,13 +7080,13 @@ namespace OpenLoco
             removeAiAllocatedCompanyTracksRoadsOnTile(pos);
 
             pos.x += 32;
-            if (pos.x < TileManager::kMapWidth)
+            if (pos.x < TileManager::getMapWidth())
             {
                 continue;
             }
             pos.x = 0;
             pos.y += 32;
-            if (pos.y < TileManager::kMapHeight)
+            if (pos.y < TileManager::getMapHeight())
             {
                 continue;
             }
@@ -7613,7 +7613,7 @@ namespace OpenLoco
     {
         auto remainingRange = World::TilePosRangeView(
             World::toTileSpace(company.var_85C4),
-            World::TilePos2{ World::TileManager::kMapColumns - 1, World::TileManager::kMapRows - 1 });
+            World::TilePos2{ World::TileManager::getMapColumns() - 1, World::TileManager::getMapRows() - 1 });
 
         auto count = 1500;
         for (auto& tilePos : remainingRange)
@@ -7621,7 +7621,7 @@ namespace OpenLoco
             removeCompanyTracksRoadsOnTile(company.id(), tilePos);
             count--;
             // TODO: Remove when divergence from vanilla as this is silly
-            if (tilePos.x == World::TileManager::kMapColumns - 1)
+            if (tilePos.x == World::TileManager::getMapColumns() - 1)
             {
                 count--;
             }

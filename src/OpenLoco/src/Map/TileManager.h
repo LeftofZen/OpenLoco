@@ -19,17 +19,16 @@ namespace OpenLoco::World
 
 namespace OpenLoco::World::TileManager
 {
-    constexpr uint16_t kMapRows = 384;
-    constexpr uint16_t kMapColumns = 384;
+    constexpr coord_t getMapRows() { return 384; }
+    constexpr coord_t getMapColumns() { return 384; }
     constexpr coord_t kMapPitch = 512;
-    constexpr uint32_t kMapHeight = kMapRows * kTileSize;
-    constexpr uint32_t kMapWidth = kMapColumns * kTileSize;
-    // constexpr int32_t kMapSize = kMapColumns * kMapRows;
-    constexpr uint32_t getMapSize() { return kMapColumns * kMapRows; }
+    constexpr uint32_t getMapHeight() { return getMapRows() * World::kTileSize; }
+    constexpr uint32_t getMapWidth() { return getMapColumns() * World::kTileSize; }
+    constexpr uint32_t getMapSize() { return getMapColumns() * getMapRows(); }
 
-    constexpr size_t kMaxElements = 3 * kMapColumns * kMapRows;
+    constexpr size_t getMaxElements() { return 3U * getMapColumns() * getMapRows(); }
     constexpr size_t kMaxElementsOnOneTile = 1024; // If you exceed this then the game may buffer overflow in certain situations
-    constexpr size_t kMaxUsableElements = kMaxElements - kMaxElementsOnOneTile;
+    constexpr size_t getMaxUsableElements() { return getMaxElements() - kMaxElementsOnOneTile };
     const TileElement* const kInvalidTile = reinterpret_cast<const TileElement*>(static_cast<intptr_t>(-1));
 
     enum class ElementPositionFlags : uint8_t
@@ -118,12 +117,12 @@ namespace OpenLoco::World::TileManager
 
     constexpr bool validCoord(const coord_t coord)
     {
-        return (coord >= 0) && (coord < kMapWidth);
+        return (coord >= 0) && (coord < getMapWidth());
     }
 
     constexpr bool validTileCoord(const tile_coord_t coord)
     {
-        return (coord >= 0) && (coord < kMapColumns);
+        return (coord >= 0) && (coord < getMapColumns());
     }
 
     constexpr bool validCoords(const Pos2& coords)
@@ -139,12 +138,12 @@ namespace OpenLoco::World::TileManager
     // drawing coordinates validation differs from general valid coordinate validation
     constexpr bool drawableCoord(const coord_t coord)
     {
-        return (coord >= World::kTileSize) && (coord < (kMapWidth - World::kTileSize - 1));
+        return (coord >= World::kTileSize) && (coord < (getMapWidth() - World::kTileSize - 1));
     }
 
     constexpr bool drawableTileCoord(const tile_coord_t coord)
     {
-        return (coord >= 1) && (coord < (kMapColumns - 2));
+        return (coord >= 1) && (coord < (getMapColumns() - 2));
     }
 
     constexpr bool drawableCoords(const Pos2& coords)
@@ -159,11 +158,11 @@ namespace OpenLoco::World::TileManager
 
     constexpr coord_t clampCoord(coord_t coord)
     {
-        return std::clamp<coord_t>(coord, 0, kMapWidth - 1);
+        return std::clamp<coord_t>(coord, 0, getMapWidth() - 1);
     }
 
     constexpr coord_t clampTileCoord(coord_t coord)
     {
-        return std::clamp<coord_t>(coord, 0, kMapColumns - 1);
+        return std::clamp<coord_t>(coord, 0, getMapColumns() - 1);
     }
 }

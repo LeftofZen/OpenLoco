@@ -414,8 +414,8 @@ namespace OpenLoco::World::MapGenerator
         {
             // TODO: could probably simplify / replace with two randNext(lo, hi) calls
             auto randPos = getGameState().rng.randNext();
-            auto xPos = ((randPos & 0xFFFF) * TileManager::kMapColumns) >> 16;
-            auto yPos = ((randPos >> 16) * TileManager::kMapRows) >> 16;
+            auto xPos = ((randPos & 0xFFFF) * TileManager::getMapColumns()) >> 16;
+            auto yPos = ((randPos >> 16) * TileManager::getMapRows()) >> 16;
 
             auto pos = World::toWorldSpace(TilePos2(xPos, yPos));
             auto numberOfTiles = getGameState().rng.randNext(minTiles, maxTiles - 1);
@@ -656,7 +656,7 @@ namespace OpenLoco::World::MapGenerator
         for (auto i = 0; i < options.numberOfForests; ++i)
         {
             const auto randRadius = ((gPrng1().randNext(255) * std::max(options.maxForestRadius - options.minForestRadius, 0)) / 255 + options.minForestRadius) * kTileSize;
-            const auto randLoc = World::TilePos2(gPrng1().randNext(TileManager::kMapRows), gPrng1().randNext(TileManager::kMapColumns));
+            const auto randLoc = World::TilePos2(gPrng1().randNext(TileManager::getMapRows()), gPrng1().randNext(TileManager::getMapColumns()));
             const auto randDensity = (gPrng1().randNext(15) * std::max(options.maxForestDensity - options.minForestDensity, 0)) / 15 + options.minForestDensity;
             placeTreeCluster(randLoc, randRadius, randDensity, std::nullopt);
 
@@ -669,7 +669,7 @@ namespace OpenLoco::World::MapGenerator
         // Place a number of random trees
         for (auto i = 0; i < options.numberRandomTrees; ++i)
         {
-            const auto randLoc = World::Pos2(gPrng1().randNext(TileManager::kMapWidth), gPrng1().randNext(TileManager::kMapHeight));
+            const auto randLoc = World::Pos2(gPrng1().randNext(TileManager::getMapWidth()), gPrng1().randNext(TileManager::getMapHeight()));
             placeRandomTree(randLoc, std::nullopt);
         }
 
@@ -870,8 +870,8 @@ namespace OpenLoco::World::MapGenerator
             for (auto attemptsLeft = 200; attemptsLeft > 0; attemptsLeft--)
             {
                 // NB: coordinate selection has been simplified compared to vanilla
-                auto randomX = getGameState().rng.randNext(2, TileManager::kMapRows - 2);
-                auto randomY = getGameState().rng.randNext(2, TileManager::kMapColumns - 2);
+                auto randomX = getGameState().rng.randNext(2, TileManager::getMapRows() - 2);
+                auto randomY = getGameState().rng.randNext(2, TileManager::getMapColumns() - 2);
 
                 auto tile = TileManager::get(TilePos2(randomX, randomY));
                 if (!predicate(tile))
@@ -1093,7 +1093,7 @@ namespace OpenLoco::World::MapGenerator
         updateProgress(10);
 
         {
-            HeightMap heightMap(TileManager::kMapColumns, TileManager::kMapRows);
+            HeightMap heightMap(TileManager::getMapColumns(), TileManager::getMapRows());
 
             generateHeightMap(options, heightMap);
             updateProgress(25);

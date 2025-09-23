@@ -48,7 +48,7 @@ namespace OpenLoco::Ui::Windows::Main
             { window->x, window->y },
             { window->width, window->height },
             ZoomLevel::full,
-            { (World::TileManager::kMapRows * World::kTileSize) / 2 - 1, (World::TileManager::kMapRows * World::kTileSize) / 2 - 1, 480 });
+            { (World::TileManager::getMapRows() * World::kTileSize) / 2 - 1, (World::TileManager::getMapRows() * World::kTileSize) / 2 - 1, 480 });
     }
 
     // 0x0043B2E4

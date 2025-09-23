@@ -63,26 +63,26 @@ namespace OpenLoco
     public:
         bool mapHas1(const tile_coord_t x, const tile_coord_t y) const
         {
-            return (_map[y * TileManager::kMapColumns + x] & (1 << enumValue(CatchmentFlags::flag_0))) != 0;
+            return (_map[y * TileManager::getMapColumns() + x] & (1 << enumValue(CatchmentFlags::flag_0))) != 0;
         }
         bool mapHas2(const tile_coord_t x, const tile_coord_t y) const
         {
-            return (_map[y * TileManager::kMapColumns + x] & (1 << enumValue(CatchmentFlags::flag_1))) != 0;
+            return (_map[y * TileManager::getMapColumns() + x] & (1 << enumValue(CatchmentFlags::flag_1))) != 0;
         }
 
         void mapRemove2(const tile_coord_t x, const tile_coord_t y)
         {
-            _map[y * TileManager::kMapColumns + x] &= ~(1 << enumValue(CatchmentFlags::flag_1));
+            _map[y * TileManager::getMapColumns() + x] &= ~(1 << enumValue(CatchmentFlags::flag_1));
         }
 
         void setTile(const tile_coord_t x, const tile_coord_t y, const CatchmentFlags flag)
         {
-            _map[y * TileManager::kMapColumns + x] |= (1 << enumValue(flag));
+            _map[y * TileManager::getMapColumns() + x] |= (1 << enumValue(flag));
         }
 
         void resetTile(const tile_coord_t x, const tile_coord_t y, const CatchmentFlags flag)
         {
-            _map[y * TileManager::kMapColumns + x] &= ~(1 << enumValue(flag));
+            _map[y * TileManager::getMapColumns() + x] &= ~(1 << enumValue(flag));
         }
 
         void setTileRegion(tile_coord_t x, tile_coord_t y, int16_t xTileCount, int16_t yTileCount, const CatchmentFlags flag)
@@ -295,9 +295,9 @@ namespace OpenLoco
             cargoSearchState.filter(~0U);
         }
 
-        for (tile_coord_t ty = 0; ty < TileManager::kMapColumns; ty++)
+        for (tile_coord_t ty = 0; ty < TileManager::getMapColumns(); ty++)
         {
-            for (tile_coord_t tx = 0; tx < TileManager::kMapRows; tx++)
+            for (tile_coord_t tx = 0; tx < TileManager::getMapRows(); tx++)
             {
                 if (cargoSearchState.mapHas2(tx, ty))
                 {
@@ -531,7 +531,7 @@ namespace OpenLoco
     void setCatchmentDisplay(const Station* station, const CatchmentFlags catchmentFlag)
     {
         CargoSearchState cargoSearchState;
-        cargoSearchState.resetTileRegion(0, 0, TileManager::kMapColumns, TileManager::kMapRows, catchmentFlag);
+        cargoSearchState.resetTileRegion(0, 0, TileManager::getMapColumns(), TileManager::getMapRows(), catchmentFlag);
 
         if (station == nullptr)
         {
@@ -1029,8 +1029,8 @@ namespace OpenLoco
     {
         minPos.x = std::max(minPos.x, static_cast<coord_t>(0));
         minPos.y = std::max(minPos.y, static_cast<coord_t>(0));
-        maxPos.x = std::min(maxPos.x, static_cast<coord_t>(TileManager::kMapColumns - 1));
-        maxPos.y = std::min(maxPos.y, static_cast<coord_t>(TileManager::kMapRows - 1));
+        maxPos.x = std::min(maxPos.x, static_cast<coord_t>(TileManager::getMapColumns() - 1));
+        maxPos.y = std::min(maxPos.y, static_cast<coord_t>(TileManager::getMapRows() - 1));
 
         maxPos.x -= minPos.x;
         maxPos.y -= minPos.y;

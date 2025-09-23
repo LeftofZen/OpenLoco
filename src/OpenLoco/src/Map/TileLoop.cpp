@@ -18,11 +18,11 @@ namespace OpenLoco::World
 
     TilePosRangeView getDrawableTileRange()
     {
-        return TilePosRangeView({ 1, 1 }, { TileManager::kMapColumns - 2, TileManager::kMapRows - 2 });
+        return TilePosRangeView({ 1, 1 }, { TileManager::getMapColumns() - 2, TileManager::getMapRows() - 2 });
     }
 
     TilePosRangeView getWorldRange()
     {
-        return TilePosRangeView({ 0, 0 }, { TileManager::kMapColumns - 1, TileManager::kMapRows - 1 });
+        return TilePosRangeView({ 0, 0 }, { TileManager::getMapColumns() - 1, TileManager::getMapRows() - 1 });
     }
 }
