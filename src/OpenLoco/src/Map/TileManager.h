@@ -19,6 +19,13 @@ namespace OpenLoco::World
 
 namespace OpenLoco::World::TileManager
 {
+    constexpr coord_t kMapRows = 512;
+    constexpr coord_t kMapColumns = 512;
+    constexpr coord_t kMapPitch = 512;
+    constexpr coord_t kMapHeight = kMapRows * kTileSize;
+    constexpr coord_t kMapWidth = kMapColumns * kTileSize;
+    constexpr int32_t kMapSize = kMapColumns * kMapRows;
+
     constexpr size_t kMaxElements = 3 * kMapColumns * kMapRows;
     constexpr size_t kMaxElementsOnOneTile = 1024; // If you exceed this then the game may buffer overflow in certain situations
     constexpr size_t kMaxUsableElements = kMaxElements - kMaxElementsOnOneTile;
@@ -107,4 +114,55 @@ namespace OpenLoco::World::TileManager
     void setTerrainStyleAsClearedAtHeight(const Pos3& pos);
     uint32_t adjustSurfaceHeight(World::Pos2 pos, SmallZ targetBaseZ, uint8_t slopeFlags, World::TileClearance::RemovedBuildings& removedBuildings, uint8_t flags);
     uint32_t adjustWaterHeight(World::Pos2 pos, SmallZ targetHeight, World::TileClearance::RemovedBuildings& removedBuildings, uint8_t flags);
+
+    constexpr bool validCoord(const coord_t coord)
+    {
+        return (coord >= 0) && (coord < kMapWidth);
+    }
+
+    constexpr bool validTileCoord(const tile_coord_t coord)
+    {
+        return (coord >= 0) && (coord < kMapColumns);
+    }
+
+    constexpr bool validCoords(const Pos2& coords)
+    {
+        return validCoord(coords.x) && validCoord(coords.y);
+    }
+
+    constexpr bool validCoords(const TilePos2& coords)
+    {
+        return validTileCoord(coords.x) && validTileCoord(coords.y);
+    }
+
+    // drawing coordinates validation differs from general valid coordinate validation
+    constexpr bool drawableCoord(const coord_t coord)
+    {
+        return (coord >= World::kTileSize) && (coord < (kMapWidth - World::kTileSize - 1));
+    }
+
+    constexpr bool drawableTileCoord(const tile_coord_t coord)
+    {
+        return (coord >= 1) && (coord < (kMapColumns - 2));
+    }
+
+    constexpr bool drawableCoords(const Pos2& coords)
+    {
+        return drawableCoord(coords.x) && drawableCoord(coords.y);
+    }
+
+    constexpr bool drawableCoords(const TilePos2& coords)
+    {
+        return drawableTileCoord(coords.x) && drawableTileCoord(coords.y);
+    }
+
+    constexpr coord_t clampCoord(coord_t coord)
+    {
+        return std::clamp<coord_t>(coord, 0, kMapWidth - 1);
+    }
+
+    constexpr coord_t clampTileCoord(coord_t coord)
+    {
+        return std::clamp<coord_t>(coord, 0, kMapColumns - 1);
+    }
 }

@@ -47,7 +47,7 @@ using namespace OpenLoco::Diagnostics;
 
 namespace OpenLoco::World::TileManager
 {
-    constexpr auto kNumTiles = kMapPitch * kMapColumns;
+    constexpr auto kNumTiles = kMapRows * kMapColumns;
     static loco_global<TileElement*, 0x005230C8> _elements;
     static loco_global<TileElement* [kNumTiles], 0x00E40134> _tiles;
     static loco_global<TileElement*, 0x00F00134> _elementsEnd;
@@ -527,7 +527,7 @@ namespace OpenLoco::World::TileManager
     {
         TileHeight height{ 16, 0 };
         // Off the map
-        if ((unsigned)pos.x >= (World::kMapWidth - 1) || (unsigned)pos.y >= (World::kMapHeight - 1))
+        if ((unsigned)pos.x >= (TileManager::kMapWidth - 1) || (unsigned)pos.y >= (TileManager::kMapHeight - 1))
         {
             return height;
         }
@@ -1062,9 +1062,9 @@ namespace OpenLoco::World::TileManager
 
         GameCommands::setUpdatingCompanyId(CompanyId::neutral);
         auto pos = getGameState().tileUpdateStartLocation;
-        for (; pos.y < World::kMapHeight; pos.y += 16 * World::kTileSize)
+        for (; pos.y < TileManager::kMapHeight; pos.y += 16 * World::kTileSize)
         {
-            for (; pos.x < World::kMapWidth; pos.x += 16 * World::kTileSize)
+            for (; pos.x < TileManager::kMapWidth; pos.x += 16 * World::kTileSize)
             {
                 auto tile = TileManager::get(pos);
                 for (auto& el : tile)
@@ -1081,9 +1081,9 @@ namespace OpenLoco::World::TileManager
                     }
                 }
             }
-            pos.x -= World::kMapWidth;
+            pos.x -= TileManager::kMapWidth;
         }
-        pos.y -= World::kMapHeight;
+        pos.y -= TileManager::kMapHeight;
 
         const auto tilePos = World::toTileSpace(pos);
         const uint8_t shift = (tilePos.y << 4) + tilePos.x + 9;
