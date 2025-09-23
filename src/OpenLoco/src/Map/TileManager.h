@@ -19,12 +19,13 @@ namespace OpenLoco::World
 
 namespace OpenLoco::World::TileManager
 {
-    constexpr coord_t kMapRows = 512;
-    constexpr coord_t kMapColumns = 512;
+    constexpr uint16_t kMapRows = 384;
+    constexpr uint16_t kMapColumns = 384;
     constexpr coord_t kMapPitch = 512;
-    constexpr coord_t kMapHeight = kMapRows * kTileSize;
-    constexpr coord_t kMapWidth = kMapColumns * kTileSize;
-    constexpr int32_t kMapSize = kMapColumns * kMapRows;
+    constexpr uint32_t kMapHeight = kMapRows * kTileSize;
+    constexpr uint32_t kMapWidth = kMapColumns * kTileSize;
+    // constexpr int32_t kMapSize = kMapColumns * kMapRows;
+    constexpr uint32_t getMapSize() { return kMapColumns * kMapRows; }
 
     constexpr size_t kMaxElements = 3 * kMapColumns * kMapRows;
     constexpr size_t kMaxElementsOnOneTile = 1024; // If you exceed this then the game may buffer overflow in certain situations

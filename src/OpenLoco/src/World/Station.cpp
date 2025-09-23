@@ -53,7 +53,7 @@ namespace OpenLoco
     struct CargoSearchState
     {
     private:
-        inline static loco_global<uint8_t[TileManager::kMapSize], 0x00F00484> _map;
+        inline static loco_global<uint8_t[TileManager::getMapSize()], 0x00F00484> _map;
         inline static loco_global<uint32_t, 0x0112C68C> _filter;
         inline static loco_global<uint32_t[kMaxCargoStats], 0x0112C690> _score;
         inline static loco_global<uint32_t, 0x0112C710> _producedCargoTypes;

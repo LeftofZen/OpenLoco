@@ -118,7 +118,7 @@ namespace OpenLoco::World::TileManager
         defaultElement.setLastFlag(true);
 
         auto* element = *_elements;
-        for (auto i = 0; i < kMapSize; ++i, ++element)
+        for (auto i = 0U; i < getMapSize(); ++i, ++element)
         {
             *element = *reinterpret_cast<TileElement*>(&defaultElement);
         }
