@@ -473,6 +473,8 @@ namespace OpenLoco::S5
             Ui::ProgressBar::begin(StringIds::loading);
             Ui::ProgressBar::setProgress(10);
 
+            
+            World::TileManager::allocateMapElements();
             auto file = importSave(stream);
 
             Ui::ProgressBar::setProgress(90);

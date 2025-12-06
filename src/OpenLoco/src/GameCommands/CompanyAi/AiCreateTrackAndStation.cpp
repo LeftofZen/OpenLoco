@@ -47,7 +47,7 @@ namespace OpenLoco::GameCommands
         {
             if (!(flags & Flags::apply))
             {
-                if (World::validCoords(trackPos))
+                if (World::TileManager::validCoords(trackPos))
                 {
                     auto tile = World::TileManager::get(trackPos);
                     bool passedSurface = false;
