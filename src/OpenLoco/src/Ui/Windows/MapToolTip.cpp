@@ -12,6 +12,8 @@
 #include "Ui/WindowManager.h"
 #include "World/CompanyManager.h"
 
+#include <cstdlib>
+
 namespace OpenLoco::Ui::Windows::MapToolTip
 {
     static CompanyId _mapTooltipOwner;  // 0x0050A040
@@ -57,7 +59,10 @@ namespace OpenLoco::Ui::Windows::MapToolTip
             }
         }
 
-        const auto height = 55;
+        const auto height = (World::hasMapSelectionFlag(World::MapSelectionFlags::enable)
+                             && FormatArgumentsView(FormatArguments::mapToolTip()).pop<StringId>() != StringIds::null)
+            ? 65
+            : 55;
         auto maxY = Ui::height() - height;
         int16_t y = cursor.y + 15; // Normally, we'd display the tooltip 15 lower
         if (y > maxY)
@@ -114,6 +119,19 @@ namespace OpenLoco::Ui::Windows::MapToolTip
     static void draw(Window& self, Gfx::DrawingContext& drawingCtx)
     {
         auto tr = Gfx::TextRenderer(drawingCtx);
+
+        // While a map area selection (drag) is active, show the drag dimensions
+        // above any regular in-map tooltip content (building, tree, etc.).
+        const bool isDragging = World::hasMapSelectionFlag(World::MapSelectionFlags::enable);
+        if (isDragging)
+        {
+            const auto area = World::getMapSelectionArea();
+            const auto length = static_cast<int16_t>(std::abs(area.first.x - area.second.x) / 32 + 1);
+            const auto depth = static_cast<int16_t>(std::abs(area.first.y - area.second.y) / 32 + 1);
+            auto dimArgs = FormatArguments::common(StringIds::map_tooltip_int_x_int, length, depth);
+            Ui::Point dimOrigin(self.width / 2, 6);
+            tr.drawStringCentredWrapped(dimOrigin, self.width, Colour::black, StringIds::outlined_wcolour2_stringid, dimArgs);
+        }
 
         auto args = FormatArguments::mapToolTip();
         FormatArgumentsView argsWrap(args);
