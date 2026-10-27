@@ -1,9 +1,9 @@
-#include "PaintBridge.h"
+#include "Paint/PaintBridge.h"
 #include "Graphics/ImageIds.h"
 #include "Graphics/RenderTarget.h"
 #include "Objects/BridgeObject.h"
 #include "Objects/ObjectManager.h"
-#include "Paint.h"
+#include "Paint/Paint.h"
 #include "Ui/ViewportInteraction.h"
 #include <OpenLoco/Core/Numerics.hpp>
 
@@ -1396,7 +1396,7 @@ namespace OpenLoco::Paint
 
         // 0x0042BED2
         // Paint shadow
-        if (session.getRenderTarget()->zoomLevel <= 1)
+        if (session.getZoom() <= 1)
         {
             auto displaySlope = 0;
             auto height = session.getWaterHeight2();

@@ -1,0 +1,28 @@
+#pragma once
+
+#include "Ui/Widget.h"
+
+namespace OpenLoco::Ui::Widgets
+{
+    static constexpr int32_t kSliderPixelRange = 80;
+    static constexpr int32_t kThumbHalfWidth = 10;
+
+    struct Slider : public Widget
+    {
+        static constexpr auto kWidgetType = WidgetType::slider;
+
+        constexpr Slider(WidgetId id, Point origin, Size size, WindowColour colour, uint32_t content = Widget::kContentNull, StringId tooltip = StringIds::null)
+            : Widget(id, origin, size, kWidgetType, colour, content, tooltip)
+        {
+            events.draw = &draw;
+        }
+
+        constexpr Slider(Point origin, Size size, WindowColour colour, uint32_t content = Widget::kContentNull, StringId tooltip = StringIds::null)
+            : Slider(WidgetId::none, origin, size, colour, content, tooltip)
+        {
+        }
+
+        static void draw(Gfx::DrawingContext& drawingCtx, const Widget& widget, const WidgetState& widgetState);
+    };
+
+}

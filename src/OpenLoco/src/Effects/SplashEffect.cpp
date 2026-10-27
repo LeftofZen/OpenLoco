@@ -1,11 +1,11 @@
-#include "SplashEffect.h"
+#include "Effects/SplashEffect.h"
 #include "Entities/EntityManager.h"
 #include "Map/TileManager.h"
 
 namespace OpenLoco
 {
     // 0x004407E0
-    void Splash::update()
+    void Splash::tick()
     {
         invalidateSprite();
         frame += 0x55;

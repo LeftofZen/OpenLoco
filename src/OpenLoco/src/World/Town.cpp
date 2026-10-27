@@ -1,4 +1,4 @@
-#include "Town.h"
+#include "World/Town.h"
 #include "Config.h"
 #include "Date.h"
 #include "GameCommands/Buildings/CreateBuilding.h"
@@ -27,10 +27,10 @@
 #include "Objects/RoadStationObject.h"
 #include "Objects/StreetLightObject.h"
 #include "Random.h"
-#include "TownManager.h"
 #include "Ui/WindowManager.h"
 #include "Vehicles/Vehicle.h"
 #include "ViewportManager.h"
+#include "World/TownManager.h"
 #include <OpenLoco/Core/Numerics.hpp>
 #include <algorithm>
 #include <bit>
@@ -52,7 +52,7 @@ namespace OpenLoco
      *
      * @param this @<esi>
      */
-    void Town::update()
+    void Town::tick()
     {
         recalculateSize();
 
@@ -77,16 +77,19 @@ namespace OpenLoco
     }
 
     // 0x004FF6F4
-    static constexpr std::array<Gfx::Font, 4> kZoomToTownFonts = {
+    static constexpr std::array<Gfx::Font, ZoomLevel::count> kZoomToTownFonts = {
+        Gfx::Font::medium_bold,
+        Gfx::Font::medium_bold,
         Gfx::Font::medium_bold,
         Gfx::Font::medium_bold,
         Gfx::Font::medium_normal,
         Gfx::Font::medium_normal,
     };
 
-    void Town::drawLabel(Gfx::DrawingContext& drawingCtx, const Gfx::RenderTarget& rt)
+    void Town::drawLabel(Gfx::DrawingContext& drawingCtx, ZoomLevel zoom)
     {
-        if (!labelFrame.contains(rt.getDrawableRect(), rt.zoomLevel))
+        const auto& rt = drawingCtx.currentRenderTarget();
+        if (!labelFrame.contains(rt.getUiRect(), zoom))
         {
             return;
         }
@@ -95,9 +98,9 @@ namespace OpenLoco
 
         char buffer[512]{};
         StringManager::formatString(buffer, name);
-        tr.setCurrentFont(kZoomToTownFonts[rt.zoomLevel]);
+        tr.setCurrentFont(kZoomToTownFonts[zoom.index()]);
 
-        auto point = Ui::Point(labelFrame.left[rt.zoomLevel] + 1, labelFrame.top[rt.zoomLevel] + 1);
+        auto point = Ui::Point(labelFrame.left[zoom.index()] + 1, labelFrame.top[zoom.index()] + 1);
         tr.drawString(point, AdvancedColour(Colour::white).outline(), buffer);
     }
 
@@ -113,20 +116,25 @@ namespace OpenLoco
         auto rotated = World::gameToScreen(pos, Ui::WindowManager::getCurrentRotation());
         rotated.y -= 48;
 
-        for (auto zoomLevel = 0; zoomLevel < 4; zoomLevel++)
+        for (auto level = ZoomLevel::min; level <= ZoomLevel::max; level++)
         {
-            auto font = kZoomToTownFonts[zoomLevel];
+            const auto zoom = ZoomLevel{ level };
+            const auto index = zoom.index();
+            auto font = kZoomToTownFonts[index];
 
-            auto nameWidth = (Gfx::TextRenderer::getStringWidth(font, buffer) + 2) << zoomLevel;
-            auto nameHeight = 11 << zoomLevel; // was a lookup on 0x4FF6FC; same for all zoom levels
+            const auto uiWidth = Gfx::TextRenderer::getStringWidth(font, buffer) + 2;
+            const auto uiHeight = 11; // was a lookup on 0x4FF6FC; same for all zoom levels
+
+            auto nameWidth = zoom.applyTo(uiWidth);
+            auto nameHeight = zoom.applyTo(uiHeight);
 
             auto xOffset = rotated.x - (nameWidth / 2);
             auto yOffset = rotated.y - (nameHeight / 2);
 
-            labelFrame.left[zoomLevel] = xOffset >> zoomLevel;
-            labelFrame.right[zoomLevel] = (xOffset + nameWidth) >> zoomLevel;
-            labelFrame.top[zoomLevel] = yOffset >> zoomLevel;
-            labelFrame.bottom[zoomLevel] = (yOffset + nameHeight) >> zoomLevel;
+            labelFrame.left[index] = zoom.applyInversedTo(xOffset);
+            labelFrame.right[index] = labelFrame.left[index] + uiWidth;
+            labelFrame.top[index] = zoom.applyInversedTo(yOffset);
+            labelFrame.bottom[index] = labelFrame.top[index] + uiHeight;
         }
     }
 
@@ -202,7 +210,7 @@ namespace OpenLoco
         // Work towards computing new build speed.
         // will be the smallest of the influence cargo delivered to the town
         // i.e. to get maximum growth max of the influence cargo must be delivered
-        // every update. If no influence cargo the grows at max rate
+        // every update. If no influence cargo the town grows at max rate
         uint16_t minCargoDelivered = std::numeric_limits<uint16_t>::max();
         uint32_t cargoFlags = cargoInfluenceFlags;
         while (cargoFlags != 0)
@@ -274,7 +282,7 @@ namespace OpenLoco
             {
                 continue;
             }
-            if (!roadObj->hasFlags(RoadObjectFlags::unk_03))
+            if (!roadObj->hasFlags(RoadObjectFlags::anyRoadTypeCompatible))
             {
                 continue;
             }
@@ -351,7 +359,7 @@ namespace OpenLoco
             {
                 continue;
             }
-            if (!(getGameState().roadObjectIdIsNotTram & (1U << elRoad->roadObjectId())))
+            if (!(getGameState().roadObjectIdIsAnyRoadTypeCompatible & (1U << elRoad->roadObjectId())))
             {
                 continue;
             }
@@ -376,10 +384,10 @@ namespace OpenLoco
     // year : ax
     // dx : dx
     // largeTile : bl
-    // unk1 : 525D24
+    // amenitiesToBuild : 525D24
     // targetHeight : esi
     // return : ebp
-    static sfl::static_vector<uint8_t, ObjectManager::getMaxObjects(ObjectType::building)> sub_42CEBF(uint16_t year, uint16_t dx, bool largeTile, uint32_t unk1, uint16_t targetHeight)
+    static sfl::static_vector<uint8_t, ObjectManager::getMaxObjects(ObjectType::building)> sub_42CEBF(uint16_t year, uint16_t dx, bool largeTile, uint32_t amenitiesToBuild, uint16_t targetHeight)
     {
         sfl::static_vector<uint8_t, ObjectManager::getMaxObjects(ObjectType::building)> potentialBuildings;
         for (auto i = 0U; i < ObjectManager::getMaxObjects(ObjectType::building); ++i)
@@ -405,9 +413,9 @@ namespace OpenLoco
             {
                 continue;
             }
-            if (buildingObj->var_AC != 0xFFU)
+            if (buildingObj->townAmenityCategory != TownAmenityCategory::none)
             {
-                if (!(unk1 & (1U << buildingObj->var_AC)))
+                if (!(amenitiesToBuild & (1U << enumValue(buildingObj->townAmenityCategory))))
                 {
                     continue;
                 }
@@ -540,7 +548,7 @@ namespace OpenLoco
             {
                 continue;
             }
-            if (!(getGameState().roadObjectIdIsNotTram & (1U << elRoad->roadObjectId())))
+            if (!(getGameState().roadObjectIdIsAnyRoadTypeCompatible & (1U << elRoad->roadObjectId())))
             {
                 continue;
             }
@@ -558,22 +566,24 @@ namespace OpenLoco
         return false;
     }
 
-    static constexpr std::array<uint8_t, 8> k4F92A6 = {
-        1,
-        1,
-        2,
-        2,
-        1,
-        3,
-        1,
-        1,
+    // 0x004F92A6
+    // Number of amenities preferred per 128 buildings in the town see TownAmenityCategory
+    static constexpr std::array<uint8_t, 8> kTownAmenityPer128Buildings = {
+        1, // religious
+        1, // unk1
+        2, // hotel
+        2, // park
+        1, // courthouse
+        3, // landmark
+        1, // unk6
+        1, // unk7
     };
 
     // 0x0042DB35
     // Part of calculating the max height clearance for a new building on this tile
     // A collision in this function means that the building/obstacle will not be removed
     // Optionally `allowBuildingUpdate` ignores buildings that are old and not headquarters (to allow for their removal)
-    static World::TileClearance::ClearFuncResult getBuildingMaxHeightClearFunc(World::TileElement& el, uint8_t baseZ, uint8_t& minZDiff, bool allowBuildingUpdate)
+    static World::TileClearance::ClearFuncResult getBuildingMaxHeightClearFunc(World::TileElementEntry& el, uint8_t baseZ, uint8_t& minZDiff, bool allowBuildingUpdate)
     {
         auto* elTree = el.as<World::TreeElement>();
         auto* elBuilding = el.as<World::BuildingElement>();
@@ -654,7 +664,7 @@ namespace OpenLoco
             const auto elSurface = World::TileManager::get(loc).surface();
             const auto minZ = std::min(elSurface->baseHeight(), pos.z) / World::kSmallZStep;
             World::QuarterTile qt(0xF, 0xF);
-            auto clearFunc = [baseZ = pos.z / World::kSmallZStep, &minClear, allowBuildingUpdate](TileElement& el) {
+            auto clearFunc = [baseZ = pos.z / World::kSmallZStep, &minClear, allowBuildingUpdate](World::TileElementEntry& el) {
                 return getBuildingMaxHeightClearFunc(el, baseZ, minClear, allowBuildingUpdate);
             };
             if (!World::TileClearance::applyClearAtStandardHeight(loc, minZ, 255, qt, clearFunc))
@@ -683,28 +693,34 @@ namespace OpenLoco
         }
 
         const auto& [townId, townDensity] = res.value();
+        if (targetTown != townId)
+        {
+            return std::nullopt;
+        }
 
         auto* town = TownManager::get(townId);
 
-        uint32_t unk525D24 = 0;
+        // Flags for amenities that the town should consider building
+        uint32_t amenitiesToBuild = 0;
+        // No amenities until the town has at least 64 buildings
         const auto buildingsFactor = (town->numBuildings + 64) / 128;
-        for (auto i = 0U; i < std::size(k4F92A6); ++i)
+        for (auto i = 0U; i < std::size(kTownAmenityPer128Buildings); ++i)
         {
-            if (k4F92A6[i] * buildingsFactor > town->var_150[i])
+            if (kTownAmenityPer128Buildings[i] * buildingsFactor > town->amenityCounts[i])
             {
-                unk525D24 |= (1U << i);
+                amenitiesToBuild |= (1U << i);
             }
         }
 
         const auto curYear = getCurrentYear();
-        auto potentialBuildings = sub_42CEBF(curYear, townDensity, isLargeTile, unk525D24, targetHeight);
+        auto potentialBuildings = sub_42CEBF(curYear, townDensity, isLargeTile, amenitiesToBuild, targetHeight);
         if (potentialBuildings.empty())
         {
             if (townDensity == 0)
             {
                 return std::nullopt;
             }
-            potentialBuildings = sub_42CEBF(curYear, townDensity - 1, isLargeTile, unk525D24, targetHeight);
+            potentialBuildings = sub_42CEBF(curYear, townDensity - 1, isLargeTile, amenitiesToBuild, targetHeight);
             if (potentialBuildings.empty())
             {
                 return std::nullopt;
@@ -746,13 +762,6 @@ namespace OpenLoco
         {
             const auto randColourIndex = ((town->prng.randNext() & 0xFFFFU) * potentialColours.size()) / 65536;
             colour = potentialColours[randColourIndex];
-        }
-
-        // TODO: This should be done earlier but would cause a divergence
-        // move higher when we want to diverge
-        if (targetTown != townId)
-        {
-            return std::nullopt;
         }
 
         GameCommands::BuildingPlacementArgs args{};
@@ -842,7 +851,7 @@ namespace OpenLoco
                     continue;
                 }
                 auto* roadObj = ObjectManager::get<RoadObject>(elRoad->roadObjectId());
-                if (!roadObj->hasFlags(RoadObjectFlags::unk_03))
+                if (!roadObj->hasFlags(RoadObjectFlags::anyRoadTypeCompatible))
                 {
                     continue;
                 }
@@ -864,7 +873,7 @@ namespace OpenLoco
     static uint32_t getStreetLightStyle(uint8_t roadObjId, uint8_t townDensity)
     {
         auto* roadObj = ObjectManager::get<RoadObject>(roadObjId);
-        if (!roadObj->hasFlags(RoadObjectFlags::unk_08) || townDensity == 0)
+        if (!roadObj->hasFlags(RoadObjectFlags::canHaveStreetLights) || townDensity == 0)
         {
             return 0;
         }
@@ -931,7 +940,7 @@ namespace OpenLoco
                 }
 
                 auto* roadObj = ObjectManager::get<RoadObject>(elRoad->roadObjectId());
-                if (!roadObj->hasFlags(RoadObjectFlags::unk_03))
+                if (!roadObj->hasFlags(RoadObjectFlags::anyRoadTypeCompatible))
                 {
                     continue;
                 }
@@ -1118,7 +1127,7 @@ namespace OpenLoco
                 args.roadId = 0;
                 args.roadObjectId = roadObjectId;
                 args.rotation = rotation;
-                if (GameCommands::doCommand(args, 0) != GameCommands::FAILURE)
+                if (GameCommands::doCommand(args, GameCommands::Flags::none) != GameCommands::kFailure)
                 {
                     iterationValidBridgeTypes.push_back(bridgeObjId);
                 }
@@ -1255,11 +1264,6 @@ namespace OpenLoco
                     args.roadObjectId = roadObjectId;
                     args.rotation = rotation;
                     GameCommands::doCommand(args, GameCommands::Flags::apply);
-                    return;
-                }
-                // TODO: Remove this its just due to a mistake by CS
-                if (normalisedCorners > 8)
-                {
                     return;
                 }
             }
@@ -1556,7 +1560,7 @@ namespace OpenLoco
                     continue;
                 }
                 auto* roadObj = ObjectManager::get<RoadObject>(elRoad->roadObjectId());
-                if (!roadObj->hasFlags(RoadObjectFlags::unk_03))
+                if (!roadObj->hasFlags(RoadObjectFlags::anyRoadTypeCompatible))
                 {
                     continue;
                 }
@@ -1621,7 +1625,7 @@ namespace OpenLoco
             args.bridge = 0xFF;
             args.roadObjectId = roadObjId.value();
             args.unkFlags = 0;
-            return GameCommands::doCommand(args, GameCommands::Flags::apply) == GameCommands::FAILURE;
+            return GameCommands::doCommand(args, GameCommands::Flags::apply) == GameCommands::kFailure;
         };
         squareSearch({ town.x, town.y }, 9, placeRoadAtTile);
     }

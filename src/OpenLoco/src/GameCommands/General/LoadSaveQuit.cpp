@@ -1,4 +1,4 @@
-#include "LoadSaveQuit.h"
+#include "GameCommands/General/LoadSaveQuit.h"
 #include "Audio/Audio.h"
 #include "Game.h"
 #include "GameCommands/GameCommands.h"
@@ -12,9 +12,9 @@
 namespace OpenLoco::GameCommands
 {
     // 0x0043BFCB
-    static uint32_t loadSaveQuit(const LoadSaveQuitGameArgs& args, const uint8_t flags)
+    static uint32_t loadSaveQuit(const LoadSaveQuitGameArgs& args, const Flags flags)
     {
-        if ((flags & Flags::apply) == 0)
+        if (!hasFlags(flags, Flags::apply))
         {
             return 0;
         }
@@ -45,7 +45,7 @@ namespace OpenLoco::GameCommands
                     if (SceneManager::getSceneAge() >= 0xF00)
                     {
                         auto window = Ui::WindowManager::bringToFront(Ui::WindowType::saveGamePrompt);
-                        Audio::playSound(Audio::SoundId::openWindow, window->x + (window->width / 2));
+                        Audio::playSound(Audio::SoundId::openWindow, Audio::ChannelId::ui, window->x + (window->width / 2));
                         return 0;
                     }
                 }
@@ -71,8 +71,8 @@ namespace OpenLoco::GameCommands
         return 0;
     }
 
-    void loadSaveQuit(registers& regs)
+    void loadSaveQuit(registers& regs, const Flags flags)
     {
-        regs.ebx = loadSaveQuit(LoadSaveQuitGameArgs(regs), regs.bl);
+        regs.ebx = loadSaveQuit(LoadSaveQuitGameArgs(regs), flags);
     }
 }

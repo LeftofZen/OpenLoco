@@ -1,5 +1,4 @@
-#include "TownManager.h"
-#include "CompanyManager.h"
+#include "World/TownManager.h"
 #include "Game.h"
 #include "GameCommands/GameCommands.h"
 #include "GameState.h"
@@ -19,6 +18,7 @@
 #include "Scenario/ScenarioManager.h"
 #include "SceneManager.h"
 #include "Ui/WindowManager.h"
+#include "World/CompanyManager.h"
 #include <OpenLoco/Core/EnumFlags.hpp>
 #include <OpenLoco/Core/Numerics.hpp>
 
@@ -77,7 +77,7 @@ namespace OpenLoco::TownManager
     {
         none = 0,
         adjacentToLargeWaterBody = 1 << 0,
-        notMountaineous = 1 << 1,
+        mountainous = 1 << 1,
         adjacentToSmallWaterBody = 1 << 2,
     };
     OPENLOCO_ENABLE_ENUM_OPERATORS(LocationFlags);
@@ -98,7 +98,7 @@ namespace OpenLoco::TownManager
     }
 
     // 0x00497A6A
-    static LocationFlags townNameFromNamesObject(uint32_t rand, const char* buffer)
+    static LocationFlags townNameFromNamesObject(uint32_t rand, char* buffer)
     {
         auto* namesObj = ObjectManager::get<TownNamesObject>();
         LocationFlags locationFlags = LocationFlags::none;
@@ -122,7 +122,7 @@ namespace OpenLoco::TownManager
 
             if (index >= 0)
             {
-                char* strEnd = const_cast<char*>(buffer + strlen(buffer));
+                char* strEnd = buffer + strlen(buffer);
                 locationFlags |= copyTownNameToBuffer(namesObj, category.offset, index, strEnd);
             }
 
@@ -178,7 +178,7 @@ namespace OpenLoco::TownManager
                 }
             }
 
-            if ((locationFlags & LocationFlags::notMountaineous) != LocationFlags::none)
+            if ((locationFlags & LocationFlags::mountainous) != LocationFlags::none)
             {
                 auto pos = Pos2(town->x + kTileSize / 2, town->y + kTileSize / 2);
                 auto height = TileManager::getHeight(pos);
@@ -264,7 +264,7 @@ namespace OpenLoco::TownManager
         town->history[0] = 0;
         town->historyMinPopulation = 0;
 
-        std::fill_n(&town->var_150[0], std::size(town->var_150), 0);
+        std::fill_n(&town->amenityCounts[0], std::size(town->amenityCounts), 0);
 
         town->var_19C[0][0] = 0;
         town->var_19C[0][1] = 0;
@@ -363,7 +363,7 @@ namespace OpenLoco::TownManager
             town.numBuildings = 0;
             town.population = 0;
             town.populationCapacity = 0;
-            std::fill(std::begin(town.var_150), std::end(town.var_150), 0);
+            std::fill(std::begin(town.amenityCounts), std::end(town.amenityCounts), 0);
         }
 
         for (const auto& tilePos : World::getWorldRange())
@@ -407,9 +407,9 @@ namespace OpenLoco::TownManager
                 auto* town = updateTownInfo(World::toWorldSpace(tilePos), population, producedQuantity, 0, 1);
                 if (town != nullptr)
                 {
-                    if (buildingObj->var_AC != 0xFF)
+                    if (buildingObj->townAmenityCategory != TownAmenityCategory::none)
                     {
-                        town->var_150[buildingObj->var_AC] += 1;
+                        town->amenityCounts[enumValue(buildingObj->townAmenityCategory)] += 1;
                     }
                 }
             }
@@ -442,7 +442,7 @@ namespace OpenLoco::TownManager
     }
 
     // 0x00496B6D
-    void update()
+    void tick()
     {
         if (Game::hasFlags(GameStateFlags::tileManagerLoaded) && !SceneManager::isEditorMode())
         {
@@ -454,7 +454,7 @@ namespace OpenLoco::TownManager
                 if (town != nullptr && !town->empty())
                 {
                     GameCommands::setUpdatingCompanyId(CompanyId::neutral);
-                    town->update();
+                    town->tick();
                 }
             }
         }

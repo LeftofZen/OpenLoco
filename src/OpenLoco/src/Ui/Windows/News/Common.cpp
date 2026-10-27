@@ -3,11 +3,11 @@
 #include "Graphics/Colour.h"
 #include "Message.h"
 #include "MessageManager.h"
-#include "News.h"
 #include "Objects/InterfaceSkinObject.h"
 #include "Objects/ObjectManager.h"
 #include "SceneManager.h"
 #include "Ui/Widgets/NewsPanelWidget.h"
+#include "Ui/Windows/News/News.h"
 #include "World/CompanyManager.h"
 
 namespace OpenLoco::Ui::Windows::NewsWindow
@@ -132,11 +132,11 @@ namespace OpenLoco::Ui::Windows::NewsWindow
             if (soundId != Audio::SoundId::null)
             {
                 int32_t pan = Ui::width() / 2;
-                Audio::playSound(soundId, pan);
+                Audio::playSound(soundId, Audio::ChannelId::ui, pan);
             }
         }
 
-        if (mtd.hasFlag(MessageTypeFlags::unk1))
+        if (mtd.hasFlag(MessageTypeFlags::isGeneralNews))
         {
             WindowFlags flags = WindowFlags::stickToFront | WindowFlags::viewportNoScrolling | WindowFlags::transparent | WindowFlags::noBackground;
 

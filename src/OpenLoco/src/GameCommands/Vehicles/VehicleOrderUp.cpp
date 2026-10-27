@@ -1,4 +1,4 @@
-#include "VehicleOrderUp.h"
+#include "GameCommands/Vehicles/VehicleOrderUp.h"
 #include "Entities/EntityManager.h"
 #include "GameCommands/GameCommands.h"
 #include "Ui/WindowManager.h"
@@ -9,23 +9,23 @@
 namespace OpenLoco::GameCommands
 {
     // 0x00470CD2
-    static uint32_t vehicleOrderUp(const VehicleOrderUpArgs& args, uint8_t flags)
+    static uint32_t vehicleOrderUp(const VehicleOrderUpArgs& args, Flags flags)
     {
         auto* head = EntityManager::get<Vehicles::VehicleHead>(args.head);
         if (head == nullptr)
         {
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
         GameCommands::setPosition(head->position);
-        if (!(flags & GameCommands::Flags::apply))
+        if (!hasFlags(flags, GameCommands::Flags::apply))
         {
             return 0;
         }
 
         if (args.orderOffset > head->sizeOfOrderTable)
         {
-            return FAILURE;
+            return kFailure;
         }
         Ui::WindowManager::invalidateOrderPageByVehicleNumber(enumValue(head->id));
 
@@ -70,8 +70,8 @@ namespace OpenLoco::GameCommands
         return 0;
     }
 
-    void vehicleOrderUp(registers& regs)
+    void vehicleOrderUp(registers& regs, const Flags flags)
     {
-        regs.ebx = vehicleOrderUp(VehicleOrderUpArgs(regs), regs.bl);
+        regs.ebx = vehicleOrderUp(VehicleOrderUpArgs(regs), flags);
     }
 }

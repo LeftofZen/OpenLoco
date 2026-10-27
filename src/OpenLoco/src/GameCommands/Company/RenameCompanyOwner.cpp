@@ -1,7 +1,7 @@
-#include "RenameCompanyOwner.h"
-#include "ChangeCompanyFace.h"
+#include "GameCommands/Company/RenameCompanyOwner.h"
 #include "Economy/Expenditures.h"
 #include "Engine/Limits.h"
+#include "GameCommands/Company/ChangeCompanyFace.h"
 #include "GameCommands/GameCommands.h"
 #include "Graphics/Gfx.h"
 #include "Localisation/Formatting.h"
@@ -23,7 +23,7 @@ namespace OpenLoco::GameCommands
      * This command is called 3 times before the buffer is applied. Each time, 12 chars of the 36 char buffer are provided.
      * The resulting company owner name has a maximum length of 31 chars; the last bytes are not used.
      */
-    static uint32_t changeCompanyOwnerName(const ChangeCompanyOwnerNameArgs& args, const uint8_t flags)
+    static uint32_t changeCompanyOwnerName(const ChangeCompanyOwnerNameArgs& args, const Flags flags)
     {
         GameCommands::setExpenditureType(ExpenditureType::Miscellaneous);
 
@@ -37,7 +37,7 @@ namespace OpenLoco::GameCommands
         static char staticRenameBuffer[37]{};
 
         // Fill buffer over calls into the renameBuffer
-        if ((flags & GameCommands::Flags::apply) != 0)
+        if (hasFlags(flags, GameCommands::Flags::apply))
         {
             static const std::array<int, 3> transformTable = { 2, 0, 1 };
             int arrayIndex = transformTable.at(args.bufferIndex);
@@ -85,7 +85,7 @@ namespace OpenLoco::GameCommands
             if (strcmp(rivalOwnerName, renameStringBuffer) == 0)
             {
                 GameCommands::setErrorText(StringIds::chosen_name_in_use);
-                return GameCommands::FAILURE;
+                return GameCommands::kFailure;
             }
         }
 
@@ -93,11 +93,11 @@ namespace OpenLoco::GameCommands
         StringId allocatedStringId = StringManager::userStringAllocate(renameStringBuffer, false);
         if (allocatedStringId == StringIds::empty)
         {
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
         // Bailing out early?
-        if ((flags & GameCommands::Flags::apply) == 0)
+        if (!hasFlags(flags, GameCommands::Flags::apply))
         {
             StringManager::emptyUserString(allocatedStringId);
             return 0;
@@ -112,9 +112,9 @@ namespace OpenLoco::GameCommands
         return 0;
     }
 
-    void changeCompanyOwnerName(registers& regs)
+    void changeCompanyOwnerName(registers& regs, const Flags flags)
     {
-        regs.ebx = changeCompanyOwnerName(ChangeCompanyOwnerNameArgs(regs), regs.bl);
+        regs.ebx = changeCompanyOwnerName(ChangeCompanyOwnerNameArgs(regs), flags);
     }
 
     // 0x00434BA1
@@ -191,8 +191,7 @@ namespace OpenLoco::GameCommands
             args.objHeader = foundInstalledObject.value();
 
             auto regs = registers(args);
-            regs.bl = Flags::apply;
-            changeCompanyFace(regs);
+            changeCompanyFace(regs, Flags::apply);
         }
     }
 }

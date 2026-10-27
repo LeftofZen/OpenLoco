@@ -1,4 +1,4 @@
-#include "VehicleOrderReverse.h"
+#include "GameCommands/Vehicles/VehicleOrderReverse.h"
 #include "Entities/EntityManager.h"
 #include "GameCommands/GameCommands.h"
 #include "Ui/WindowManager.h"
@@ -8,16 +8,16 @@
 
 namespace OpenLoco::GameCommands
 {
-    static uint32_t vehicleOrderReverse(const VehicleOrderReverseArgs& args, uint8_t flags)
+    static uint32_t vehicleOrderReverse(const VehicleOrderReverseArgs& args, Flags flags)
     {
         auto* head = EntityManager::get<Vehicles::VehicleHead>(args.head);
         if (head == nullptr)
         {
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
         GameCommands::setPosition(head->position);
-        if (!(flags & GameCommands::Flags::apply))
+        if (!hasFlags(flags, GameCommands::Flags::apply))
         {
             return 0;
         }
@@ -29,8 +29,8 @@ namespace OpenLoco::GameCommands
         return 0;
     }
 
-    void vehicleOrderReverse(registers& regs)
+    void vehicleOrderReverse(registers& regs, const Flags flags)
     {
-        regs.ebx = vehicleOrderReverse(VehicleOrderReverseArgs(regs), regs.bl);
+        regs.ebx = vehicleOrderReverse(VehicleOrderReverseArgs(regs), flags);
     }
 }

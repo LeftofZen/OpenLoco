@@ -1,4 +1,4 @@
-#include "LowerRaiseLandMountain.h"
+#include "GameCommands/Terraform/LowerRaiseLandMountain.h"
 #include "Audio/Audio.h"
 #include "Economy/Expenditures.h"
 #include "GameCommands/GameCommands.h"
@@ -15,7 +15,7 @@ using namespace OpenLoco::World;
 namespace OpenLoco::GameCommands
 {
     static uint32_t _mtnToolCost;         // 0x00F0014E
-    static uint8_t _mtnToolGCFlags;       // 0x00F00154
+    static Flags _mtnToolGCFlags;         // 0x00F00154
     static uint8_t _mtnToolHeightDiff;    // 0x00F00155
     static int8_t _mtnToolOuterLoopIndex; // 0x00F00156
 
@@ -70,7 +70,7 @@ namespace OpenLoco::GameCommands
         }
 
         auto result = TileManager::adjustSurfaceHeight(pos, targetBaseZ, slopeFlags, removedBuildings, _mtnToolGCFlags);
-        if (result != FAILURE)
+        if (result != kFailure)
         {
             _mtnToolCost += result;
         }
@@ -100,10 +100,10 @@ namespace OpenLoco::GameCommands
         adjustSurfaceSlope(pos, targetBaseZ, 1, SurfaceSlope::CornerUp::east, removedBuildings);
     }
 
-    static uint32_t adjustMountainCentre(const LowerRaiseLandMountainArgs& args, World::TileClearance::RemovedBuildings& removedBuildings, const uint8_t flags)
+    static uint32_t adjustMountainCentre(const LowerRaiseLandMountainArgs& args, World::TileClearance::RemovedBuildings& removedBuildings, const Flags flags)
     {
         // Prepare parameters for raise/lower land tool
-        uint32_t result = FAILURE;
+        uint32_t result = kFailure;
         if (args.adjustment == 1)
         {
             RaiseLandArgs raiseArgs;
@@ -221,11 +221,11 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x00462DCE
-    static uint32_t lowerRaiseLandMountain(const LowerRaiseLandMountainArgs& args, const uint8_t flags)
+    static uint32_t lowerRaiseLandMountain(const LowerRaiseLandMountainArgs& args, const Flags flags)
     {
         _mtnToolGCFlags = flags;
 
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
             Scenario::getOptions().madeAnyChanges = 1;
         }
@@ -238,21 +238,21 @@ namespace OpenLoco::GameCommands
         World::TileClearance::RemovedBuildings removedBuildings{};
 
         // Play sound if this is a company action
-        if ((flags & Flags::apply) && getCommandNestLevel() == 1 && getUpdatingCompanyId() != CompanyId::neutral)
+        if (hasFlags(flags, Flags::apply) && getCommandNestLevel() == 1 && getUpdatingCompanyId() != CompanyId::neutral)
         {
             const auto height = TileManager::getHeight(args.centre).landHeight;
-            Audio::playSound(Audio::SoundId::construct, World::Pos3(args.centre.x, args.centre.y, height));
+            Audio::playSound(Audio::SoundId::construct, Audio::ChannelId::effects, World::Pos3(args.centre.x, args.centre.y, height));
         }
 
         if (!World::TileManager::validCoords(args.pointA) || !World::TileManager::validCoords(args.pointB))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         // First, raise/lower the mountain's centre tile
         {
             auto result = adjustMountainCentre(args, removedBuildings, flags);
-            if (result != FAILURE)
+            if (result != kFailure)
             {
                 _mtnToolCost += result;
             }
@@ -264,7 +264,7 @@ namespace OpenLoco::GameCommands
         if (preSurface->slope() != 0)
         {
             auto result = adjustMountainCentre(args, removedBuildings, flags);
-            if (result != FAILURE)
+            if (result != kFailure)
             {
                 _mtnToolCost += result;
             }
@@ -390,9 +390,9 @@ namespace OpenLoco::GameCommands
         return _mtnToolCost;
     }
 
-    void lowerRaiseLandMountain(registers& regs)
+    void lowerRaiseLandMountain(registers& regs, const Flags flags)
     {
         const LowerRaiseLandMountainArgs args(regs);
-        regs.ebx = lowerRaiseLandMountain(args, regs.bl);
+        regs.ebx = lowerRaiseLandMountain(args, flags);
     }
 }

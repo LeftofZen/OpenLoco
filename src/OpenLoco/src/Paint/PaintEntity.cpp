@@ -1,12 +1,12 @@
-#include "PaintEntity.h"
+#include "Paint/PaintEntity.h"
 #include "Config.h"
 #include "Effects/Effect.h"
 #include "Entities/EntityManager.h"
 #include "Graphics/RenderTarget.h"
 #include "Map/Tile.h"
-#include "Paint.h"
-#include "PaintEffectEntity.h"
-#include "PaintVehicle.h"
+#include "Paint/Paint.h"
+#include "Paint/PaintEffectEntity.h"
+#include "Paint/PaintVehicle.h"
 #include "Ui/ViewportInteraction.h"
 #include "Vehicles/Vehicle.h"
 
@@ -17,8 +17,7 @@ namespace OpenLoco::Paint
     template<typename FilterType>
     static void paintEntitiesWithFilter(PaintSession& session, const World::Pos2& loc, FilterType&& filter)
     {
-        auto* rt = session.getRenderTarget();
-        if (Config::get().vehiclesMinScale < rt->zoomLevel)
+        if (Config::get().vehiclesMinScale < session.getZoom())
         {
             return;
         }
@@ -32,10 +31,10 @@ namespace OpenLoco::Paint
         for (auto* entity : entities)
         {
             // TODO: Create a rect from context dims
-            auto left = rt->x;
-            auto top = rt->y;
-            auto right = left + rt->width;
-            auto bottom = top + rt->height;
+            auto left = session.getWorldX();
+            auto top = session.getWorldY();
+            auto right = left + session.getWorldWidth();
+            auto bottom = top + session.getWorldHeight();
 
             // TODO: Create a rect from sprite dims and use a contains function
             if (entity->spriteTop > bottom)

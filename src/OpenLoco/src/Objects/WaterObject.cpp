@@ -1,10 +1,10 @@
-#include "WaterObject.h"
+#include "Objects/WaterObject.h"
 #include "Graphics/Colour.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
-#include "ObjectImageTable.h"
-#include "ObjectManager.h"
-#include "ObjectStringTable.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectManager.h"
+#include "Objects/ObjectStringTable.h"
 
 #include <cassert>
 
@@ -55,7 +55,7 @@ namespace OpenLoco
     void WaterObject::drawPreviewImage(Gfx::DrawingContext& drawingCtx, const int16_t x, const int16_t y) const
     {
         auto colourImage = ImageId(image).withIndexOffset(35).withBlend(ExtColour::water);
-        drawingCtx.drawImage(Ui::Point{ x, y }, colourImage);
-        drawingCtx.drawImage(Ui::Point{ x, y }, ImageId(image).withIndexOffset(30));
+        drawingCtx.drawImage(ZoomLevel::full, Ui::Point{ x, y }, colourImage);
+        drawingCtx.drawImage(ZoomLevel::full, Ui::Point{ x, y }, ImageId(image).withIndexOffset(30));
     }
 }

@@ -1,15 +1,15 @@
-#include "Vehicle2.h"
+#include "Vehicles/Vehicle2.h"
 #include "MessageManager.h"
 #include "Objects/ObjectManager.h"
 #include "Objects/RoadObject.h"
 #include "Objects/TrackObject.h"
 #include "Random.h"
 #include "Tutorial.h"
-#include "Vehicle1.h"
-#include "VehicleBody.h"
-#include "VehicleBogie.h"
-#include "VehicleHead.h"
-#include "VehicleTail.h"
+#include "Vehicles/Vehicle1.h"
+#include "Vehicles/VehicleBody.h"
+#include "Vehicles/VehicleBogie.h"
+#include "Vehicles/VehicleHead.h"
+#include "Vehicles/VehicleTail.h"
 #include "World/CompanyManager.h"
 
 using namespace OpenLoco::Literals;
@@ -20,7 +20,7 @@ namespace OpenLoco::Vehicles
 
     // values are pre *256 for maths
     // Lateral force due to gravity due to Pitch possibly SIN(angle) * 256 * 256
-    static constexpr std::array<int32_t, 13> _500170{
+    static constexpr std::array<int32_t, 13> kPitchLateralGravity{
         0,
         -6645,
         -13223,
@@ -82,11 +82,11 @@ namespace OpenLoco::Vehicles
         if (frontBogie.mode == TransportMode::rail)
         {
             const auto* trackObj = ObjectManager::get<TrackObject>(frontBogie.trackType);
-            if (trackObj->hasFlags(TrackObjectFlags::unk_01))
+            if (trackObj->hasFlags(TrackObjectFlags::noSlipSurface))
             {
                 return false;
             }
-            if (trackObj->hasFlags(TrackObjectFlags::unk_00))
+            if (trackObj->hasFlags(TrackObjectFlags::hasRackRail))
             {
                 if (frontBogie.isOnRackRail())
                 {
@@ -101,12 +101,12 @@ namespace OpenLoco::Vehicles
                 return false;
             }
             const auto* roadObj = ObjectManager::get<RoadObject>(frontBogie.trackType);
-            if (roadObj->hasFlags(RoadObjectFlags::unk_04))
+            if (roadObj->hasFlags(RoadObjectFlags::noSlipSurface))
             {
                 return false;
             }
 
-            if (roadObj->hasFlags(RoadObjectFlags::unk_05))
+            if (roadObj->hasFlags(RoadObjectFlags::hasRackRail))
             {
                 if (frontBogie.isOnRackRail())
                 {
@@ -182,7 +182,7 @@ namespace OpenLoco::Vehicles
             {
                 isWheelSlipping = true;
             }
-            if (_500170[enumValue(frontBogie->spritePitch)] <= -19182)
+            if (kPitchLateralGravity[enumValue(frontBogie->spritePitch)] <= -19182)
             {
                 const auto* vehObject = ObjectManager::get<VehicleObject>(frontBogie->objectId);
                 if (vehObject->power != 0)
@@ -190,7 +190,7 @@ namespace OpenLoco::Vehicles
                     isOnRackRail &= frontBogie->isOnRackRail();
                 }
             }
-            ebp += (frontBogie->totalCarWeight * _500170[enumValue(frontBogie->spritePitch)]) >> 8;
+            ebp += (frontBogie->totalCarWeight * kPitchLateralGravity[enumValue(frontBogie->spritePitch)]) >> 8;
         }
 
         if (!isOnRackRail)

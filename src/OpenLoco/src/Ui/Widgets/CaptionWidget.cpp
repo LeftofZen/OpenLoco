@@ -1,7 +1,6 @@
-#include "CaptionWidget.h"
+#include "Ui/Widgets/CaptionWidget.h"
 #include "Graphics/Colour.h"
 #include "Graphics/ImageIds.h"
-#include "Graphics/SoftwareDrawingEngine.h"
 #include "Graphics/TextRenderer.h"
 #include "Localisation/Formatting.h"
 #include "Ui/Window.h"
@@ -12,27 +11,24 @@ namespace OpenLoco::Ui::Widgets
     // 0x004CA6AE
     static void drawBoxed(Gfx::DrawingContext& drawingCtx, const Widget& widget, const WidgetState& widgetState)
     {
-        auto* window = widgetState.window;
-
         auto tr = Gfx::TextRenderer(drawingCtx);
 
-        const auto pos = window->position() + widget.position();
         const auto size = widget.size();
 
         drawingCtx.fillRectInset(
-            pos,
+            Ui::Point{},
             size,
             widgetState.colour,
             widgetState.flags | Gfx::RectInsetFlags::borderInset | Gfx::RectInsetFlags::fillDarker);
 
         drawingCtx.fillRect(
-            pos + Ui::Point(1, 1),
+            Ui::Point(1, 1),
             size - Ui::Size(2, 2),
             enumValue(ExtColour::unk2E),
             Gfx::RectFlags::transparent);
 
         const auto width = size.width - 4 - 10;
-        const auto centerPos = pos + Point(2 + (width / 2), 1);
+        const auto centerPos = Point(2 + (width / 2), 1);
 
         auto formatArgs = FormatArguments(widget.textArgs);
         tr.drawStringCentredClipped(
@@ -46,8 +42,8 @@ namespace OpenLoco::Ui::Widgets
     // 0x004CF3EB
     static void drawStationNameBackground(Gfx::DrawingContext& drawingCtx, const Ui::Point& origin, AdvancedColour colour, int32_t width)
     {
-        drawingCtx.drawImage(origin - Ui::Point{ 4, 0 }, Gfx::recolour(ImageIds::curved_border_left_medium, colour.c()));
-        drawingCtx.drawImage(origin + Ui::Point(width, 0), Gfx::recolour(ImageIds::curved_border_right_medium, colour.c()));
+        drawingCtx.drawImage(ZoomLevel::full, origin - Ui::Point{ 4, 0 }, Gfx::recolour(ImageIds::curved_border_left_medium, colour.c()));
+        drawingCtx.drawImage(ZoomLevel::full, origin + Ui::Point(width, 0), Gfx::recolour(ImageIds::curved_border_right_medium, colour.c()));
         drawingCtx.fillRect(origin, Ui::Size{ width, 11 }, Colours::getShade(colour.c(), 5), Gfx::RectFlags::none);
     }
 
@@ -75,14 +71,11 @@ namespace OpenLoco::Ui::Widgets
 
         StringManager::formatString(&stringBuffer[1], widget.text, formatArgs);
 
-        auto* window = widgetState.window;
-
-        const auto pos = window->position() + widget.position();
         const auto size = widget.size();
 
         const auto width = size.width - 4 - 14;
 
-        auto stationNamePos = pos + Ui::Point(2 + (width / 2), 1);
+        auto stationNamePos = Ui::Point(2 + (width / 2), 1);
 
         auto tr = Gfx::TextRenderer(drawingCtx);
         tr.setCurrentFont(Gfx::Font::medium_bold);

@@ -1,6 +1,5 @@
-#include "TileManager.h"
+#include "Map/TileManager.h"
 #include "Audio/Audio.h"
-#include "BuildingElement.h"
 #include "Economy/Economy.h"
 #include "Effects/Effect.h"
 #include "Effects/ExplosionSmokeEffect.h"
@@ -8,10 +7,20 @@
 #include "GameCommands/GameCommands.h"
 #include "GameState.h"
 #include "GameStateFlags.h"
-#include "IndustryElement.h"
 #include "Input.h"
 #include "Localisation/FormatArguments.hpp"
 #include "Localisation/StringIds.h"
+#include "Map/BuildingElement.h"
+#include "Map/IndustryElement.h"
+#include "Map/RoadElement.h"
+#include "Map/SignalElement.h"
+#include "Map/StationElement.h"
+#include "Map/SurfaceElement.h"
+#include "Map/TileClearance.h"
+#include "Map/TileElementEntry.h"
+#include "Map/TrackElement.h"
+#include "Map/TreeElement.h"
+#include "Map/WallElement.h"
 #include "Objects/BridgeObject.h"
 #include "Objects/BuildingObject.h"
 #include "Objects/LandObject.h"
@@ -22,38 +31,24 @@
 #include "Objects/WaterObject.h"
 #include "OpenLoco.h"
 #include "Random.h"
-#include "RoadElement.h"
 #include "SceneManager.h"
-#include "SignalElement.h"
-#include "StationElement.h"
-#include "SurfaceElement.h"
-#include "TileClearance.h"
-#include "TrackElement.h"
-#include "TreeElement.h"
 #include "Ui.h"
 #include "Ui/ViewportInteraction.h"
 #include "ViewportManager.h"
-#include "WallElement.h"
 #include "World/CompanyManager.h"
 #include "World/IndustryManager.h"
 #include "World/TownManager.h"
+#include <OpenLoco/Core/Store.hpp>
+#include <OpenLoco/Diagnostics/Assertion.h>
 #include <OpenLoco/Diagnostics/Logging.h>
 #include <OpenLoco/Engine/World.hpp>
+#include <cstdlib>
 #include <set>
 
 using namespace OpenLoco::Diagnostics;
 
 namespace OpenLoco::World::TileManager
 {
-    static std::vector<TileElement> _elements;   // 0x005230C8
-    static std::vector<TileElement*> _tiles;     // 0x00E40134
-    static ptrdiff_t _elementsEnd = 0;           // 0x00F00134
-    static const TileElement* _F00158 = nullptr; // 0x00F00158
-    static uint32_t _periodicDefragStartTile;    // 0x00F00168
-    static bool _disablePeriodicDefrag;          // 0x0050BF6C
-
-    constexpr size_t kMaxElementsOnOneTile = 1024; // If you exceed this then the game may buffer overflow in certain situations
-
     static coord_t mapRows = kDefaultMapDimension;
     static coord_t mapColumns = kDefaultMapDimension;
 
@@ -154,6 +149,116 @@ namespace OpenLoco::World::TileManager
             && coords.y < (getMapRows() - World::kTileSize - 1);
     }
 
+    static TileState& tileState()
+    {
+        return getGameState().tileState;
+    }
+
+    static const TileElementEntry* _F00158 = nullptr;
+    static uint32_t _periodicDefragStartTile;
+    static bool _disablePeriodicDefrag;
+
+    template<>
+    Store<SurfaceElement>& getStore<SurfaceElement>()
+    {
+        return tileState().surface;
+    }
+
+    template<>
+    Store<TrackElement>& getStore<TrackElement>()
+    {
+        return tileState().track;
+    }
+
+    template<>
+    Store<StationElement>& getStore<StationElement>()
+    {
+        return tileState().station;
+    }
+
+    template<>
+    Store<SignalElement>& getStore<SignalElement>()
+    {
+        return tileState().signal;
+    }
+
+    template<>
+    Store<BuildingElement>& getStore<BuildingElement>()
+    {
+        return tileState().building;
+    }
+
+    template<>
+    Store<TreeElement>& getStore<TreeElement>()
+    {
+        return tileState().tree;
+    }
+
+    template<>
+    Store<WallElement>& getStore<WallElement>()
+    {
+        return tileState().wall;
+    }
+
+    template<>
+    Store<RoadElement>& getStore<RoadElement>()
+    {
+        return tileState().road;
+    }
+
+    template<>
+    Store<IndustryElement>& getStore<IndustryElement>()
+    {
+        return tileState().industry;
+    }
+
+    void destroyElement(const TileElementEntry& entry)
+    {
+        switch (entry.type())
+        {
+            case ElementType::surface:
+                tileState().surface.release(entry.index());
+                break;
+            case ElementType::track:
+                tileState().track.release(entry.index());
+                break;
+            case ElementType::station:
+                tileState().station.release(entry.index());
+                break;
+            case ElementType::signal:
+                tileState().signal.release(entry.index());
+                break;
+            case ElementType::building:
+                tileState().building.release(entry.index());
+                break;
+            case ElementType::tree:
+                tileState().tree.release(entry.index());
+                break;
+            case ElementType::wall:
+                tileState().wall.release(entry.index());
+                break;
+            case ElementType::road:
+                tileState().road.release(entry.index());
+                break;
+            case ElementType::industry:
+                tileState().industry.release(entry.index());
+                break;
+        }
+    }
+
+    static void storeClearAll()
+    {
+        tileState().surface.clear();
+        tileState().track.clear();
+        tileState().station.clear();
+        tileState().signal.clear();
+        tileState().building.clear();
+        tileState().tree.clear();
+        tileState().wall.clear();
+        tileState().road.clear();
+        tileState().industry.clear();
+    }
+
     void disablePeriodicDefrag()
     {
         _disablePeriodicDefrag = true;
@@ -196,8 +301,8 @@ namespace OpenLoco::World::TileManager
     {
         try
         {
-            _elements.resize(getMaxElements());
-            _tiles.resize(getNumTiles());
+            tileState().entries.resize(getMaxElements(), TileElementEntry::empty());
+            tileState().tiles.resize(getNumTiles(), nullptr);
         }
         catch (std::bad_alloc&)
         {
@@ -211,82 +316,95 @@ namespace OpenLoco::World::TileManager
     {
         _periodicDefragStartTile = 0;
         getGameState().tileUpdateStartLocation = World::Pos2(0, 0);
-        const auto landType = getGameState().lastLandOption == 0xFF ? 0 : getGameState().lastLandOption;
+        const auto landType = getGameState().defaultLandObjectId == 0xFF ? 0 : getGameState().defaultLandObjectId;
 
-        SurfaceElement defaultElement{};
-        defaultElement.setTerrain(landType);
-        defaultElement.setBaseZ(4);
-        defaultElement.setLastFlag(true);
-
-        for (auto& element : _elements)
+        storeClearAll();
+        if (tileState().entries.size() != getMaxElements())
         {
-            element = *reinterpret_cast<TileElement*>(&defaultElement);
+            tileState().entries.assign(getMaxElements(), TileElementEntry::empty());
         }
+        else
+        {
+            std::ranges::fill(tileState().entries, TileElementEntry::empty());
+        }
+
+        SurfaceElement defaultSurface{};
+        defaultSurface.setTerrain(landType);
+        defaultSurface.setBaseZ(4);
+
+        const size_t kInitialEntries = static_cast<size_t>(getMapColumns()) * static_cast<size_t>(getMapRows());
+        for (size_t i = 0; i < kInitialEntries; ++i)
+        {
+            tileState().entries[i] = allocElement(defaultSurface);
+            tileState().entries[i].setLastFlag(true);
+        }
+        tileState().entriesEnd = kInitialEntries;
+
         updateTilePointers();
         getGameState().flags |= GameStateFlags::tileManagerLoaded;
     }
 
-    std::span<TileElement> getElements()
+    std::span<const TileElementEntry> getEntries()
     {
-        return std::span<TileElement>(static_cast<TileElement*>(&*_elements.begin()), _elementsEnd);
+        return std::span<const TileElementEntry>(tileState().entries.data(), static_cast<size_t>(tileState().entriesEnd));
     }
 
     uint32_t numFreeElements()
     {
-        return getMaxElements() - _elementsEnd;
-    }
-
-    void setElements(std::span<TileElement> elements)
-    {
-        std::ranges::copy(elements, _elements.begin());
-        TileManager::updateTilePointers();
+        return static_cast<uint32_t>(getMaxElements() - tileState().entriesEnd);
     }
 
     // Note: Must be past the last tile flag
-    static void markElementAsFree(TileElement& element)
+    static void markEntryAsFree(TileElementEntry* entry)
     {
-        element.setBaseZ(255);
-        if (std::distance(&*_elements.begin(), element.next()) == _elementsEnd)
+        *entry = TileElementEntry::empty();
+        const auto pastIdx = (entry + 1) - &tileState().entries[0];
+        if (pastIdx == tileState().entriesEnd)
         {
-            _elementsEnd--;
+            tileState().entriesEnd--;
         }
     }
 
     // 0x00461760
-    void removeElement(TileElement& element)
+    void removeElement(TileElementEntry& entry)
     {
         // This is used to indicate if the caller can still use this pointer
-        if (&element == _F00158)
+        if (&entry == _F00158)
         {
-            if (element.isLast())
+            if (entry.isLast())
             {
                 _F00158 = nullptr;
             }
         }
 
-        if (element.isLast())
+        if (entry.isLast())
         {
-            auto* prev = element.prev();
-            prev->setLastFlag(true);
-            markElementAsFree(element);
+            auto* prevEntry = &entry - 1;
+            prevEntry->setLastFlag(true);
+
+            destroyElement(entry);
+            markEntryAsFree(&entry);
         }
         else
         {
+            destroyElement(entry);
+
             // Move all of the elements up one until last for the tile
-            auto* next = element.next();
-            auto* cur = &element;
+            auto* next = &entry + 1;
+            auto* cur = &entry;
             do
             {
-                *cur++ = *next;
+                *cur = *next;
+                ++cur;
             } while (!next++->isLast());
 
-            markElementAsFree(*cur);
+            markEntryAsFree(cur);
         }
     }
 
-    void setRemoveElementPointerChecker(TileElement& element)
+    void setRemoveElementPointerChecker(TileElementEntry& entry)
     {
-        _F00158 = &element;
+        _F00158 = &entry;
     }
 
     bool wasRemoveOnLastElement()
@@ -302,14 +420,13 @@ namespace OpenLoco::World::TileManager
     Tile get(TilePos2 pos)
     {
         const auto index = getTileIndex(pos);
-        if (index >= _tiles.size())
+        if (index >= tileState().tiles.size())
         {
             Logging::error("Attempted to get tile out of bounds! ({0}, {1})", pos.x, pos.y);
             return Tile(pos, nullptr);
         }
 
-        auto data = _tiles[index];
-        return Tile(pos, data);
+        return Tile(pos, tileState().tiles[index]);
     }
 
     Tile get(Pos2 pos)
@@ -322,62 +439,115 @@ namespace OpenLoco::World::TileManager
         return get(TilePos2(x / World::kTileSize, y / World::kTileSize));
     }
 
-    static void set(TilePos2 pos, TileElement* elements)
+    TileElement& resolveEntry(const TileElementEntry* entry)
     {
-        const auto index = getTileIndex(pos);
-        _tiles[index] = elements;
+        switch (entry->type())
+        {
+            case ElementType::surface:
+                return reinterpret_cast<TileElement&>(tileState().surface[entry->index()]);
+            case ElementType::track:
+                return reinterpret_cast<TileElement&>(tileState().track[entry->index()]);
+            case ElementType::station:
+                return reinterpret_cast<TileElement&>(tileState().station[entry->index()]);
+            case ElementType::signal:
+                return reinterpret_cast<TileElement&>(tileState().signal[entry->index()]);
+            case ElementType::building:
+                return reinterpret_cast<TileElement&>(tileState().building[entry->index()]);
+            case ElementType::tree:
+                return reinterpret_cast<TileElement&>(tileState().tree[entry->index()]);
+            case ElementType::wall:
+                return reinterpret_cast<TileElement&>(tileState().wall[entry->index()]);
+            case ElementType::road:
+                return reinterpret_cast<TileElement&>(tileState().road[entry->index()]);
+            case ElementType::industry:
+                return reinterpret_cast<TileElement&>(tileState().industry[entry->index()]);
+        }
+        Diagnostics::Assert::isTrue(false);
+
+        // Because the compiler fails to see that this is unreachable.
+        return *static_cast<TileElement*>(nullptr);
     }
 
-    static std::pair<TileElement*, TileElement*> insertElementPrepareDest(const TilePos2 pos)
+    static void set(TilePos2 pos, TileElementEntry* entries)
     {
         const auto index = getTileIndex(pos);
-        if (index >= _tiles.size())
+        tileState().tiles[index] = entries;
+    }
+
+    static std::pair<TileElementEntry*, TileElementEntry*> insertElementPrepareDest(const TilePos2 pos)
+    {
+        const auto index = getTileIndex(pos);
+        if (index >= tileState().tiles.size())
         {
             Logging::error("Attempted to get tile out of bounds! ({0}, {1})", pos.x, pos.y);
             return std::make_pair(nullptr, nullptr);
         }
 
-        auto* source = _tiles[index];
-        // _elementsEnd points to the free space at the end of the
+        auto* source = tileState().tiles[index];
+        // entriesEnd points to the free space at the end of the
         // tile elements. You must always check there is space (checkFreeElementsAndReorganise)
         // prior to calling this function!
-        auto* dest = &_elements[_elementsEnd];
+        auto* dest = &tileState().entries[tileState().entriesEnd];
         set(pos, dest);
         return std::make_pair(source, dest);
     }
 
-    static TileElement* insertElementEnd(ElementType type, uint8_t baseZ, uint8_t occupiedQuads, TileElement* source, TileElement* dest, bool lastFound)
+    static TileElementEntry* insertElementEnd(ElementType type, uint8_t baseZ, uint8_t occupiedQuads, TileElementEntry* source, TileElementEntry* dest, bool lastFound)
     {
-        auto* newElement = dest++;
-        // Clear the element
-        *newElement = TileElement{};
+        auto* newEntry = dest++;
 
-        newElement->setType(type);
-        newElement->setBaseZ(baseZ);
-        newElement->setClearZ(baseZ);
-        newElement->setOccupiedQuarter(occupiedQuads);
-
-        if (lastFound)
+        switch (type)
         {
-            newElement->setLastFlag(true);
+            case ElementType::surface:
+                *newEntry = allocElement(SurfaceElement{});
+                break;
+            case ElementType::track:
+                *newEntry = allocElement(TrackElement{});
+                break;
+            case ElementType::station:
+                *newEntry = allocElement(StationElement{});
+                break;
+            case ElementType::signal:
+                *newEntry = allocElement(SignalElement{});
+                break;
+            case ElementType::building:
+                *newEntry = allocElement(BuildingElement{});
+                break;
+            case ElementType::tree:
+                *newEntry = allocElement(TreeElement{});
+                break;
+            case ElementType::wall:
+                *newEntry = allocElement(WallElement{});
+                break;
+            case ElementType::road:
+                *newEntry = allocElement(RoadElement{});
+                break;
+            case ElementType::industry:
+                *newEntry = allocElement(IndustryElement{});
+                break;
         }
-        else
+        newEntry->setBaseZ(baseZ);
+        newEntry->setClearZ(baseZ);
+        newEntry->setOccupiedQuarter(occupiedQuads);
+        newEntry->setLastFlag(lastFound);
+
+        if (!lastFound)
         {
             // Copy all of the elements that are above the new tile
             do
             {
                 *dest = *source;
-                source->setBaseZ(0xFFU);
+                *source = TileElementEntry::empty();
                 source++;
             } while (!dest++->isLast());
         }
-        _elementsEnd = std::distance(&*_elements.begin(), dest);
+        tileState().entriesEnd = std::distance(&tileState().entries[0], dest);
 
-        return newElement;
+        return newEntry;
     }
 
     // 0x004616D6
-    TileElement* insertElement(ElementType type, const Pos2& pos, uint8_t baseZ, uint8_t occupiedQuads)
+    TileElementEntry* insertElement(ElementType type, const Pos2& pos, uint8_t baseZ, uint8_t occupiedQuads)
     {
         checkFreeElementsAndReorganise();
 
@@ -389,10 +559,10 @@ namespace OpenLoco::World::TileManager
 
         bool lastFound = false;
         // Copy all of the elements that are underneath the new tile (or till end)
-        while (baseZ >= source->baseZ())
+        while (baseZ >= resolveEntry(source).baseZ())
         {
             *dest = *source;
-            source->setBaseZ(0xFFU);
+            *source = TileElementEntry::empty();
             source++;
             if (dest->isLast())
             {
@@ -410,7 +580,7 @@ namespace OpenLoco::World::TileManager
     }
 
     // 0x0046166C
-    RoadElement* insertElementRoad(const Pos2& pos, uint8_t baseZ, uint8_t occupiedQuads)
+    TileElementEntry* insertElementRoad(const Pos2& pos, uint8_t baseZ, uint8_t occupiedQuads)
     {
         checkFreeElementsAndReorganise();
 
@@ -421,12 +591,12 @@ namespace OpenLoco::World::TileManager
         }
 
         bool lastFound = false;
-        auto isRoadStation = [](const TileElement* source, SmallZ baseZ) {
-            if (baseZ != source->baseZ())
+        auto isRoadStation = [](const TileElementEntry* sourceEntry, SmallZ baseZ) {
+            if (baseZ != sourceEntry->baseZ())
             {
                 return false;
             }
-            auto* srcStation = source->as<StationElement>();
+            auto* srcStation = sourceEntry->as<StationElement>();
             if (srcStation == nullptr)
             {
                 return false;
@@ -438,7 +608,7 @@ namespace OpenLoco::World::TileManager
         while (baseZ >= source->baseZ() && !isRoadStation(source, baseZ))
         {
             *dest = *source;
-            source->setBaseZ(0xFFU);
+            *source = TileElementEntry::empty();
             source++;
             if (dest->isLast())
             {
@@ -452,11 +622,11 @@ namespace OpenLoco::World::TileManager
             dest++;
         }
 
-        return insertElementEnd(ElementType::road, baseZ, occupiedQuads, source, dest, lastFound)->as<RoadElement>();
+        return insertElementEnd(ElementType::road, baseZ, occupiedQuads, source, dest, lastFound);
     }
 
     // 0x00461578
-    TileElement* insertElementAfterNoReorg(TileElement* after, ElementType type, const Pos2& pos, uint8_t baseZ, uint8_t occupiedQuads)
+    TileElementEntry* insertElementAfterNoReorg(TileElementEntry* after, ElementType type, const Pos2& pos, uint8_t baseZ, uint8_t occupiedQuads)
     {
         auto [source, dest] = insertElementPrepareDest(toTileSpace(pos));
         if (source == nullptr)
@@ -469,7 +639,7 @@ namespace OpenLoco::World::TileManager
         while (source <= after)
         {
             *dest = *source;
-            source->setBaseZ(0xFFU);
+            *source = TileElementEntry::empty();
             source++;
             if (dest->isLast())
             {
@@ -727,7 +897,7 @@ namespace OpenLoco::World::TileManager
 
     static void clearTilePointers()
     {
-        std::ranges::fill(_tiles, nullptr);
+        std::ranges::fill(tileState().tiles, nullptr);
     }
 
     // 0x00461348
@@ -735,22 +905,22 @@ namespace OpenLoco::World::TileManager
     {
         clearTilePointers();
 
-        auto el = _elements.begin();
+        size_t i = 0;
         for (tile_coord_t y = 0; y < getMapRows(); y++)
         {
             for (tile_coord_t x = 0; x < getMapColumns(); x++)
             {
-                set(TilePos2(x, y), &*el);
+                set(TilePos2(x, y), &tileState().entries[i]);
 
                 // Skip remaining elements on this tile
                 do
                 {
-                    el++;
-                } while (!(el - 1)->isLast());
+                    i++;
+                } while (i > 0 && i < tileState().entries.size() && !tileState().entries[i - 1].isLast());
             }
         }
 
-        _elementsEnd = std::distance(_elements.begin(), el);
+        tileState().entriesEnd = static_cast<ptrdiff_t>(i);
     }
 
     // 0x0046148F
@@ -762,25 +932,27 @@ namespace OpenLoco::World::TileManager
         try
         {
             // Allocate a temporary buffer and tightly pack all the tile elements in the map
-            std::vector<TileElement> tempBuffer;
-            tempBuffer.resize(getMaxElements());
+            std::vector<TileElementEntry> temp;
+            temp.resize(getMaxElements(), TileElementEntry::empty());
 
-            size_t numElements = 0;
+            size_t numEntries = 0;
             for (tile_coord_t y = 0; y < getMapRows(); y++)
             {
                 for (tile_coord_t x = 0; x < getMapColumns(); x++)
                 {
                     auto tile = get(TilePos2(x, y));
-                    for (const auto& element : tile)
+                    for (auto& el : tile)
                     {
-                        tempBuffer[numElements] = element;
-                        numElements++;
+                        temp[numEntries] = el;
+                        numEntries++;
                     }
                 }
             }
 
             // Copy organised elements back to original element buffer
-            _elements = tempBuffer;
+            Diagnostics::Assert::eq(tileState().entries.size(), getMaxElements());
+            std::ranges::copy(temp, tileState().entries.begin());
+            tileState().entriesEnd = static_cast<ptrdiff_t>(numEntries);
 
             updateTilePointers();
         }
@@ -811,16 +983,16 @@ namespace OpenLoco::World::TileManager
         for (auto i = 0; i < getNumTiles(); ++i)
         {
             const auto j = (i + searchStart) % getNumTiles();
-            if (_tiles[j] != nullptr)
+            if (tileState().tiles[j] != nullptr)
             {
                 _periodicDefragStartTile = j;
                 break;
             }
         }
 
-        auto* firstTile = _tiles[_periodicDefragStartTile];
+        auto* firstTile = tileState().tiles[_periodicDefragStartTile];
         auto* emptyTile = firstTile - 1;
-        while (emptyTile != &_elements[0] && emptyTile->baseZ() == 0xFFU)
+        while (emptyTile != &tileState().entries[0] && emptyTile->isEmpty())
         {
             emptyTile--;
         }
@@ -830,26 +1002,26 @@ namespace OpenLoco::World::TileManager
             return;
         }
 
-        _tiles[_periodicDefragStartTile] = emptyTile;
+        tileState().tiles[_periodicDefragStartTile] = emptyTile;
         {
             auto* dest = emptyTile;
             auto* source = firstTile;
             do
             {
                 *dest = *source;
-                source->setBaseZ(0xFFU);
+                *source = TileElementEntry::empty();
                 source++;
             } while (!dest++->isLast());
         }
 
         // Its possible we have freed up elements at the end so this
         // looks to see if we should move the element end
-        auto newEnd = _elementsEnd - 1;
-        while (_elements[newEnd].baseZ() == 0xFFU)
+        auto newEnd = tileState().entriesEnd - 1;
+        while (newEnd >= 0 && tileState().entries[newEnd].isEmpty())
         {
             newEnd--;
         }
-        _elementsEnd = newEnd + 1;
+        tileState().entriesEnd = newEnd + 1;
     }
 
     // 0x00461393
@@ -878,7 +1050,7 @@ namespace OpenLoco::World::TileManager
         return false;
     }
 
-    CompanyId getTileOwner(const World::TileElement& el)
+    CompanyId getTileOwner(const World::TileElementEntry& el)
     {
         CompanyId owner = CompanyId::null;
 
@@ -1094,7 +1266,7 @@ namespace OpenLoco::World::TileManager
         return nearbyWaterTiles;
     }
 
-    static bool update(TileElement& el, const World::Pos2& loc)
+    static bool tick(TileElementEntry& el, const World::Pos2& loc)
     {
         switch (el.type())
         {
@@ -1106,22 +1278,21 @@ namespace OpenLoco::World::TileManager
             case ElementType::building:
             {
                 auto& elBuilding = el.get<BuildingElement>();
-                return elBuilding.update(loc);
+                return elBuilding.tick(loc);
             }
             case ElementType::tree:
             {
-                auto& elTree = el.get<TreeElement>();
-                return updateTreeElement(elTree, loc);
+                return updateTreeElement(el, loc);
             }
             case ElementType::road:
             {
                 auto& elRoad = el.get<RoadElement>();
-                return elRoad.update(loc);
+                return elRoad.tick(loc);
             }
             case ElementType::industry:
             {
                 auto& elIndustry = el.get<IndustryElement>();
-                return elIndustry.update(loc);
+                return elIndustry.tick(loc);
             }
             case ElementType::track: break;
             case ElementType::station: break;
@@ -1132,7 +1303,7 @@ namespace OpenLoco::World::TileManager
     }
 
     // 0x00463ABA
-    void update()
+    void tick()
     {
         if (!Game::hasFlags(GameStateFlags::tileManagerLoaded))
         {
@@ -1159,7 +1330,7 @@ namespace OpenLoco::World::TileManager
                     }
 
                     // If update removed/added tiles we must stop loop as pointer is invalid
-                    if (!update(el, pos))
+                    if (!tick(el, pos))
                     {
                         break;
                     }
@@ -1182,7 +1353,7 @@ namespace OpenLoco::World::TileManager
     static void playDemolishTreeSound(const World::Pos3& loc)
     {
         const auto frequency = gPrng2().randNext(20003, 24098);
-        Audio::playSound(Audio::SoundId::demolishTree, loc, -1100, frequency);
+        Audio::playSound(Audio::SoundId::demolishTree, Audio::ChannelId::effects, loc, -1100, frequency);
     }
 
     // 0x004BB432
@@ -1190,8 +1361,9 @@ namespace OpenLoco::World::TileManager
     // esi = X86Pointer(&element);
     // ax = pos.x;
     // cx = pos.y;
-    void removeTree(World::TreeElement& element, const uint8_t flags, const World::Pos2& pos)
+    void removeTree(TileElementEntry& entry, const GameCommands::Flags flags, const World::Pos2& pos)
     {
+        auto& element = entry.get<World::TreeElement>();
         if ((!element.isGhost() && !element.isAiAllocated())
             && GameCommands::getUpdatingCompanyId() != CompanyId::neutral)
         {
@@ -1199,7 +1371,7 @@ namespace OpenLoco::World::TileManager
             playDemolishTreeSound(loc);
         }
 
-        if ((flags & GameCommands::Flags::ghost) == 0)
+        if (!GameCommands::hasFlags(flags, GameCommands::Flags::ghost))
         {
             auto treeObj = ObjectManager::get<TreeObject>(element.treeObjectId());
             auto ratingReduction = treeObj->demolishRatingReduction;
@@ -1210,7 +1382,7 @@ namespace OpenLoco::World::TileManager
         auto zMax = element.clearHeight();
         Ui::ViewportManager::invalidate(pos, zMin, zMax, ZoomLevel::eighth, 56);
 
-        removeElement(*reinterpret_cast<World::TileElement*>(&element));
+        World::TileManager::removeElement(entry);
     }
 
     // 0x0048B0C7
@@ -1218,12 +1390,13 @@ namespace OpenLoco::World::TileManager
     {
         ExplosionSmoke::create(pos + World::Pos3{ 0, 0, 13 });
         const auto randFreq = gPrng2().randNext(20'003, 24'098);
-        Audio::playSound(Audio::SoundId::demolishBuilding, pos, -1400, randFreq);
+        Audio::playSound(Audio::SoundId::demolishBuilding, Audio::ChannelId::effects, pos, -1400, randFreq);
     }
 
     // 0x0042D8FF
-    void removeBuildingElement(BuildingElement& elBuilding, const World::Pos2& pos)
+    void removeBuildingElement(TileElementEntry& entry, const World::Pos2& pos)
     {
+        auto& elBuilding = entry.get<BuildingElement>();
         if (!elBuilding.isGhost() && !elBuilding.isAiAllocated())
         {
             if (GameCommands::getUpdatingCompanyId() != CompanyId::neutral)
@@ -1251,9 +1424,9 @@ namespace OpenLoco::World::TileManager
                         auto* town = TownManager::updateTownInfo(pos, removedPopulation, buildingCapacity, ratingReduction, -1);
                         if (town != nullptr)
                         {
-                            if (buildingObj->var_AC != 0xFF)
+                            if (buildingObj->townAmenityCategory != TownAmenityCategory::none)
                             {
-                                town->var_150[buildingObj->var_AC] -= 1;
+                                town->amenityCounts[enumValue(buildingObj->townAmenityCategory)] -= 1;
                             }
                         }
                     }
@@ -1261,13 +1434,13 @@ namespace OpenLoco::World::TileManager
             }
         }
         Ui::ViewportManager::invalidate(pos, elBuilding.baseHeight(), elBuilding.clearHeight(), ZoomLevel::eighth);
-        TileManager::removeElement(*reinterpret_cast<TileElement*>(&elBuilding));
+        TileManager::removeElement(entry);
     }
 
     // 0x004C482B
     void removeAllWallsOnTileAbove(const World::TilePos2& pos, SmallZ baseZ)
     {
-        std::vector<World::TileElement*> toDelete;
+        std::vector<World::TileElementEntry*> toDelete;
         auto tile = get(pos);
         for (auto& el : tile)
         {
@@ -1287,16 +1460,16 @@ namespace OpenLoco::World::TileManager
             toDelete.push_back(&el);
         }
         // Remove in reverse order to prevent pointer invalidation
-        std::for_each(std::rbegin(toDelete), std::rend(toDelete), [&pos](World::TileElement* el) {
-            Ui::ViewportManager::invalidate(World::toWorldSpace(pos), el->baseHeight(), el->baseHeight() + 72, ZoomLevel::half);
-            removeElement(*el);
+        std::for_each(std::rbegin(toDelete), std::rend(toDelete), [&pos](World::TileElementEntry* entry) {
+            Ui::ViewportManager::invalidate(World::toWorldSpace(pos), entry->baseHeight(), entry->baseHeight() + 72, ZoomLevel::half);
+            removeElement(*entry);
         });
     }
 
     // 0x004C4979
     void removeAllWallsOnTileBelow(const World::TilePos2& pos, SmallZ baseZ)
     {
-        std::vector<World::TileElement*> toDelete;
+        std::vector<World::TileElementEntry*> toDelete;
         auto tile = get(pos);
         for (auto& el : tile)
         {
@@ -1312,9 +1485,9 @@ namespace OpenLoco::World::TileManager
             toDelete.push_back(&el);
         }
         // Remove in reverse order to prevent pointer invalidation
-        std::for_each(std::rbegin(toDelete), std::rend(toDelete), [&pos](World::TileElement* el) {
-            Ui::ViewportManager::invalidate(World::toWorldSpace(pos), el->baseHeight(), el->baseHeight() + 72, ZoomLevel::half);
-            removeElement(*el);
+        std::for_each(std::rbegin(toDelete), std::rend(toDelete), [&pos](World::TileElementEntry* entry) {
+            Ui::ViewportManager::invalidate(World::toWorldSpace(pos), entry->baseHeight(), entry->baseHeight() + 72, ZoomLevel::half);
+            removeElement(*entry);
         });
     }
 
@@ -1385,7 +1558,7 @@ namespace OpenLoco::World::TileManager
                 [hasTrack](World::TrackElement& elTrack) { if (hasTrack) { elTrack.setHasLevelCrossing(false); } },
                 [hasRoad](World::RoadElement& elRoad) { if (hasRoad) {
                     elRoad.setHasLevelCrossing(false);
-                    elRoad.setUnk7_10(false);
+                    elRoad.setLevelCrossingClosed(false);
                     elRoad.setLevelCrossingObjectId(0);
                 } });
         }
@@ -1426,30 +1599,30 @@ namespace OpenLoco::World::TileManager
     }
 
     // 0x00468651
-    uint32_t adjustSurfaceHeight(World::Pos2 pos, SmallZ targetBaseZ, uint8_t slopeFlags, World::TileClearance::RemovedBuildings& removedBuildings, uint8_t flags)
+    uint32_t adjustSurfaceHeight(World::Pos2 pos, SmallZ targetBaseZ, uint8_t slopeFlags, World::TileClearance::RemovedBuildings& removedBuildings, GameCommands::Flags flags)
     {
         if (!validCoords(pos))
         {
             GameCommands::setErrorText(StringIds::off_edge_of_map);
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
-        if (targetBaseZ < 4)
+        if (targetBaseZ < World::kMinTileHeightSmallZ)
         {
             GameCommands::setErrorText(StringIds::error_too_low);
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
-        if (targetBaseZ > 160
-            || (targetBaseZ == 160 && (slopeFlags & 0x1F) != 0)
-            || (targetBaseZ == 156 && (slopeFlags & 0x10) != 0))
+        if (targetBaseZ > World::kMaxTileHeightSmallZ
+            || (targetBaseZ == World::kMaxTileHeightSmallZ && (slopeFlags & 0x1F) != 0)
+            || (targetBaseZ == World::kMaxTileHeightSmallZ - World::kSmallZStep && (slopeFlags & 0x10) != 0))
         {
             GameCommands::setErrorText(StringIds::error_too_high);
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
         currency32_t totalCost = 0;
 
-        if (flags & GameCommands::Flags::apply)
+        if (GameCommands::hasFlags(flags, GameCommands::Flags::apply))
         {
             removeSurfaceIndustry(pos);
 
@@ -1459,7 +1632,7 @@ namespace OpenLoco::World::TileManager
             }
 
             auto clearHeight = getHeight(pos).landHeight;
-            removeAllWallsOnTileAbove(toTileSpace(pos), clearHeight / 4);
+            removeAllWallsOnTileAbove(toTileSpace(pos), clearHeight / World::kSmallZStep);
         }
 
         // Compute cost of landscape operation
@@ -1486,19 +1659,19 @@ namespace OpenLoco::World::TileManager
             if (waterHeight < targetClearZ)
             {
                 GameCommands::setErrorText(StringIds::water_channel_currently_needed_by_ships);
-                return GameCommands::FAILURE;
+                return GameCommands::kFailure;
             }
         }
 
         // Bind our local vars to the tile clear function
-        auto clearFunc = [pos, &removedBuildings, flags, &totalCost](TileElement& el) {
-            return TileClearance::clearWithDefaultCollision(el, pos, removedBuildings, flags, totalCost);
+        auto clearFunc = [pos, &removedBuildings, flags, &totalCost](TileElementEntry& entry) {
+            return TileClearance::clearWithDefaultCollision(entry, pos, removedBuildings, flags, totalCost);
         };
 
         QuarterTile qt(0xF, 0);
         if (!TileClearance::applyClearAtAllHeights(pos, targetBaseZ, targetClearZ, qt, clearFunc))
         {
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
         // Check bridge requirements for track and road elements
@@ -1532,7 +1705,7 @@ namespace OpenLoco::World::TileManager
                         if (height > bridgeObj->maxHeight * kMicroToSmallZStep)
                         {
                             GameCommands::setErrorText(StringIds::bridge_already_at_maximum_height);
-                            return GameCommands::FAILURE;
+                            return GameCommands::kFailure;
                         }
                     }
                     else
@@ -1541,7 +1714,7 @@ namespace OpenLoco::World::TileManager
                         auto args = FormatArguments::common();
                         args.push(trackObj->name);
                         GameCommands::setErrorText(StringIds::stringid_requires_a_bridge);
-                        return GameCommands::FAILURE;
+                        return GameCommands::kFailure;
                     }
                 }
             }
@@ -1556,7 +1729,7 @@ namespace OpenLoco::World::TileManager
                         if (height > bridgeObj->maxHeight * kMicroToSmallZStep)
                         {
                             GameCommands::setErrorText(StringIds::bridge_already_at_maximum_height);
-                            return GameCommands::FAILURE;
+                            return GameCommands::kFailure;
                         }
                     }
                     else
@@ -1565,13 +1738,13 @@ namespace OpenLoco::World::TileManager
                         auto args = FormatArguments::common();
                         args.push(roadObj->name);
                         GameCommands::setErrorText(StringIds::stringid_requires_a_bridge);
-                        return GameCommands::FAILURE;
+                        return GameCommands::kFailure;
                     }
                 }
             }
         }
 
-        if (!(flags & GameCommands::Flags::apply))
+        if (!GameCommands::hasFlags(flags, GameCommands::Flags::apply))
         {
             return totalCost;
         }
@@ -1603,7 +1776,7 @@ namespace OpenLoco::World::TileManager
     }
 
     // 0x004C4C28
-    uint32_t adjustWaterHeight(World::Pos2 pos, SmallZ targetHeight, World::TileClearance::RemovedBuildings& removedBuildings, uint8_t flags)
+    uint32_t adjustWaterHeight(World::Pos2 pos, SmallZ targetHeight, World::TileClearance::RemovedBuildings& removedBuildings, GameCommands::Flags flags)
     {
         GameCommands::setExpenditureType(ExpenditureType::Construction);
         GameCommands::setPosition(World::Pos3(pos.x + World::kTileSize / 2, pos.y + World::kTileSize / 2, targetHeight * kMicroToSmallZStep));
@@ -1611,18 +1784,18 @@ namespace OpenLoco::World::TileManager
         if (targetHeight < 4)
         {
             GameCommands::setErrorText(StringIds::error_too_low);
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
         if (targetHeight >= 116)
         {
             GameCommands::setErrorText(StringIds::error_too_high);
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
         currency32_t totalCost = 0;
 
-        if (flags & GameCommands::Flags::apply)
+        if (GameCommands::hasFlags(flags, GameCommands::Flags::apply))
         {
             removeSurfaceIndustry(pos);
 
@@ -1649,26 +1822,26 @@ namespace OpenLoco::World::TileManager
         const auto clearTargetZ = std::max(targetHeight, referenceZ);
 
         // Bind our local vars to the tile clear function
-        auto clearFunc = [pos, &removedBuildings, flags, &totalCost](TileElement& el) {
-            return TileClearance::clearWithDefaultCollision(el, pos, removedBuildings, flags, totalCost);
+        auto clearFunc = [pos, &removedBuildings, flags, &totalCost](TileElementEntry& entry) {
+            return TileClearance::clearWithDefaultCollision(entry, pos, removedBuildings, flags, totalCost);
         };
 
         QuarterTile qt(0xF, 0);
         if (!TileClearance::applyClearAtAllHeights(pos, baseTargetZ, clearTargetZ, qt, clearFunc))
         {
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
         if (surface->hasType6Flag())
         {
             GameCommands::setErrorText(StringIds::water_channel_currently_needed_by_ships);
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
         auto* waterObj = ObjectManager::get<WaterObject>();
         totalCost += Economy::getInflationAdjustedCost(waterObj->costFactor, waterObj->costIndex, 10);
 
-        if (flags & GameCommands::Flags::apply)
+        if (GameCommands::hasFlags(flags, GameCommands::Flags::apply))
         {
             if (targetHeight <= surface->baseZ())
             {
@@ -1689,28 +1862,22 @@ namespace OpenLoco::World::TileManager
     // 0x0047AB9B
     void updateYearly()
     {
-        const auto isObjectNotTram = getGameState().roadObjectIdIsNotTram;
-        for (const auto& tilePos : getWorldRange())
+        auto& gs = getGameState();
+        auto& ts = gs.tileState;
+        const auto isObjectAnyRoadTypeCompatible = getGameState().roadObjectIdIsAnyRoadTypeCompatible;
+
+        for (auto& elRoad : ts.road)
         {
-            auto tile = get(tilePos);
-            for (auto& el : tile)
+            if (elRoad.isAiAllocated() || elRoad.isGhost())
             {
-                auto* elRoad = el.as<RoadElement>();
-                if (elRoad == nullptr)
-                {
-                    continue;
-                }
-                if (elRoad->isAiAllocated() || elRoad->isGhost())
-                {
-                    continue;
-                }
-                // This is a much cheaper tram checker
-                // compared to getting the object
-                if (isObjectNotTram & (1U << elRoad->roadObjectId()))
-                {
-                    elRoad->setUnk7_80(elRoad->hasUnk7_40());
-                    elRoad->setUnk7_40(false);
-                }
+                continue;
+            }
+            // This is a much cheaper tram checker
+            // compared to getting the object
+            if (isObjectAnyRoadTypeCompatible & (1U << elRoad.roadObjectId()))
+            {
+                elRoad.setUnk7_80(elRoad.hasUnk7_40());
+                elRoad.setUnk7_40(false);
             }
         }
     }

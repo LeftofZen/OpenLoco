@@ -1,4 +1,4 @@
-#include "ChangeLandMaterial.h"
+#include "GameCommands/Terraform/ChangeLandMaterial.h"
 #include "Economy/Expenditures.h"
 #include "GameCommands/GameCommands.h"
 #include "Map/MapGenerator/MapGenerator.h"
@@ -12,14 +12,14 @@
 namespace OpenLoco::GameCommands
 {
     // 0x00468EDD
-    static uint32_t changeLandMaterial(const World::Pos2& pointA, const World::Pos2& pointB, const uint8_t landType, const uint8_t flags)
+    static uint32_t changeLandMaterial(const World::Pos2& pointA, const World::Pos2& pointB, const uint8_t landType, const Flags flags)
     {
         GameCommands::setExpenditureType(ExpenditureType::Construction);
         const auto midPoint = (pointA + pointB) / 2 + World::Pos2{ 16, 16 };
         auto height = World::TileManager::getHeight(midPoint);
         GameCommands::setPosition({ midPoint.x, midPoint.y, height.landHeight });
 
-        if ((flags & Flags::apply) == 0)
+        if (!hasFlags(flags, Flags::apply))
         {
             return 0;
         }
@@ -61,9 +61,9 @@ namespace OpenLoco::GameCommands
         return 0;
     }
 
-    void changeLandMaterial(registers& regs)
+    void changeLandMaterial(registers& regs, const Flags flags)
     {
         ChangeLandMaterialArgs args(regs);
-        regs.ebx = changeLandMaterial(args.pointA, args.pointB, args.landType, regs.bl);
+        regs.ebx = changeLandMaterial(args.pointA, args.pointB, args.landType, flags);
     }
 }

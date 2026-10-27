@@ -1,10 +1,10 @@
-#include "TreeObject.h"
+#include "Objects/TreeObject.h"
 #include "Graphics/Colour.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
-#include "ObjectImageTable.h"
-#include "ObjectManager.h"
-#include "ObjectStringTable.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectManager.h"
+#include "Objects/ObjectStringTable.h"
 #include <OpenLoco/Core/Numerics.hpp>
 
 namespace OpenLoco
@@ -45,10 +45,10 @@ namespace OpenLoco
                 snowImage = Gfx::recolour(snowImage, colour);
             }
             treePos.x = x + 28;
-            drawingCtx.drawImage(treePos.x, treePos.y, snowImage);
+            drawingCtx.drawImage(ZoomLevel::full, treePos.x, treePos.y, snowImage);
             treePos.x = 28;
         }
-        drawingCtx.drawImage(treePos.x, treePos.y, image);
+        drawingCtx.drawImage(ZoomLevel::full, treePos.x, treePos.y, image);
     }
 
     // 0x00500775

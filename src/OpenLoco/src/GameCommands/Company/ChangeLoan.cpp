@@ -1,4 +1,4 @@
-#include "ChangeLoan.h"
+#include "GameCommands/Company/ChangeLoan.h"
 #include "Economy/Economy.h"
 #include "GameCommands/GameCommands.h"
 #include "Localisation/StringIds.h"
@@ -8,19 +8,24 @@
 namespace OpenLoco::GameCommands
 {
     // 0x0046DE88
-    static uint32_t changeLoan(const currency32_t newLoan, const uint8_t flags)
+    static uint32_t changeLoan(const currency32_t newLoan, const Flags flags)
     {
         GameCommands::setExpenditureType(ExpenditureType::LoanInterest);
 
         auto* company = CompanyManager::get(GameCommands::getUpdatingCompanyId());
         const currency32_t loanDifference = company->currentLoan - newLoan;
 
+        if (newLoan < 0)
+        {
+            // TODO: Error message loan cannot be negative
+            return kFailure;
+        }
         if (company->currentLoan > newLoan)
         {
             if (company->cash < loanDifference)
             {
                 GameCommands::setErrorText(StringIds::not_enough_cash_available);
-                return FAILURE;
+                return kFailure;
             }
         }
         else
@@ -29,26 +34,26 @@ namespace OpenLoco::GameCommands
             if (newLoan > maxLoan)
             {
                 GameCommands::setErrorText(StringIds::bank_refuses_to_increase_loan);
-                return FAILURE;
+                return kFailure;
             }
         }
 
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
             company->currentLoan = newLoan;
             company->cash -= loanDifference;
             Ui::WindowManager::invalidate(Ui::WindowType::company, static_cast<uint16_t>(GameCommands::getUpdatingCompanyId()));
             if (CompanyManager::getControllingId() == GameCommands::getUpdatingCompanyId())
             {
-                Ui::Windows::PlayerInfoPanel::invalidateFrame();
+                Ui::WindowManager::invalidate(Ui::WindowType::companyInfoPanel);
             }
         }
         return 0;
     }
 
-    void changeLoan(registers& regs)
+    void changeLoan(registers& regs, const Flags flags)
     {
         ChangeLoanArgs args(regs);
-        regs.ebx = changeLoan(args.newLoan, regs.bl);
+        regs.ebx = changeLoan(args.newLoan, flags);
     }
 }

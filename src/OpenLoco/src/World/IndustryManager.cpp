@@ -1,5 +1,4 @@
-#include "IndustryManager.h"
-#include "CompanyManager.h"
+#include "World/IndustryManager.h"
 #include "Date.h"
 #include "Game.h"
 #include "GameCommands/GameCommands.h"
@@ -18,8 +17,9 @@
 #include "Objects/ObjectManager.h"
 #include "Random.h"
 #include "SceneManager.h"
-#include "TownManager.h"
 #include "Ui/WindowManager.h"
+#include "World/CompanyManager.h"
+#include "World/TownManager.h"
 #include <OpenLoco/Math/Vector.hpp>
 #include <numeric>
 
@@ -83,14 +83,14 @@ namespace OpenLoco::IndustryManager
     }
 
     // 0x00453234
-    void update()
+    void tick()
     {
         if (Game::hasFlags(GameStateFlags::tileManagerLoaded) && !SceneManager::isEditorMode())
         {
             GameCommands::setUpdatingCompanyId(CompanyId::neutral);
             for (auto& industry : industries())
             {
-                industry.update();
+                industry.tick();
             }
         }
     }
@@ -121,6 +121,7 @@ namespace OpenLoco::IndustryManager
                 continue;
             }
             if (!buildObj->hasFlags(BuildingObjectFlags::miscBuilding)
+                && buildObj->producedCargoType[0] != 0xFFU
                 && buildObj->producedQuantity[0] != 0)
             {
                 cargoCounts[buildObj->producedCargoType[0]]++;
@@ -270,9 +271,7 @@ namespace OpenLoco::IndustryManager
             // };
             const auto randomNum = gPrng1().randNext();
 
-            const auto randomPos = World::toWorldSpace(World::TilePos2(
-                (((randomNum >> 16) * World::TileManager::getMapRows()) >> 16),
-                (((randomNum & 0xFFFF) * World::TileManager::getMapColumns()) >> 16)));
+            const auto randomPos = World::toWorldSpace(World::TilePos2((((randomNum >> 16) * World::TileManager::getMapRows()) >> 16), (((randomNum & 0xFFFF) * World::TileManager::getMapColumns()) >> 16)));
 
             if (isTooCloseToNearbyIndustries(randomPos))
             {
@@ -462,15 +461,11 @@ namespace OpenLoco::IndustryManager
                 args.type = indObjId;
                 args.buildImmediately = buildImmediately;
                 args.pos = *randomIndustryLoc;
-                // To match vanilla we will do this.
-                // TODO: Once match confirmed replace with two randNext() calls
-                const auto temp = gPrng1().srand_0();
-                gPrng1().randNext();
-                args.srand0 = gPrng1().srand_0() - temp;
-                args.srand1 = gPrng1().srand_1();
+                args.srand0 = gPrng1().randNext();
+                args.srand1 = gPrng1().randNext();
 
                 auto res = GameCommands::doCommand(args, GameCommands::Flags::apply);
-                if (res != GameCommands::FAILURE)
+                if (res != GameCommands::kFailure)
                 {
                     break;
                 }

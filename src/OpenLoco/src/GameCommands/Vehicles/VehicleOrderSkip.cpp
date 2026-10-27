@@ -1,4 +1,4 @@
-#include "VehicleOrderSkip.h"
+#include "GameCommands/Vehicles/VehicleOrderSkip.h"
 #include "Entities/EntityManager.h"
 #include "GameCommands/GameCommands.h"
 #include "Ui/WindowManager.h"
@@ -10,16 +10,16 @@
 namespace OpenLoco::GameCommands
 {
     // 0x0047071A
-    static uint32_t vehicleOrderSkip(EntityId headId, uint8_t flags)
+    static uint32_t vehicleOrderSkip(EntityId headId, Flags flags)
     {
         auto* head = EntityManager::get<Vehicles::VehicleHead>(headId);
         if (head == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
         setPosition(head->position);
-        if (!(flags & Flags::apply))
+        if (!hasFlags(flags, Flags::apply))
         {
             return 0;
         }
@@ -32,8 +32,8 @@ namespace OpenLoco::GameCommands
         return 0;
     }
 
-    void vehicleOrderSkip(registers& regs)
+    void vehicleOrderSkip(registers& regs, const Flags flags)
     {
-        regs.ebx = vehicleOrderSkip(EntityId(regs.di), regs.bl);
+        regs.ebx = vehicleOrderSkip(EntityId(regs.di), flags);
     }
 }

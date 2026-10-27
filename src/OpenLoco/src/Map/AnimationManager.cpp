@@ -1,13 +1,13 @@
-#include "AnimationManager.h"
-#include "Animation.h"
-#include "BuildingElement.h"
+#include "Map/AnimationManager.h"
 #include "Game.h"
 #include "GameState.h"
 #include "GameStateFlags.h"
-#include "IndustryElement.h"
-#include "RoadElement.h"
-#include "SignalElement.h"
-#include "StationElement.h"
+#include "Map/Animation.h"
+#include "Map/BuildingElement.h"
+#include "Map/IndustryElement.h"
+#include "Map/RoadElement.h"
+#include "Map/SignalElement.h"
+#include "Map/StationElement.h"
 
 #include <array>
 
@@ -63,9 +63,9 @@ namespace OpenLoco::World::AnimationManager
             case 2:
                 return false;
             case 3:
-                return updateIndustryAnimation1(anim);
+                return updateIndustryContinuousAnimation(anim);
             case 4:
-                return updateIndustryAnimation2(anim);
+                return updateIndustryRandomAnimation(anim);
             case 5:
                 return updateBuildingAnimation1(anim);
             case 6:
@@ -80,7 +80,7 @@ namespace OpenLoco::World::AnimationManager
     }
 
     // 0x004612EC
-    void update()
+    void tick()
     {
         if (Game::hasFlags(GameStateFlags::tileManagerLoaded))
         {

@@ -1,13 +1,13 @@
-#include "IndustryObject.h"
-#include "CargoObject.h"
+#include "Objects/IndustryObject.h"
 #include "Graphics/Colour.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
 #include "Localisation/Formatting.h"
 #include "Localisation/StringIds.h"
-#include "ObjectImageTable.h"
-#include "ObjectManager.h"
-#include "ObjectStringTable.h"
+#include "Objects/CargoObject.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectManager.h"
+#include "Objects/ObjectStringTable.h"
 #include <OpenLoco/Core/Numerics.hpp>
 #include <algorithm>
 
@@ -41,9 +41,9 @@ namespace OpenLoco
         return produceCargoState;
     }
 
-    char* IndustryObject::getProducedCargoString(const char* buffer) const
+    char* IndustryObject::getProducedCargoString(char* buffer) const
     {
-        char* ptr = (char*)buffer;
+        char* ptr = buffer;
         auto producedCargoCount = 0;
 
         for (const auto& producedCargo : producedCargoType)
@@ -64,9 +64,9 @@ namespace OpenLoco
         return ptr;
     }
 
-    char* IndustryObject::getRequiredCargoString(const char* buffer) const
+    char* IndustryObject::getRequiredCargoString(char* buffer) const
     {
-        char* ptr = (char*)buffer;
+        char* ptr = buffer;
         auto requiredCargoCount = 0;
 
         for (const auto& requiredCargo : requiredCargoType)
@@ -112,7 +112,7 @@ namespace OpenLoco
         for (const auto part : getBuildingParts(0))
         {
             auto image = baseImage.withIndexOffset(part * 4 + 1);
-            drawingCtx.drawImage(pos, image);
+            drawingCtx.drawImage(ZoomLevel::full, pos, image);
             pos.y -= partHeights[part];
         }
     }

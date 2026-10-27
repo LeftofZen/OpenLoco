@@ -1,4 +1,4 @@
-#include "Vehicle1.h"
+#include "Vehicles/Vehicle1.h"
 #include "Audio/Audio.h"
 #include "Entities/EntityManager.h"
 #include "Map/TileManager.h"
@@ -10,11 +10,11 @@
 #include "Objects/RoadObject.h"
 #include "Objects/TrackObject.h"
 #include "Random.h"
-#include "RoutingManager.h"
-#include "Vehicle2.h"
-#include "VehicleBogie.h"
-#include "VehicleHead.h"
-#include "VehicleTail.h"
+#include "Vehicles/RoutingManager.h"
+#include "Vehicles/Vehicle2.h"
+#include "Vehicles/VehicleBogie.h"
+#include "Vehicles/VehicleHead.h"
+#include "Vehicles/VehicleTail.h"
 #include "ViewportManager.h"
 
 using namespace OpenLoco::Literals;
@@ -99,9 +99,7 @@ namespace OpenLoco::Vehicles
             newTargetSpeed = std::min(newTargetSpeed, train.veh2->rackRailMaxSpeed);
         }
 
-        // TODO: Original CS Bug. Fix when we diverge on replays
-        // newTargetSpeed = std::min(newTargetSpeed, toSpeed16(speedFromDistanceInATick(var_3C)) + 5_mph);
-        newTargetSpeed = std::min(newTargetSpeed, Speed16(static_cast<uint32_t>(var_3C) >> 15) + 5_mph);
+        newTargetSpeed = std::min(newTargetSpeed, toSpeed16(speedFromDistanceInATick(var_3C)) + 5_mph);
 
         if ((train.head->hasVehicleFlags(VehicleFlags::manualControl) && train.head->manualPower <= -20)
             || train.head->hasVehicleFlags(VehicleFlags::commandStop))
@@ -143,15 +141,13 @@ namespace OpenLoco::Vehicles
             return;
         }
 
-        gPrng1().randNext(); // TODO: Remove when we can diverge from vanilla
-
         const auto soundNum = (vehObj->numStartSounds & NumStartSounds::kMask) - 1;
         const auto soundObjId = vehObj->startSounds[soundNum];
 
         const auto height = World::TileManager::getHeight(veh2.position);
         const auto volume = veh2.position.z < height.landHeight ? -1500 : 0;
 
-        Audio::playSound(Audio::makeObjectSoundId(soundObjId), veh2.position + World::Pos3{ 0, 0, 22 }, volume, 22050);
+        Audio::playSound(Audio::makeObjectSoundId(soundObjId), Audio::ChannelId::vehicles, veh2.position + World::Pos3{ 0, 0, 22 }, volume, 22050);
     }
 
     // 0x004A97A6
@@ -207,9 +203,7 @@ namespace OpenLoco::Vehicles
 
         if (!train.head->hasVehicleFlags(VehicleFlags::manualControl))
         {
-            // TODO: Original CS Bug. Fix when we diverge on replays
-            // newTargetSpeed = std::min(newTargetSpeed, toSpeed16(speedFromDistanceInATick(var_3C)) + 5_mph);
-            newTargetSpeed = std::min(newTargetSpeed, Speed16(static_cast<uint32_t>(var_3C) >> 15) + 5_mph);
+            newTargetSpeed = std::min(newTargetSpeed, toSpeed16(speedFromDistanceInATick(var_3C)) + 5_mph);
         }
 
         if ((train.head->hasVehicleFlags(VehicleFlags::manualControl) && train.head->manualPower <= -20)
@@ -344,7 +338,7 @@ namespace OpenLoco::Vehicles
 
         TrackAndDirection::_RoadAndDirection newRad(0, 0);
         newRad._data = routing & 0x1FFU;
-        veh1.sub_47D959(newPos, newRad, true);
+        veh1.updateRoadTileOccupancy(newPos, newRad, true);
 
         veh1.routingHandle = newRoutingHandle;
         veh1.trackAndDirection.road = newRad;
@@ -485,8 +479,12 @@ namespace OpenLoco::Vehicles
 
         const auto newDistance = vehicle1UpdateRoadMotionByPieces(veh1, numRoadPieces);
         veh1.var_3C += newDistance;
+
         auto* head = EntityManager::get<VehicleHead>(veh1.head);
-        head->var_3C += newDistance - noOvertakeDistance;
+        if (head != nullptr)
+        {
+            head->var_3C += newDistance - noOvertakeDistance;
+        }
     }
 
     // 0x0047D52B
@@ -517,10 +515,14 @@ namespace OpenLoco::Vehicles
 
         const auto newDistance = vehicle1UpdateRoadMotionByPieces(veh1, numRoadPieces);
         veh1.var_3C += newDistance;
+
         auto* head = EntityManager::get<VehicleHead>(veh1.head);
-        head->var_3C += newDistance - noOvertakeDistance;
-        head->trackAndDirection.road._data &= kResetRouting;
-        head->trackAndDirection.road._data |= numRoadPieces <= 1 ? World::Track::AdditionalTaDFlags::isChangingLane : World::Track::AdditionalTaDFlags::isOvertaking;
+        if (head != nullptr)
+        {
+            head->var_3C += newDistance - noOvertakeDistance;
+            head->trackAndDirection.road._data &= kResetRouting;
+            head->trackAndDirection.road._data |= numRoadPieces <= 1 ? World::Track::AdditionalTaDFlags::isChangingLane : World::Track::AdditionalTaDFlags::isOvertaking;
+        }
     }
 
     enum class LookaheadType
@@ -634,10 +636,17 @@ namespace OpenLoco::Vehicles
                 }
             }
             // 0x0047CFB5
-            const auto& roadObj = ObjectManager::get<RoadObject>(veh1.trackType);
-            if (!roadObj->hasFlags(RoadObjectFlags::isRoad))
+            // Note: Vanilla would not perform this check leading to
+            // invalid memory access. Unsure if we should perform something
+            // different but this should at least be safe to do (its not like
+            // you would have track type of 0xff unless you were on a road)
+            if (veh1.trackType != 0xFFU)
             {
-                return LookaheadResult{ LookaheadType::none, 0 };
+                const auto& roadObj = ObjectManager::get<RoadObject>(veh1.trackType);
+                if (!roadObj->hasFlags(RoadObjectFlags::isRoad))
+                {
+                    return LookaheadResult{ LookaheadType::none, 0 };
+                }
             }
             if (tad.isChangingLane() || tad.isOvertaking())
             {
@@ -717,6 +726,11 @@ namespace OpenLoco::Vehicles
         }
 
         auto* head = EntityManager::get<VehicleHead>(component.head);
+        if (head == nullptr)
+        {
+            return RoadMotionNewPieceResult::noFurther;
+        }
+
         if (head->var_52 != 1)
         {
             auto res = lookaheadRoad(component);
@@ -773,7 +787,7 @@ namespace OpenLoco::Vehicles
             return RoadMotionNewPieceResult::noFurther;
         }
 
-        const auto newTrackType = component.sub_47D959(nextPos, newRad, true);
+        const auto newTrackType = component.updateRoadTileOccupancy(nextPos, newRad, true);
 
         component.trackType = newTrackType;
         component.routingHandle = newRoutingHandle;
@@ -830,9 +844,7 @@ namespace OpenLoco::Vehicles
         }
         if (hasMoved)
         {
-            Ui::ViewportManager::invalidate(this, ZoomLevel::eighth);
             this->moveTo(intermediatePosition);
-            Ui::ViewportManager::invalidate(this, ZoomLevel::eighth);
         }
         return result;
     }

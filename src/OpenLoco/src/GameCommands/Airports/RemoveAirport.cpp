@@ -1,4 +1,4 @@
-#include "RemoveAirport.h"
+#include "GameCommands/Airports/RemoveAirport.h"
 #include "Economy/Economy.h"
 #include "Localisation/StringIds.h"
 #include "Map/StationElement.h"
@@ -47,13 +47,13 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x004938D9
-    static bool removeAirportTileElement(const World::Pos3& pos, const AirportObject* airportObj, const uint8_t buildingIndex, const uint8_t flags)
+    static bool removeAirportTileElement(const World::Pos3& pos, const AirportObject* airportObj, const uint8_t buildingIndex, const Flags flags)
     {
         for (auto& searchTile : getBuildingTileOffsets(airportObj->largeTiles & (1U << buildingIndex)))
         {
             const auto airportPos = World::Pos3(searchTile.pos + pos, pos.z);
 
-            if ((flags & Flags::aiAllocated) != 0 && (flags & Flags::apply) != 0)
+            if (hasFlags(flags, Flags::aiAllocated) && hasFlags(flags, Flags::apply))
             {
                 auto tile = World::TileManager::get(airportPos);
                 auto* surfaceEl = tile.surface();
@@ -63,23 +63,41 @@ namespace OpenLoco::GameCommands
                 }
             }
 
-            if ((flags & Flags::apply) == 0)
+            if (!hasFlags(flags, Flags::apply))
             {
                 continue;
             }
 
-            auto* stationEl = getStationEl(airportPos);
-            if (stationEl == nullptr)
+            World::TileElementEntry* stationEntry = nullptr;
+            World::StationElement* stationEl = nullptr;
+            {
+                auto tile = World::TileManager::get(airportPos);
+                for (auto& el : tile)
+                {
+                    auto* candidate = el.as<World::StationElement>();
+                    if (candidate == nullptr)
+                    {
+                        continue;
+                    }
+                    if (candidate->baseHeight() == airportPos.z)
+                    {
+                        stationEntry = &el;
+                        stationEl = candidate;
+                        break;
+                    }
+                }
+            }
+            if (stationEntry == nullptr)
             {
                 return false;
             }
 
-            if ((flags & (Flags::aiAllocated)) == 0)
+            if (!hasFlags(flags, Flags::aiAllocated))
             {
                 Ui::ViewportManager::invalidate(World::Pos2(airportPos), stationEl->baseHeight(), stationEl->clearHeight(), ZoomLevel::eighth);
             }
 
-            World::TileManager::removeElement(*reinterpret_cast<World::TileElement*>(stationEl));
+            World::TileManager::removeElement(*stationEntry);
         }
 
         return true;
@@ -112,7 +130,7 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x0049372F
-    static currency32_t loc_49372F(const StationId stationId, const World::StationElement& stationEl, const World::Pos3 pos, const uint8_t flags)
+    static currency32_t loc_49372F(const StationId stationId, const World::StationElement& stationEl, const World::Pos3 pos, const Flags flags)
     {
         const auto rotation = stationEl.rotation();
         const auto objectId = stationEl.objectId();
@@ -121,7 +139,7 @@ namespace OpenLoco::GameCommands
         {
             if (isAirportInUseByVehicle(stationId))
             {
-                return FAILURE;
+                return kFailure;
             }
         }
 
@@ -132,9 +150,9 @@ namespace OpenLoco::GameCommands
 
         // Adjust number of airports for nearest town
         auto maybeTown = TownManager::getClosestTownAndDensity(pos);
-        if (maybeTown && (flags & Flags::apply) != 0)
+        if (maybeTown && hasFlags(flags, Flags::apply))
         {
-            if ((flags & (Flags::aiAllocated | Flags::ghost)) == 0)
+            if (!hasFlags(flags, Flags::aiAllocated | Flags::ghost))
             {
                 auto* town = TownManager::get(maybeTown->first);
                 town->numberOfAirports--;
@@ -159,13 +177,13 @@ namespace OpenLoco::GameCommands
 
             if (!removeAirportTileElement(worldPos, airportObj, building.index, flags))
             {
-                return FAILURE;
+                return kFailure;
             }
         }
 
         // 0x00493858
         // Should we update the station meta data?
-        if ((flags & Flags::ghost) == 0 && (flags & Flags::apply) != 0)
+        if (!hasFlags(flags, Flags::ghost) && hasFlags(flags, Flags::apply))
         {
             auto* station = StationManager::get(stationId);
 
@@ -183,7 +201,7 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x00493559
-    static currency32_t removeAirport(const AirportRemovalArgs& args, const uint8_t flags)
+    static currency32_t removeAirport(const AirportRemovalArgs& args, const Flags flags)
     {
         setExpenditureType(ExpenditureType::Construction);
         setPosition(args.pos + World::Pos3(16, 16, 0));
@@ -192,11 +210,11 @@ namespace OpenLoco::GameCommands
         auto* stationEl = getStationEl(args.pos);
         if (stationEl == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
         StationId stationId = StationId::null;
-        if ((flags & Flags::ghost) != 0)
+        if (hasFlags(flags, Flags::ghost))
         {
             return loc_49372F(stationId, *stationEl, args.pos, flags);
         }
@@ -223,7 +241,7 @@ namespace OpenLoco::GameCommands
             stationEl = getStationEl(tilePos);
             if (stationEl == nullptr)
             {
-                return FAILURE;
+                return kFailure;
             }
 
             // 0x0049364C
@@ -269,15 +287,15 @@ namespace OpenLoco::GameCommands
 
         if (foundStationEl == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
         // 0x00493719
         return loc_49372F(stationId, *foundStationEl, foundPos, flags);
     }
 
-    void removeAirport(registers& regs)
+    void removeAirport(registers& regs, const Flags flags)
     {
-        regs.ebx = removeAirport(AirportRemovalArgs(regs), regs.bl);
+        regs.ebx = removeAirport(AirportRemovalArgs(regs), flags);
     }
 }

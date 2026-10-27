@@ -1,16 +1,16 @@
-#include "SnowObject.h"
+#include "Objects/SnowObject.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
-#include "ObjectImageTable.h"
-#include "ObjectManager.h"
-#include "ObjectStringTable.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectManager.h"
+#include "Objects/ObjectStringTable.h"
 
 namespace OpenLoco
 {
     // 0x00469A75
     void SnowObject::drawPreviewImage(Gfx::DrawingContext& drawingCtx, const int16_t x, const int16_t y) const
     {
-        drawingCtx.drawImage(x, y, image);
+        drawingCtx.drawImage(ZoomLevel::full, x, y, image);
     }
 
     // 0x00469A35

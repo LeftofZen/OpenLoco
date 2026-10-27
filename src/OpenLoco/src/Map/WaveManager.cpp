@@ -1,15 +1,15 @@
-#include "WaveManager.h"
+#include "Map/WaveManager.h"
 #include "Engine/Limits.h"
 #include "Game.h"
 #include "GameState.h"
 #include "GameStateFlags.h"
+#include "Map/SurfaceElement.h"
+#include "Map/TileManager.h"
+#include "Map/Wave.h"
 #include "Random.h"
 #include "Scenario/ScenarioManager.h"
-#include "SurfaceElement.h"
-#include "TileManager.h"
 #include "Ui/WindowManager.h"
 #include "ViewportManager.h"
-#include "Wave.h"
 #include <OpenLoco/Core/LocoFixedVector.hpp>
 #include <OpenLoco/Core/Prng.h>
 
@@ -94,7 +94,7 @@ namespace OpenLoco::World::WaveManager
     }
 
     // 0x004C56F6
-    void update()
+    void tick()
     {
         if (!Game::hasFlags(GameStateFlags::tileManagerLoaded) || (ScenarioManager::getScenarioTicks() & 0x3))
         {

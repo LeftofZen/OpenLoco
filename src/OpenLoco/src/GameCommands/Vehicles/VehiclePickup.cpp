@@ -1,4 +1,4 @@
-#include "VehiclePickup.h"
+#include "GameCommands/Vehicles/VehiclePickup.h"
 #include "Audio/Audio.h"
 #include "Economy/Expenditures.h"
 #include "Entities/EntityManager.h"
@@ -20,43 +20,43 @@ namespace OpenLoco::Vehicles
     void playPickupSound(Vehicles::Vehicle2* veh2)
     {
         const auto frequency = gPrng2().randNext(20003, 24098);
-        Audio::playSound(Audio::SoundId::vehiclePickup, veh2->position, -1000, frequency);
+        Audio::playSound(Audio::SoundId::vehiclePickup, Audio::ChannelId::ui, veh2->position, -1000, frequency);
     }
 }
 
 namespace OpenLoco::GameCommands
 {
     // 0x004B0826
-    static uint32_t vehiclePickup(const uint8_t flags, EntityId headId)
+    static uint32_t vehiclePickup(const Flags flags, EntityId headId)
     {
         GameCommands::setExpenditureType(ExpenditureType::TrainRunningCosts);
 
         auto* head = EntityManager::get<Vehicles::VehicleHead>(headId);
         if (head == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
         auto train = Vehicles::Vehicle(*head);
         auto* veh2 = train.veh2;
 
         GameCommands::setPosition(veh2->position);
 
-        if (!GameCommands::sub_431E6A(head->owner))
+        if (!GameCommands::checkCompanyCompatibility(head->owner))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         if (!head->canBeModified())
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if (!(flags & GameCommands::Flags::apply))
+        if (!hasFlags(flags, GameCommands::Flags::apply))
         {
             return 0;
         }
 
-        if (!(flags & GameCommands::Flags::ghost))
+        if (!hasFlags(flags, GameCommands::Flags::ghost))
         {
             Vehicles::playPickupSound(veh2);
         }
@@ -71,8 +71,8 @@ namespace OpenLoco::GameCommands
         return 0;
     }
 
-    void vehiclePickup(registers& regs)
+    void vehiclePickup(registers& regs, const Flags flags)
     {
-        regs.ebx = vehiclePickup(regs.bl, EntityId(regs.di));
+        regs.ebx = vehiclePickup(flags, EntityId(regs.di));
     }
 }

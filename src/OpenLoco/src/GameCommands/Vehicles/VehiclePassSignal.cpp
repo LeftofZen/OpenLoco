@@ -1,4 +1,4 @@
-#include "VehiclePassSignal.h"
+#include "GameCommands/Vehicles/VehiclePassSignal.h"
 #include "Economy/Expenditures.h"
 #include "Entities/EntityManager.h"
 #include "GameCommands/GameCommands.h"
@@ -11,7 +11,7 @@
 namespace OpenLoco::GameCommands
 {
     // 0x004B0B50
-    static uint32_t vehiclePassSignal(EntityId headId, const uint8_t flags)
+    static uint32_t vehiclePassSignal(EntityId headId, const Flags flags)
     {
         setExpenditureType(ExpenditureType::TrainRunningCosts);
 
@@ -21,17 +21,17 @@ namespace OpenLoco::GameCommands
             setPosition(train.veh2->position);
 
             auto& head = train.head;
-            if (!sub_431E6A(head->owner))
+            if (!checkCompanyCompatibility(head->owner))
             {
-                return FAILURE;
+                return kFailure;
             }
 
             if (!head->canBeModified())
             {
-                return FAILURE;
+                return kFailure;
             }
 
-            if (!(flags & Flags::apply))
+            if (!hasFlags(flags, Flags::apply))
             {
                 return 0;
             }
@@ -47,13 +47,13 @@ namespace OpenLoco::GameCommands
         }
         catch (std::runtime_error&)
         {
-            return FAILURE;
+            return kFailure;
         }
     }
 
-    void vehiclePassSignal(registers& regs)
+    void vehiclePassSignal(registers& regs, const Flags flags)
     {
         VehiclePassSignalArgs args(regs);
-        regs.ebx = vehiclePassSignal(args.head, regs.bl);
+        regs.ebx = vehiclePassSignal(args.head, flags);
     }
 }

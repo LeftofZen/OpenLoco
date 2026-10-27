@@ -1,4 +1,4 @@
-#include "RenameVehicle.h"
+#include "GameCommands/Vehicles/RenameVehicle.h"
 #include "Economy/Expenditures.h"
 #include "Entities/EntityManager.h"
 #include "GameCommands/GameCommands.h"
@@ -10,8 +10,8 @@
 #include "Vehicles/Vehicle.h"
 #include "Vehicles/VehicleHead.h"
 
+#include <OpenLoco/Utility/LookupTable.hpp>
 #include <array>
-#include <unordered_map>
 
 namespace OpenLoco::GameCommands
 {
@@ -26,9 +26,9 @@ namespace OpenLoco::GameCommands
      * @param buffer0 @<edx> - First group of 4 characters of a 12 character update buffer
      * @param buffer1 @<dx> - Second group of 4 characters of a 12 character update buffer
      * @param buffer2 @<bp> - Third group of 4 characters of a 12 character update buffer
-     * @return @<ebx> - if rename is successful, return 0, if failed, return FAILURE
+     * @return @<ebx> - if rename is successful, return 0, if failed, return kFailure
      */
-    static uint32_t renameVehicle(const VehicleRenameArgs& args, const uint8_t flags)
+    static uint32_t renameVehicle(const VehicleRenameArgs& args, const Flags flags)
     {
         setExpenditureType(ExpenditureType::TrainRunningCosts);
 
@@ -40,7 +40,7 @@ namespace OpenLoco::GameCommands
 
         static char staticRenameBuffer[37]{};
 
-        if ((flags & Flags::apply) != 0)
+        if (hasFlags(flags, Flags::apply))
         {
             static constexpr std::array<int, 3> kTransformTable = { 2, 0, 1 };
             int arrayIndex = kTransformTable.at(args.i);
@@ -57,7 +57,7 @@ namespace OpenLoco::GameCommands
 
         if (vehicleHead == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
         char renameStringBuffer[37] = "";
         memcpy(renameStringBuffer, staticRenameBuffer, sizeof(staticRenameBuffer));
@@ -79,9 +79,9 @@ namespace OpenLoco::GameCommands
             allocatedStringId = StringManager::userStringAllocate(renameStringBuffer, true);
             if (allocatedStringId == StringIds::empty)
             {
-                return FAILURE;
+                return kFailure;
             }
-            if ((flags & Flags::apply) == 0)
+            if (!hasFlags(flags, Flags::apply))
             {
                 StringManager::emptyUserString(allocatedStringId);
                 return 0;
@@ -89,19 +89,19 @@ namespace OpenLoco::GameCommands
         }
         else
         {
-            if ((flags & Flags::apply) == 0)
+            if (!hasFlags(flags, Flags::apply))
             {
                 return 0;
             }
 
-            static const std::unordered_map<VehicleType, StringId> defaultVehicleStringIdMap = {
+            static constexpr auto defaultVehicleStringIdMap = Utility::buildLookupTable<VehicleType, StringId>({
                 { VehicleType::train, StringIds::train_number },
                 { VehicleType::bus, StringIds::bus_number },
                 { VehicleType::truck, StringIds::truck_number },
                 { VehicleType::tram, StringIds::tram_number },
                 { VehicleType::aircraft, StringIds::aircraft_number },
-                { VehicleType::ship, StringIds::ship_number }
-            };
+                { VehicleType::ship, StringIds::ship_number },
+            });
             allocatedStringId = defaultVehicleStringIdMap.at(vehicleHead->vehicleType);
         }
 
@@ -112,9 +112,9 @@ namespace OpenLoco::GameCommands
         return 0;
     }
 
-    void renameVehicle(registers& regs)
+    void renameVehicle(registers& regs, const Flags flags)
     {
-        regs.ebx = renameVehicle(VehicleRenameArgs(regs), regs.bl);
+        regs.ebx = renameVehicle(VehicleRenameArgs(regs), flags);
     }
 
 }

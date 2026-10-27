@@ -1,10 +1,4 @@
-#include "MapGenerator.h"
-#include "../SurfaceElement.h"
-#include "../Tile.h"
-#include "../TileLoop.hpp"
-#include "../TileManager.h"
-#include "../Tree.h"
-#include "../TreeElement.h"
+#include "Map/MapGenerator/MapGenerator.h"
 #include "Date.h"
 #include "GameCommands/Buildings/CreateBuilding.h"
 #include "GameCommands/GameCommands.h"
@@ -12,17 +6,23 @@
 #include "GameState.h"
 #include "Input.h"
 #include "Localisation/StringIds.h"
+#include "Map/MapGenerator/OriginalTerrainGenerator.h"
+#include "Map/MapGenerator/PngTerrainGenerator.h"
+#include "Map/MapGenerator/SimplexTerrainGenerator.h"
+#include "Map/SurfaceElement.h"
+#include "Map/Tile.h"
+#include "Map/TileLoop.hpp"
+#include "Map/TileManager.h"
+#include "Map/Tree.h"
+#include "Map/TreeElement.h"
 #include "Objects/BuildingObject.h"
 #include "Objects/HillShapesObject.h"
 #include "Objects/IndustryObject.h"
 #include "Objects/LandObject.h"
 #include "Objects/ObjectManager.h"
-#include "OriginalTerrainGenerator.h"
-#include "PngTerrainGenerator.h"
 #include "Random.h"
 #include "Scenario/Scenario.h"
 #include "Scenario/ScenarioOptions.h"
-#include "SimplexTerrainGenerator.h"
 #include "Ui/ProgressBar.h"
 #include "Ui/WindowManager.h"
 #include "World/TownManager.h"
@@ -246,9 +246,9 @@ namespace OpenLoco::World::MapGenerator
                 return landObjectIdx;
             }
         }
-        if (getGameState().lastLandOption != 0xFF)
+        if (getGameState().defaultLandObjectId != 0xFF)
         {
-            return getGameState().lastLandOption;
+            return getGameState().defaultLandObjectId;
         }
         return std::nullopt;
     }
@@ -282,7 +282,7 @@ namespace OpenLoco::World::MapGenerator
         {
             return 0;
         }
-        return ((randVal & 0xFF) * landObj->numVariations) >> 8;
+        return ((randVal & 0xFF) * (landObj->numVariations + 1)) >> 8;
     }
 
     static void applySurfaceStyleToMarkedTiles(HeightMap& heightMap, uint8_t surfaceStyle, bool requireMark)
@@ -346,7 +346,7 @@ namespace OpenLoco::World::MapGenerator
         for (auto pos : getWorldRange())
         {
             auto height = heightMap.getHeight({ pos.x, pos.y });
-            if (height < seaLevel)
+            if (height > seaLevel)
             {
                 continue;
             }
@@ -472,14 +472,14 @@ namespace OpenLoco::World::MapGenerator
         // Mark tiles with sudden height changes in the next row
         for (auto pos : getDrawableTileRange())
         {
-            auto heightA = heightMap.getHeight({ pos + TilePos2{ 0, 1 } });
+            auto heightA = heightMap.getHeight({ pos + TilePos2{ 0, 0 } });
             auto heightB = heightMap.getHeight({ pos + TilePos2{ 0, 1 } });
 
             // Find no cliff between A and B?
             if (std::abs(heightB - heightA) < kCliffTerrainHeightDiff)
             {
-                auto heightC = heightMap.getHeight({ pos + TilePos2{ 0, 1 } });
-                auto heightD = heightMap.getHeight({ pos + TilePos2{ 0, 1 } });
+                auto heightC = heightMap.getHeight({ pos + TilePos2{ 0, 0 } });
+                auto heightD = heightMap.getHeight({ pos + TilePos2{ 1, 0 } });
 
                 // Find no cliff between C and D?
                 if (std::abs(heightD - heightC) < kCliffTerrainHeightDiff)
@@ -553,6 +553,7 @@ namespace OpenLoco::World::MapGenerator
 
         for (auto i = 0U; i < landDistributionPatterns.size(); i++)
         {
+            const auto distPattern = landDistributionPatterns[i];
             updateProgress(55 + 12 * i);
 
             for (uint8_t landObjectIdx = 0; landObjectIdx < ObjectManager::getMaxObjects(ObjectType::land); ++landObjectIdx)
@@ -564,7 +565,6 @@ namespace OpenLoco::World::MapGenerator
                 }
 
                 const auto typePattern = Scenario::getOptions().landDistributionPatterns[landObjectIdx];
-                const auto distPattern = landDistributionPatterns[i];
                 if (typePattern != distPattern)
                 {
                     continue;
@@ -681,7 +681,7 @@ namespace OpenLoco::World::MapGenerator
         // Cull trees that are too high / low
         uint32_t randMask = gPrng1().randNext();
         uint32_t i = 0;
-        std::vector<TileElement*> toBeRemoved;
+        std::vector<TileElementEntry*> toBeRemoved;
         for (auto& loc : getWorldRange())
         {
             auto tile = TileManager::get(loc);
@@ -903,7 +903,7 @@ namespace OpenLoco::World::MapGenerator
                 args.colour = Colour::black;
                 args.buildImmediately = true;
 
-                if (GameCommands::doCommand(args, GameCommands::Flags::apply) != GameCommands::FAILURE)
+                if (GameCommands::doCommand(args, GameCommands::Flags::apply) != GameCommands::kFailure)
                 {
                     break;
                 }
@@ -1084,6 +1084,7 @@ namespace OpenLoco::World::MapGenerator
 
         WindowManager::close(WindowType::town);
         WindowManager::close(WindowType::industry);
+
         Ui::ProgressBar::begin(StringIds::generating_landscape);
 
         auto rotation = WindowManager::getCurrentRotation();
@@ -1135,6 +1136,9 @@ namespace OpenLoco::World::MapGenerator
         Scenario::sub_4969E0(0);
         Scenario::sub_4748D4();
         Ui::ProgressBar::end();
+
+        Ui::Windows::IndustryList::refreshList();
+        Ui::Windows::TownList::refreshList();
     }
 
     void setPngHeightmapPath(const fs::path& path)

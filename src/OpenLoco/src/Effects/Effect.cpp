@@ -1,46 +1,46 @@
-#include "Effect.h"
-#include "ExhaustEffect.h"
-#include "ExplosionEffect.h"
-#include "ExplosionSmokeEffect.h"
-#include "FireballEffect.h"
-#include "MoneyEffect.h"
-#include "SmokeEffect.h"
-#include "SplashEffect.h"
-#include "VehicleCrashEffect.h"
+#include "Effects/Effect.h"
+#include "Effects/ExhaustEffect.h"
+#include "Effects/ExplosionEffect.h"
+#include "Effects/ExplosionSmokeEffect.h"
+#include "Effects/FireballEffect.h"
+#include "Effects/MoneyEffect.h"
+#include "Effects/SmokeEffect.h"
+#include "Effects/SplashEffect.h"
+#include "Effects/VehicleCrashEffect.h"
 
 namespace OpenLoco
 {
     // 0x004405CD
-    void EffectEntity::update()
+    void EffectEntity::tick()
     {
         switch (getSubType())
         {
             case EffectType::exhaust:
-                asExhaust()->update();
+                asExhaust()->tick();
                 break;
             case EffectType::redGreenCurrency:
-                asRedGreenCurrency()->update();
+                asRedGreenCurrency()->tick();
                 break;
             case EffectType::windowCurrency:
-                asWindowCurrency()->update();
+                asWindowCurrency()->tick();
                 break;
             case EffectType::vehicleCrashParticle:
-                asVehicleCrashParticle()->update();
+                asVehicleCrashParticle()->tick();
                 break;
             case EffectType::explosionCloud:
-                asExplosionCloud()->update();
+                asExplosionCloud()->tick();
                 break;
             case EffectType::splash:
-                asSplash()->update();
+                asSplash()->tick();
                 break;
             case EffectType::fireball:
-                asFireball()->update();
+                asFireball()->tick();
                 break;
             case EffectType::explosionSmoke:
-                asExplosionSmoke()->update();
+                asExplosionSmoke()->tick();
                 break;
             case EffectType::smoke:
-                asSmoke()->update();
+                asSmoke()->tick();
                 break;
         }
     }

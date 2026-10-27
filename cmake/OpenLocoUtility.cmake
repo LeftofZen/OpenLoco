@@ -100,6 +100,11 @@ function(_loco_add_target TARGET TYPE)
                 $<$<BOOL:${_LIBRARY}>:${TARGET}>
                 GTest::gtest_main)
 
+        if (_LIBRARY)
+            target_include_directories(${TEST_TARGET} PRIVATE
+                $<TARGET_PROPERTY:${TARGET},INCLUDE_DIRECTORIES>)
+        endif()
+
         include(GoogleTest)
 
         gtest_discover_tests(${TEST_TARGET})
@@ -209,9 +214,10 @@ function(_loco_add_headers_check TARGET)
         add_library(${TARGET}-public-headers-check OBJECT ${WRAPPER_FILES})
         set_target_properties(${TARGET}-public-headers-check PROPERTIES LINKER_LANGUAGE CXX)
         target_include_directories(${TARGET}-public-headers-check PUBLIC
+            $<TARGET_PROPERTY:${TARGET},INCLUDE_DIRECTORIES>
             $<TARGET_PROPERTY:${TARGET},INTERFACE_INCLUDE_DIRECTORIES>)
         target_link_libraries(${TARGET}-public-headers-check PUBLIC
-            $<TARGET_PROPERTY:${TARGET},INTERFACE_LINK_LIBRARIES>)
+            $<GENEX_EVAL:$<TARGET_PROPERTY:${TARGET},INTERFACE_LINK_LIBRARIES>>)
         add_dependencies(all-headers-check ${TARGET}-public-headers-check)
     endif()
     
@@ -247,8 +253,8 @@ function(_loco_add_headers_check TARGET)
             $<TARGET_PROPERTY:${TARGET},INCLUDE_DIRECTORIES>
             $<TARGET_PROPERTY:${TARGET},INTERFACE_INCLUDE_DIRECTORIES>)
         target_link_libraries(${TARGET}-private-headers-check PUBLIC
-            $<TARGET_PROPERTY:${TARGET},LINK_LIBRARIES>
-            $<TARGET_PROPERTY:${TARGET},INTERFACE_LINK_LIBRARIES>)
+            $<GENEX_EVAL:$<TARGET_PROPERTY:${TARGET},LINK_LIBRARIES>>
+            $<GENEX_EVAL:$<TARGET_PROPERTY:${TARGET},INTERFACE_LINK_LIBRARIES>>)
         add_dependencies(all-headers-check ${TARGET}-private-headers-check)
     endif()
 endfunction()

@@ -1,4 +1,4 @@
-#include "VehicleManager.h"
+#include "Vehicles/VehicleManager.h"
 #include "Audio/Audio.h"
 #include "Date.h"
 #include "Entities/EntityManager.h"
@@ -12,25 +12,25 @@
 #include "Map/Track/TrackData.h"
 #include "MessageManager.h"
 #include "Objects/ObjectManager.h"
-#include "OrderManager.h"
-#include "Orders.h"
-#include "RoutingManager.h"
 #include "SceneManager.h"
 #include "Ui/WindowManager.h"
-#include "Vehicle.h"
-#include "Vehicle1.h"
-#include "Vehicle2.h"
-#include "VehicleBody.h"
-#include "VehicleBogie.h"
-#include "VehicleHead.h"
-#include "VehicleTail.h"
+#include "Vehicles/OrderManager.h"
+#include "Vehicles/Orders.h"
+#include "Vehicles/RoutingManager.h"
+#include "Vehicles/Vehicle.h"
+#include "Vehicles/Vehicle1.h"
+#include "Vehicles/Vehicle2.h"
+#include "Vehicles/VehicleBody.h"
+#include "Vehicles/VehicleBogie.h"
+#include "Vehicles/VehicleHead.h"
+#include "Vehicles/VehicleTail.h"
 #include "World/Company.h"
 #include "World/CompanyManager.h"
 
 namespace OpenLoco::VehicleManager
 {
     // 0x004A8826
-    void update()
+    void tick()
     {
         if (Game::hasFlags(GameStateFlags::tileManagerLoaded) && !SceneManager::isEditorMode())
         {
@@ -372,7 +372,7 @@ namespace OpenLoco::VehicleManager
         if (vehBuildWnd != nullptr)
         {
             vehBuildWnd->invalidate();
-            Ui::Windows::BuildVehicle::sub_4B92A5(vehBuildWnd);
+            Ui::Windows::BuildVehicle::sub_4B92A5(*vehBuildWnd);
         }
 
         // 0x004AF0A3
@@ -389,8 +389,7 @@ namespace OpenLoco::VehicleManager
                 GameCommands::VehiclePickupAirArgs airArgs{};
                 airArgs.head = head.id;
                 GameCommands::registers regs = static_cast<GameCommands::registers>(airArgs);
-                regs.bl = GameCommands::Flags::apply;
-                GameCommands::vehiclePickupAir(regs);
+                GameCommands::vehiclePickupAir(regs, GameCommands::Flags::apply);
                 break;
             }
             case TransportMode::water:
@@ -400,8 +399,7 @@ namespace OpenLoco::VehicleManager
                 GameCommands::VehiclePickupWaterArgs waterArgs{};
                 waterArgs.head = head.id;
                 GameCommands::registers regs = static_cast<GameCommands::registers>(waterArgs);
-                regs.bl = GameCommands::Flags::apply;
-                GameCommands::vehiclePickupWater(regs);
+                GameCommands::vehiclePickupWater(regs, GameCommands::Flags::apply);
             }
         }
 

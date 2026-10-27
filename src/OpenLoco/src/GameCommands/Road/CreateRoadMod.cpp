@@ -1,4 +1,4 @@
-#include "CreateRoadMod.h"
+#include "GameCommands/Road/CreateRoadMod.h"
 #include "Map/RoadElement.h"
 #include "Map/TileManager.h"
 #include "Map/Track/TrackData.h"
@@ -47,12 +47,12 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x0047A21E
-    static uint32_t createRoadMod(const RoadModsPlacementArgs& args, uint8_t flags)
+    static uint32_t createRoadMod(const RoadModsPlacementArgs& args, Flags flags)
     {
         auto* roadEl = getRoadElement(args);
-        if (roadEl == nullptr || !sub_431E6A(roadEl->owner(), reinterpret_cast<const World::TileElement*>(roadEl)))
+        if (roadEl == nullptr || !checkCompanyCompatibility(roadEl->owner(), *roadEl))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         auto& piece = World::TrackData::getRoadPiece(args.roadId)[roadEl->sequenceIndex()];
@@ -66,9 +66,9 @@ namespace OpenLoco::GameCommands
         if (result.allPlacementsFailed)
         {
             setErrorText(StringIds::track_road_unsuitable);
-            return FAILURE;
+            return kFailure;
         }
-        if (result.networkTooComplex && (flags & Flags::apply) && !(flags & Flags::ghost))
+        if (result.networkTooComplex && hasFlags(flags, Flags::apply) && !hasFlags(flags, Flags::ghost))
         {
             Ui::Windows::Error::open(StringIds::null, StringIds::too_much_track_some_track_not_upgraded);
         }
@@ -76,8 +76,8 @@ namespace OpenLoco::GameCommands
         return result.cost;
     }
 
-    void createRoadMod(registers& regs)
+    void createRoadMod(registers& regs, const Flags flags)
     {
-        regs.ebx = createRoadMod(RoadModsPlacementArgs(regs), regs.bl);
+        regs.ebx = createRoadMod(RoadModsPlacementArgs(regs), flags);
     }
 }

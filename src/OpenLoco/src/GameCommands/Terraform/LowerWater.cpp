@@ -1,4 +1,4 @@
-#include "LowerWater.h"
+#include "GameCommands/Terraform/LowerWater.h"
 #include "Audio/Audio.h"
 #include "Economy/Expenditures.h"
 #include "GameCommands/GameCommands.h"
@@ -14,7 +14,7 @@ using namespace OpenLoco::World;
 namespace OpenLoco::GameCommands
 {
     // 0x004C5126
-    static uint32_t lowerWater(const LowerWaterArgs& args, const uint8_t flags)
+    static uint32_t lowerWater(const LowerWaterArgs& args, const Flags flags)
     {
         // We keep track of removed buildings for each tile visited
         // this prevents accidentally double counting their removal
@@ -22,7 +22,7 @@ namespace OpenLoco::GameCommands
         World::TileClearance::RemovedBuildings removedBuildings{};
         auto totalCost = 0;
 
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
             Scenario::getOptions().madeAnyChanges = 1;
         }
@@ -57,9 +57,9 @@ namespace OpenLoco::GameCommands
 
                 waterHeight -= kSmallZStep;
                 auto cost = TileManager::adjustWaterHeight(toWorldSpace(tilePos), waterHeight, removedBuildings, flags);
-                if (cost == FAILURE)
+                if (cost == kFailure)
                 {
-                    return FAILURE;
+                    return kFailure;
                 }
                 else
                 {
@@ -68,20 +68,20 @@ namespace OpenLoco::GameCommands
             }
         }
 
-        if ((flags & Flags::apply) && totalCost > 0)
+        if (hasFlags(flags, Flags::apply) && totalCost > 0)
         {
             auto centre = (args.pointA + args.pointB) / 2;
             auto tileHeight = World::TileManager::getHeight(centre);
             GameCommands::setPosition(World::Pos3(centre.x + World::kTileSize / 2, centre.y + World::kTileSize / 2, tileHeight.waterHeight));
-            Audio::playSound(Audio::SoundId::water, World::Pos3(centre.x, centre.y, tileHeight.waterHeight));
+            Audio::playSound(Audio::SoundId::water, Audio::ChannelId::effects, World::Pos3(centre.x, centre.y, tileHeight.waterHeight));
         }
 
         return totalCost;
     }
 
-    void lowerWater(registers& regs)
+    void lowerWater(registers& regs, const Flags flags)
     {
         const LowerWaterArgs args(regs);
-        regs.ebx = lowerWater(args, regs.bl);
+        regs.ebx = lowerWater(args, flags);
     }
 }

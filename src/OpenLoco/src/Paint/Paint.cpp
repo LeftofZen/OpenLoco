@@ -1,20 +1,19 @@
-#include "Paint.h"
+#include "Paint/Paint.h"
 #include "Config.h"
 #include "Game.h"
 #include "GameStateFlags.h"
 #include "Graphics/Gfx.h"
 #include "Graphics/PaletteMap.h"
 #include "Graphics/RenderTarget.h"
-#include "Graphics/SoftwareDrawingEngine.h"
 #include "Graphics/TextRenderer.h"
 #include "Localisation/Formatting.h"
 #include "Localisation/StringManager.h"
 #include "Logging.h"
 #include "Map/SurfaceElement.h"
 #include "Map/TileManager.h"
-#include "PaintEntity.h"
-#include "PaintRoad.h"
-#include "PaintTile.h"
+#include "Paint/PaintEntity.h"
+#include "Paint/PaintRoad.h"
+#include "Paint/PaintTile.h"
 #include "Ui/ViewportInteraction.h"
 #include "Ui/WindowManager.h"
 #include "World/StationManager.h"
@@ -25,9 +24,10 @@ using namespace OpenLoco::Ui::ViewportInteraction;
 
 namespace OpenLoco::Paint
 {
-    PaintSession::PaintSession(const Gfx::RenderTarget& rt, const SessionOptions& options)
+    PaintSession::PaintSession(const Gfx::RenderTarget& rt, ZoomLevel zoom, const SessionOptions& options)
     {
         _renderTarget = &rt;
+        _zoom = zoom;
         _lastPS = nullptr;
         for (auto& quadrant : _quadrants)
         {
@@ -45,6 +45,37 @@ namespace OpenLoco::Paint
 
         // TODO: unused
         _foregroundCullingHeight = options.foregroundCullHeight;
+    }
+
+    // Magnifying zoom levels have several screen pixels per world unit, so the far
+    // edges have to round outwards to still cover every pixel of the render target.
+    static constexpr int32_t screenToWorldCeil(ZoomLevel zoom, int32_t value)
+    {
+        if (zoom >= ZoomLevel::full)
+        {
+            return zoom.applyTo(value);
+        }
+        return zoom.applyTo(value + zoom.applyInversedTo(1) - 1);
+    }
+
+    int32_t PaintSession::getWorldX() const
+    {
+        return _zoom.applyTo(static_cast<int32_t>(_renderTarget->x));
+    }
+
+    int32_t PaintSession::getWorldY() const
+    {
+        return _zoom.applyTo(static_cast<int32_t>(_renderTarget->y));
+    }
+
+    int32_t PaintSession::getWorldWidth() const
+    {
+        return screenToWorldCeil(_zoom, _renderTarget->x + _renderTarget->width) - getWorldX();
+    }
+
+    int32_t PaintSession::getWorldHeight() const
+    {
+        return screenToWorldCeil(_zoom, _renderTarget->y + _renderTarget->height) - getWorldY();
     }
 
     void PaintSession::setEntityPosition(const World::Pos2& pos)
@@ -185,7 +216,7 @@ namespace OpenLoco::Paint
         return addToPlotListAsParent(imageId, offset, offset, boundBoxSize);
     }
 
-    static constexpr bool imageWithinRT(const Ui::viewport_pos& imagePos, const Gfx::G1Element& g1, const Gfx::RenderTarget& rt)
+    static constexpr bool imageWithinRT(const Ui::viewport_pos& imagePos, const Gfx::G1Element& g1, const Gfx::RenderTarget& rt, ZoomLevel zoom)
     {
         int32_t left = imagePos.x + g1.xOffset;
         int32_t bottom = imagePos.y + g1.yOffset;
@@ -193,19 +224,24 @@ namespace OpenLoco::Paint
         int32_t right = left + g1.width;
         int32_t top = bottom + g1.height;
 
-        if (right <= rt.x)
+        const auto rtWorldX = zoom.applyTo(static_cast<int32_t>(rt.x));
+        const auto rtWorldY = zoom.applyTo(static_cast<int32_t>(rt.y));
+        const auto rtWorldWidth = screenToWorldCeil(zoom, rt.x + rt.width) - rtWorldX;
+        const auto rtWorldHeight = screenToWorldCeil(zoom, rt.y + rt.height) - rtWorldY;
+
+        if (right <= rtWorldX)
         {
             return false;
         }
-        if (top <= rt.y)
+        if (top <= rtWorldY)
         {
             return false;
         }
-        if (left >= rt.x + rt.width)
+        if (left >= rtWorldX + rtWorldWidth)
         {
             return false;
         }
-        if (bottom >= rt.y + rt.height)
+        if (bottom >= rtWorldY + rtWorldHeight)
         {
             return false;
         }
@@ -271,8 +307,8 @@ namespace OpenLoco::Paint
             return nullptr;
         }
 
-        const auto rtLeft = getRenderTarget()->x;
-        const auto rtRight = getRenderTarget()->x + getRenderTarget()->width;
+        const auto rtLeft = getWorldX();
+        const auto rtRight = getWorldX() + getWorldWidth();
 
         auto newMins = ps->bounds.mins;
         // The following uses the fact that gameToScreen calculates the
@@ -481,14 +517,18 @@ namespace OpenLoco::Paint
     };
 
     template<uint8_t rotation>
-    GenerationParameters generateParameters(const Gfx::RenderTarget* rt)
+    GenerationParameters generateParameters(const Gfx::RenderTarget* rt, ZoomLevel zoom)
     {
+        const auto worldX = zoom.applyTo(static_cast<int32_t>(rt->x));
+        const auto worldY = zoom.applyTo(static_cast<int32_t>(rt->y));
+        const auto worldHeight = screenToWorldCeil(zoom, rt->y + rt->height) - worldY;
+
         // TODO: Work out what these constants represent
-        uint16_t numVerticalQuadrants = (rt->height + (rotation == 0 ? 1040 : 1056)) >> 5;
+        uint16_t numVerticalQuadrants = (worldHeight + (rotation == 0 ? 1040 : 1056)) >> 5;
 
         auto mapLoc = Ui::viewportCoordToMapCoord(
-            Numerics::floor2(rt->x, 32),
-            Numerics::floor2(rt->y - 16, 32),
+            Numerics::floor2(worldX, 32),
+            Numerics::floor2(worldY - 16, 32),
             0,
             rotation);
         if constexpr (rotation & 1)
@@ -568,7 +608,7 @@ namespace OpenLoco::Paint
 
         const auto vpPos = World::gameToScreen(swappedRotCoord, currentRotation);
 
-        if (!imageWithinRT(vpPos, *g1, *_renderTarget))
+        if (!imageWithinRT(vpPos, *g1, *_renderTarget, _zoom))
         {
             return nullptr;
         }
@@ -593,7 +633,7 @@ namespace OpenLoco::Paint
         ps->type = _itemType;
         ps->modId = _trackModId;
         ps->mapPos = _mapPosition;
-        ps->tileElement = reinterpret_cast<World::TileElement*>(_currentItem);
+        ps->tileElement = reinterpret_cast<World::TileElementEntry*>(_currentItem);
         return ps;
     }
 
@@ -608,16 +648,16 @@ namespace OpenLoco::Paint
         switch (currentRotation)
         {
             case 0:
-                generateTilesAndEntities(generateParameters<0>(getRenderTarget()));
+                generateTilesAndEntities(generateParameters<0>(getRenderTarget(), getZoom()));
                 break;
             case 1:
-                generateTilesAndEntities(generateParameters<1>(getRenderTarget()));
+                generateTilesAndEntities(generateParameters<1>(getRenderTarget(), getZoom()));
                 break;
             case 2:
-                generateTilesAndEntities(generateParameters<2>(getRenderTarget()));
+                generateTilesAndEntities(generateParameters<2>(getRenderTarget(), getZoom()));
                 break;
             case 3:
-                generateTilesAndEntities(generateParameters<3>(getRenderTarget()));
+                generateTilesAndEntities(generateParameters<3>(getRenderTarget(), getZoom()));
                 break;
         }
     }
@@ -827,7 +867,7 @@ namespace OpenLoco::Paint
         quadrantIndex = _quadrantBackIndex;
         while (++quadrantIndex < _quadrantFrontIndex)
         {
-            psCache = arrangeStructsHelper(psCache, quadrantIndex & 0xFFFF, QuadrantFlags::none, currentRotation);
+            psCache = arrangeStructsHelper(psCache, quadrantIndex & 0xFFFF, QuadrantFlags::neighbour, currentRotation);
         }
 
         _paintHead = psHead.nextQuadrantPS;
@@ -961,7 +1001,7 @@ namespace OpenLoco::Paint
         return false;
     }
 
-    static void drawStruct(const Gfx::RenderTarget& rt, Gfx::DrawingContext& drawingCtx, const PaintStruct& ps, const bool shouldCull)
+    static void drawStruct(ZoomLevel zoom, Gfx::DrawingContext& drawingCtx, const PaintStruct& ps, const bool shouldCull)
     {
         auto imageId = ps.imageId;
 
@@ -971,24 +1011,24 @@ namespace OpenLoco::Paint
         }
 
         auto imagePos = ps.vpPos;
-        if (ps.type == Ui::ViewportInteraction::InteractionItem::entity)
+        if (ps.type == Ui::ViewportInteraction::InteractionItem::entity && zoom > ZoomLevel::full)
         {
-            const auto zoomAlign = 1U << rt.zoomLevel;
+            const auto zoomAlign = zoom.applyTo(1U);
             imagePos.x = Numerics::floor2(imagePos.x, zoomAlign);
             imagePos.y = Numerics::floor2(imagePos.y, zoomAlign);
         }
 
         if ((ps.flags & PaintStructFlags::hasMaskedImage) != PaintStructFlags::none)
         {
-            drawingCtx.drawImageMasked(imagePos, imageId, ps.maskedImageId);
+            drawingCtx.drawImageMasked(zoom, imagePos, imageId, ps.maskedImageId);
         }
         else
         {
-            drawingCtx.drawImage(imagePos, imageId);
+            drawingCtx.drawImage(zoom, imagePos, imageId);
         }
     }
 
-    static void drawAttachStruct(const Gfx::RenderTarget& rt, Gfx::DrawingContext& drawingCtx, const PaintStruct& ps, const AttachedPaintStruct& attachPs, const bool shouldCull)
+    static void drawAttachStruct(ZoomLevel zoom, Gfx::DrawingContext& drawingCtx, const PaintStruct& ps, const AttachedPaintStruct& attachPs, const bool shouldCull)
     {
         auto imageId = attachPs.imageId;
 
@@ -997,7 +1037,7 @@ namespace OpenLoco::Paint
             imageId = ImageId(imageId.getIndex()).withTranslucency(ExtColour::unk30);
         }
         Ui::Point imagePos = ps.vpPos + attachPs.vpPos;
-        if (rt.zoomLevel != 0)
+        if (zoom > ZoomLevel::full)
         {
             imagePos.x = Numerics::floor2(imagePos.x, 2);
             imagePos.y = Numerics::floor2(imagePos.y, 2);
@@ -1005,15 +1045,15 @@ namespace OpenLoco::Paint
 
         if ((attachPs.flags & PaintStructFlags::hasMaskedImage) != PaintStructFlags::none)
         {
-            drawingCtx.drawImageMasked(imagePos, imageId, attachPs.maskedImageId);
+            drawingCtx.drawImageMasked(zoom, imagePos, imageId, attachPs.maskedImageId);
         }
         else
         {
-            drawingCtx.drawImage(imagePos, imageId);
+            drawingCtx.drawImage(zoom, imagePos, imageId);
         }
     }
 
-    static void drawAllAttachedStructs(const Gfx::RenderTarget& rt, Gfx::DrawingContext& drawingCtx, const PaintStruct& ps, const Ui::ViewportFlags viewFlags)
+    static void drawAllAttachedStructs(ZoomLevel zoom, Gfx::DrawingContext& drawingCtx, const PaintStruct& ps, const Ui::ViewportFlags viewFlags)
     {
         for (const auto* attachPs = ps.attachedPS; attachPs != nullptr; attachPs = attachPs->next)
         {
@@ -1025,14 +1065,14 @@ namespace OpenLoco::Paint
                     continue;
                 }
             }
-            drawAttachStruct(rt, drawingCtx, ps, *attachPs, shouldCullAttach);
+            drawAttachStruct(zoom, drawingCtx, ps, *attachPs, shouldCullAttach);
         }
     }
 
     // 0x0045EA23
     void PaintSession::drawStructs(Gfx::DrawingContext& drawingCtx)
     {
-        const Gfx::RenderTarget& rt = drawingCtx.currentRenderTarget();
+        const auto zoom = _zoom;
 
         for (const auto* ps = _paintHead; ps != nullptr; ps = ps->nextQuadrantPS)
         {
@@ -1046,7 +1086,7 @@ namespace OpenLoco::Paint
                 }
             }
 
-            drawStruct(rt, drawingCtx, *ps, shouldCull);
+            drawStruct(zoom, drawingCtx, *ps, shouldCull);
 
             // Draw any children this might have
             for (const auto* childPs = ps->children; childPs != nullptr; childPs = childPs->children)
@@ -1061,13 +1101,13 @@ namespace OpenLoco::Paint
                     }
                 }
 
-                drawStruct(rt, drawingCtx, *childPs, shouldCullChild);
+                drawStruct(zoom, drawingCtx, *childPs, shouldCullChild);
 
-                drawAllAttachedStructs(rt, drawingCtx, *childPs, _viewFlags);
+                drawAllAttachedStructs(zoom, drawingCtx, *childPs, _viewFlags);
             }
 
             // Draw any attachments to the struct
-            drawAllAttachedStructs(rt, drawingCtx, *ps, _viewFlags);
+            drawAllAttachedStructs(zoom, drawingCtx, *ps, _viewFlags);
         }
     }
 
@@ -1080,25 +1120,16 @@ namespace OpenLoco::Paint
             return;
         }
 
-        Gfx::RenderTarget unZoomedRt = drawingCtx.currentRenderTarget();
-        const auto zoom = unZoomedRt.zoomLevel;
-
-        unZoomedRt.zoomLevel = 0;
-        unZoomedRt.x >>= zoom;
-        unZoomedRt.y >>= zoom;
-        unZoomedRt.width >>= zoom;
-        unZoomedRt.height >>= zoom;
-
-        drawingCtx.pushRenderTarget(unZoomedRt);
+        const auto zoom = _zoom;
 
         auto tr = Gfx::TextRenderer(drawingCtx);
-        tr.setCurrentFont(zoom == 0 ? Gfx::Font::medium_bold : Gfx::Font::small);
+        tr.setCurrentFont(zoom <= ZoomLevel::full ? Gfx::Font::medium_bold : Gfx::Font::small);
 
         char buffer[512]{};
 
         for (; psString != nullptr; psString = psString->next)
         {
-            Ui::Point loc(psString->vpPos.x >> zoom, psString->vpPos.y >> zoom);
+            const Ui::Point loc{ _zoom.applyInversedTo(psString->vpPos.x), _zoom.applyInversedTo(psString->vpPos.y) };
             StringManager::formatString(buffer, psString->stringId, psString->argsBuf);
 
             Ui::WindowManager::setWindowColours(Ui::WindowColour::primary, AdvancedColour(static_cast<Colour>(psString->colour)));
@@ -1106,8 +1137,6 @@ namespace OpenLoco::Paint
 
             tr.drawStringYOffsets(loc, Colour::black, buffer, psString->yOffsets);
         }
-
-        drawingCtx.popRenderTarget();
     }
 
     // 0x00447C21
@@ -1155,7 +1184,7 @@ namespace OpenLoco::Paint
     }
 
     // 0x00447A5F
-    static bool isSpriteInteractedWithPaletteSet(const Gfx::RenderTarget* rt, ImageId imageId, const Ui::Point& coords, const Gfx::PaletteMap::View paletteMap)
+    static bool isSpriteInteractedWithPaletteSet(const Gfx::RenderTarget* rt, ZoomLevel zoom, ImageId imageId, const Ui::Point& coords, const Gfx::PaletteMap::View paletteMap)
     {
         const auto* g1 = Gfx::getG1Element(imageId.getIndex());
         if (g1 == nullptr)
@@ -1163,8 +1192,8 @@ namespace OpenLoco::Paint
             return false;
         }
 
-        auto zoomLevel = rt->zoomLevel;
-        Ui::Point interactionPoint{ rt->x, rt->y };
+        auto zoomLevel = zoom;
+        Ui::Point interactionPoint{ zoom.applyTo(static_cast<int32_t>(rt->x)), zoom.applyTo(static_cast<int32_t>(rt->y)) };
         Ui::Point origin = coords;
 
         if (zoomLevel > 0)
@@ -1213,7 +1242,7 @@ namespace OpenLoco::Paint
     }
 
     // 0x00447A0E
-    static bool isSpriteInteractedWith(const Gfx::RenderTarget* rt, ImageId imageId, const Ui::Point& coords)
+    static bool isSpriteInteractedWith(const Gfx::RenderTarget* rt, ZoomLevel zoom, ImageId imageId, const Ui::Point& coords)
     {
         auto paletteMap = Gfx::PaletteMap::getDefault();
         if (imageId.hasPrimary())
@@ -1224,7 +1253,7 @@ namespace OpenLoco::Paint
                 paletteMap = *pm;
             }
         }
-        return isSpriteInteractedWithPaletteSet(rt, imageId, coords, paletteMap);
+        return isSpriteInteractedWithPaletteSet(rt, zoom, imageId, coords, paletteMap);
     }
 
     // 0x0045EDFC
@@ -1271,12 +1300,12 @@ namespace OpenLoco::Paint
         return true;
     }
 
-    static std::optional<InteractionArg> getAttachedInteractionInfo(const Gfx::RenderTarget& rt, const InteractionItemFlags flags, const PaintStruct& ps)
+    static std::optional<InteractionArg> getAttachedInteractionInfo(const Gfx::RenderTarget& rt, ZoomLevel zoom, const InteractionItemFlags flags, const PaintStruct& ps)
     {
         std::optional<InteractionArg> info = std::nullopt;
         for (auto* attachedPS = ps.attachedPS; attachedPS != nullptr; attachedPS = attachedPS->next)
         {
-            if (isSpriteInteractedWith(&rt, attachedPS->imageId, attachedPS->vpPos + ps.vpPos))
+            if (isSpriteInteractedWith(&rt, zoom, attachedPS->imageId, attachedPS->vpPos + ps.vpPos))
             {
                 if (isPSSpriteTypeInFilter(ps.type, flags))
                 {
@@ -1288,14 +1317,14 @@ namespace OpenLoco::Paint
     }
 
     // 0x0045ED91
-    [[nodiscard]] InteractionArg PaintSession::getNormalInteractionInfo(const InteractionItemFlags flags)
+    [[nodiscard]] InteractionArg PaintSession::getNormalInteractionInfo(const InteractionItemFlags flags) const
     {
         InteractionArg info{};
 
         for (auto* ps = _paintHead; ps != nullptr; ps = ps->nextQuadrantPS)
         {
             // Check main paint struct
-            if (isSpriteInteractedWith(getRenderTarget(), ps->imageId, ps->vpPos))
+            if (isSpriteInteractedWith(getRenderTarget(), getZoom(), ps->imageId, ps->vpPos))
             {
                 if (isPSSpriteTypeInFilter(ps->type, flags))
                 {
@@ -1306,7 +1335,7 @@ namespace OpenLoco::Paint
             // Check children paint structs
             for (const auto* childPs = ps->children; childPs != nullptr; childPs = childPs->children)
             {
-                if (isSpriteInteractedWith(getRenderTarget(), childPs->imageId, childPs->vpPos))
+                if (isSpriteInteractedWith(getRenderTarget(), getZoom(), childPs->imageId, childPs->vpPos))
                 {
                     if (isPSSpriteTypeInFilter(childPs->type, flags))
                     {
@@ -1314,7 +1343,7 @@ namespace OpenLoco::Paint
                     }
                 }
 
-                auto attachedInfo = getAttachedInteractionInfo(*getRenderTarget(), flags, *childPs);
+                auto attachedInfo = getAttachedInteractionInfo(*getRenderTarget(), getZoom(), flags, *childPs);
                 if (attachedInfo.has_value())
                 {
                     info = attachedInfo.value();
@@ -1322,7 +1351,7 @@ namespace OpenLoco::Paint
             }
 
             // Check attached to main paint struct
-            auto attachedInfo = getAttachedInteractionInfo(*getRenderTarget(), flags, *ps);
+            auto attachedInfo = getAttachedInteractionInfo(*getRenderTarget(), getZoom(), flags, *ps);
             if (attachedInfo.has_value())
             {
                 info = attachedInfo.value();
@@ -1332,7 +1361,7 @@ namespace OpenLoco::Paint
     }
 
     // 0x0048DDE4
-    [[nodiscard]] InteractionArg PaintSession::getStationNameInteractionInfo(const InteractionItemFlags flags)
+    [[nodiscard]] InteractionArg PaintSession::getStationNameInteractionInfo(const InteractionItemFlags flags) const
     {
         InteractionArg interaction{};
 
@@ -1341,7 +1370,7 @@ namespace OpenLoco::Paint
             return interaction;
         }
 
-        auto rect = _renderTarget->getDrawableRect();
+        auto rect = _renderTarget->getUiRect();
 
         for (auto& station : StationManager::stations())
         {
@@ -1350,7 +1379,7 @@ namespace OpenLoco::Paint
                 continue;
             }
 
-            if (!station.labelFrame.contains(rect, _renderTarget->zoomLevel))
+            if (!station.labelFrame.contains(rect, getZoom()))
             {
                 continue;
             }
@@ -1364,7 +1393,7 @@ namespace OpenLoco::Paint
     }
 
     // 0x0049773D
-    [[nodiscard]] InteractionArg PaintSession::getTownNameInteractionInfo(const InteractionItemFlags flags)
+    [[nodiscard]] InteractionArg PaintSession::getTownNameInteractionInfo(const InteractionItemFlags flags) const
     {
         InteractionArg interaction{};
 
@@ -1373,11 +1402,11 @@ namespace OpenLoco::Paint
             return interaction;
         }
 
-        auto rect = _renderTarget->getDrawableRect();
+        auto rect = _renderTarget->getUiRect();
 
         for (auto& town : TownManager::towns())
         {
-            if (!town.labelFrame.contains(rect, _renderTarget->zoomLevel))
+            if (!town.labelFrame.contains(rect, getZoom()))
             {
                 continue;
             }
@@ -1513,7 +1542,7 @@ namespace OpenLoco::Paint
             case 3:
                 return _tunnels3;
         }
-        return std::span<TunnelEntry>();
+        return {};
     }
 
     bool showAiPlanningGhosts()

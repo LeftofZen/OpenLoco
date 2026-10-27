@@ -1,4 +1,4 @@
-#include "SmokeEffect.h"
+#include "Effects/SmokeEffect.h"
 #include "Entities/EntityManager.h"
 #include "Ui/WindowManager.h"
 #include "ViewportManager.h"
@@ -6,11 +6,9 @@
 namespace OpenLoco
 {
     // 0x004407A1
-    void Smoke::update()
+    void Smoke::tick()
     {
-        Ui::ViewportManager::invalidate(this, ZoomLevel::half);
         moveTo(position + World::Pos3(0, 0, 1));
-        Ui::ViewportManager::invalidate(this, ZoomLevel::half);
 
         frame += 0x55;
         if (frame >= 0xC00)
@@ -29,9 +27,9 @@ namespace OpenLoco
             t->spriteHeightNegative = 32;
             t->spriteHeightPositive = 34;
             t->baseType = EntityBaseType::effect;
-            t->moveTo(loc);
             t->setSubType(EffectType::smoke);
             t->frame = 0;
+            t->moveTo(loc);
         }
         return t;
     }

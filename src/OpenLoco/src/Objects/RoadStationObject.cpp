@@ -1,10 +1,10 @@
-#include "RoadStationObject.h"
+#include "Objects/RoadStationObject.h"
 #include "Graphics/Colour.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
-#include "ObjectImageTable.h"
-#include "ObjectManager.h"
-#include "ObjectStringTable.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectManager.h"
+#include "Objects/ObjectStringTable.h"
 
 namespace OpenLoco
 {
@@ -13,7 +13,7 @@ namespace OpenLoco
     {
         auto colourImage = Gfx::recolour(image, Colour::mutedDarkRed);
 
-        drawingCtx.drawImage(x - 34, y - 34, colourImage);
+        drawingCtx.drawImage(ZoomLevel::full, x - 34, y - 34, colourImage);
 
         auto colour = ExtColour::translucentMutedDarkRed1;
         if (!hasFlags(RoadStationFlags::recolourable))
@@ -23,7 +23,7 @@ namespace OpenLoco
 
         auto translucentImage = Gfx::recolourTranslucent(image + 1, colour);
 
-        drawingCtx.drawImage(x - 34, y - 34, translucentImage);
+        drawingCtx.drawImage(ZoomLevel::full, x - 34, y - 34, translucentImage);
     }
 
     // 0x00490C59

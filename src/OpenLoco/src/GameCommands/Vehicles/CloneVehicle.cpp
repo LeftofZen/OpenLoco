@@ -1,11 +1,12 @@
-#include "CloneVehicle.h"
-#include "CreateVehicle.h"
+#include "GameCommands/Vehicles/CloneVehicle.h"
+#include "Economy/Expenditures.h"
 #include "Entities/EntityManager.h"
 #include "GameCommands/GameCommands.h"
+#include "GameCommands/Vehicles/CreateVehicle.h"
+#include "GameCommands/Vehicles/VehicleChangeRunningMode.h"
+#include "GameCommands/Vehicles/VehicleOrderInsert.h"
+#include "GameCommands/Vehicles/VehicleRefit.h"
 #include "Ui/WindowManager.h"
-#include "VehicleChangeRunningMode.h"
-#include "VehicleOrderInsert.h"
-#include "VehicleRefit.h"
 #include "Vehicles/OrderManager.h"
 #include "Vehicles/Orders.h"
 #include "Vehicles/Vehicle.h"
@@ -35,13 +36,13 @@ namespace OpenLoco::GameCommands
         }
     }
 
-    static uint32_t cloneVehicle(EntityId head, uint8_t flags)
+    static uint32_t cloneVehicle(EntityId head, Flags flags)
     {
         Vehicles::Vehicle existingTrain(head);
         Vehicles::VehicleHead* newHead = nullptr;
 
         // Get total cost for a new vehicle
-        if (!(flags & Flags::apply))
+        if (!hasFlags(flags, Flags::apply))
         {
             uint32_t totalCost = 0;
             for (auto& car : existingTrain.cars)
@@ -50,10 +51,10 @@ namespace OpenLoco::GameCommands
                 args.vehicleId = EntityId::null;
                 args.vehicleType = car.front->objectId;
 
-                const auto cost = doCommand(args, 0);
-                if (cost == FAILURE)
+                const auto cost = doCommand(args, Flags::none);
+                if (cost == kFailure)
                 {
-                    totalCost = FAILURE;
+                    totalCost = kFailure;
                     break;
                 }
                 else
@@ -62,9 +63,9 @@ namespace OpenLoco::GameCommands
                 }
             }
 
-            if (totalCost == FAILURE)
+            if (totalCost == kFailure)
             {
-                return FAILURE;
+                return kFailure;
             }
             return totalCost;
         }
@@ -86,7 +87,7 @@ namespace OpenLoco::GameCommands
                 auto* newVeh = EntityManager::get<Vehicles::VehicleBase>(getLegacyReturnState().lastCreatedVehicleId);
                 if (newVeh == nullptr)
                 {
-                    return FAILURE;
+                    return kFailure;
                 }
                 newHead = EntityManager::get<Vehicles::VehicleHead>(newVeh->getHead());
             }
@@ -98,9 +99,9 @@ namespace OpenLoco::GameCommands
 
                 cost = doCommand(args, Flags::apply);
             }
-            if (cost == FAILURE)
+            if (cost == kFailure)
             {
-                totalCost = FAILURE;
+                totalCost = kFailure;
                 break;
             }
             else
@@ -108,9 +109,9 @@ namespace OpenLoco::GameCommands
                 totalCost += cost;
             }
         }
-        if (totalCost == FAILURE || newHead == nullptr)
+        if (totalCost == kFailure || newHead == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
         auto newTrain = Vehicles::Vehicle(*newHead);
@@ -153,11 +154,15 @@ namespace OpenLoco::GameCommands
             doCommand(args, Flags::apply);
         }
 
+        // Finally, set the expenditure type
+        // Note we explicitly set this *after* running all the sub commands!
+        setExpenditureType(ExpenditureType::VehiclePurchases);
+
         return totalCost;
     }
 
-    void cloneVehicle(registers& regs)
+    void cloneVehicle(registers& regs, const Flags flags)
     {
-        regs.ebx = cloneVehicle(EntityId(regs.ax), regs.bl);
+        regs.ebx = cloneVehicle(EntityId(regs.ax), flags);
     }
 }

@@ -1,10 +1,10 @@
-#include "RoadObject.h"
+#include "Objects/RoadObject.h"
 #include "Graphics/Colour.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
-#include "ObjectImageTable.h"
-#include "ObjectManager.h"
-#include "ObjectStringTable.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectManager.h"
+#include "Objects/ObjectStringTable.h"
 
 namespace OpenLoco
 {
@@ -14,13 +14,13 @@ namespace OpenLoco
         auto colourImage = Gfx::recolour(image, Colour::mutedDarkRed);
         if (paintStyle == 1)
         {
-            drawingCtx.drawImage(x, y, colourImage + 34);
-            drawingCtx.drawImage(x, y, colourImage + 36);
-            drawingCtx.drawImage(x, y, colourImage + 38);
+            drawingCtx.drawImage(ZoomLevel::full, x, y, colourImage + 34);
+            drawingCtx.drawImage(ZoomLevel::full, x, y, colourImage + 36);
+            drawingCtx.drawImage(ZoomLevel::full, x, y, colourImage + 38);
         }
         else
         {
-            drawingCtx.drawImage(x, y, colourImage + 34);
+            drawingCtx.drawImage(ZoomLevel::full, x, y, colourImage + 34);
         }
     }
 
@@ -52,7 +52,7 @@ namespace OpenLoco
         {
             return false;
         }
-        if (hasFlags(RoadObjectFlags::unk_03))
+        if (hasFlags(RoadObjectFlags::anyRoadTypeCompatible))
         {
             return numMods == 0;
         }

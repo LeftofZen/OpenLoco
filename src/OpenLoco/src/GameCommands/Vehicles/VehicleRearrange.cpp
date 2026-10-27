@@ -1,8 +1,9 @@
-#include "VehicleRearrange.h"
+#include "GameCommands/Vehicles/VehicleRearrange.h"
+#include "Config.h"
 #include "Economy/Expenditures.h"
 #include "Entities/EntityManager.h"
-#include "VehiclePickupAir.h"
-#include "VehiclePickupWater.h"
+#include "GameCommands/Vehicles/VehiclePickupAir.h"
+#include "GameCommands/Vehicles/VehiclePickupWater.h"
 #include "Vehicles/Vehicle.h"
 #include "Vehicles/VehicleBogie.h"
 #include "Vehicles/VehicleHead.h"
@@ -21,7 +22,7 @@ namespace OpenLoco::GameCommands
     };
 
     // 0x004AF1DF
-    static currency32_t vehicleRearrange(const VehicleRearrangeArgs& args, uint8_t flags)
+    static currency32_t vehicleRearrange(const VehicleRearrangeArgs& args, Flags flags)
     {
         setExpenditureType(ExpenditureType::TrainRunningCosts);
 
@@ -31,42 +32,42 @@ namespace OpenLoco::GameCommands
         auto* sourceHead = EntityManager::get<Vehicles::VehicleHead>(sourceVehicle->getHead());
         auto* destHead = EntityManager::get<Vehicles::VehicleHead>(destVehicle->getHead());
 
-        if (!(flags & Flags::apply))
+        if (!hasFlags(flags, Flags::apply))
         {
-            if (!sub_431E6A(sourceVehicle->owner))
+            if (!checkCompanyCompatibility(sourceVehicle->owner))
             {
-                return FAILURE;
+                return kFailure;
             }
-            if (!sub_431E6A(destVehicle->owner))
+            if (!checkCompanyCompatibility(destVehicle->owner))
             {
-                return FAILURE;
+                return kFailure;
             }
 
             if (!sourceHead->canBeModified())
             {
-                return FAILURE;
+                return kFailure;
             }
             if (!destHead->canBeModified())
             {
-                return FAILURE;
+                return kFailure;
             }
 
             if (sourceVehicle->getTrackType() != destVehicle->getTrackType())
             {
                 setErrorText(StringIds::incompatible_vehicle);
-                return FAILURE;
+                return kFailure;
             }
 
             // Pretty sure this needs to be true but not 100% (openloco addition)
             auto* sourceBogie = sourceVehicle->asVehicleBogie();
             if (sourceBogie == nullptr)
             {
-                return FAILURE;
+                return kFailure;
             }
 
             if (!destHead->isVehicleTypeCompatible(sourceBogie->objectId))
             {
-                return FAILURE;
+                return kFailure;
             }
 
             setPosition(destVehicle->position);
@@ -77,22 +78,22 @@ namespace OpenLoco::GameCommands
             auto* sourceBogie = sourceVehicle->asVehicleBogie();
             if (sourceBogie == nullptr)
             {
-                return FAILURE;
+                return kFailure;
             }
 
             Vehicles::Vehicle sourceTrain(*sourceHead);
             Vehicles::Vehicle destTrain(*destHead);
 
-            if (sourceHead != destHead)
+            if (sourceHead != destHead && !Config::get().keepCargoModifyPickup)
             {
                 [&train = sourceTrain, &targetBogie = *sourceBogie]() {
                     for (auto& car : train.cars)
                     {
-                        for (auto& carComponet : car)
+                        for (auto& carComponent : car)
                         {
-                            if (carComponet.front == &targetBogie)
+                            if (carComponent.front == &targetBogie)
                             {
-                                Vehicles::removeAllCargo(carComponet);
+                                Vehicles::removeAllCargo(carComponent);
                                 return;
                             }
                         }
@@ -119,8 +120,7 @@ namespace OpenLoco::GameCommands
                         GameCommands::VehiclePickupAirArgs airArgs{};
                         airArgs.head = train.head->id;
                         registers regs = static_cast<registers>(airArgs);
-                        regs.bl = GameCommands::Flags::apply;
-                        GameCommands::vehiclePickupAir(regs);
+                        GameCommands::vehiclePickupAir(regs, GameCommands::Flags::apply);
                         break;
                     }
                     case TransportMode::water:
@@ -130,8 +130,7 @@ namespace OpenLoco::GameCommands
                         GameCommands::VehiclePickupWaterArgs waterArgs{};
                         waterArgs.head = train.head->id;
                         registers regs = static_cast<registers>(waterArgs);
-                        regs.bl = GameCommands::Flags::apply;
-                        GameCommands::vehiclePickupWater(regs);
+                        GameCommands::vehiclePickupWater(regs, GameCommands::Flags::apply);
                     }
                 }
                 setExpenditureType(ExpenditureType::TrainRunningCosts);
@@ -166,8 +165,8 @@ namespace OpenLoco::GameCommands
         }
     }
 
-    void vehicleRearrange(registers& regs)
+    void vehicleRearrange(registers& regs, const Flags flags)
     {
-        regs.ebx = vehicleRearrange(VehicleRearrangeArgs(regs), regs.bl);
+        regs.ebx = vehicleRearrange(VehicleRearrangeArgs(regs), flags);
     }
 }

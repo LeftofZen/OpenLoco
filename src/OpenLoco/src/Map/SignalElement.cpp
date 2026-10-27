@@ -1,9 +1,9 @@
-#include "SignalElement.h"
-#include "Animation.h"
+#include "Map/SignalElement.h"
+#include "Map/Animation.h"
+#include "Map/TileManager.h"
 #include "Objects/ObjectManager.h"
 #include "Objects/TrainSignalObject.h"
 #include "Scenario/ScenarioManager.h"
-#include "TileManager.h"
 #include "ViewportManager.h"
 
 namespace OpenLoco::World
@@ -31,7 +31,7 @@ namespace OpenLoco::World
             if (side.frame() != targetFrame)
             {
                 res.hasAnimation = true;
-                if (!(ScenarioManager::getScenarioTicks() & signalObj->animationSpeed))
+                if (!(ScenarioManager::getScenarioTicks() & signalObj->animationFrameInterval))
                 {
                     uint8_t newFrame = side.frame() + 1;
                     if (side.frame() >= targetFrame)

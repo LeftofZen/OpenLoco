@@ -1,4 +1,4 @@
-#include "VehicleRefit.h"
+#include "GameCommands/Vehicles/VehicleRefit.h"
 #include "Economy/Expenditures.h"
 #include "Entities/EntityManager.h"
 #include "GameCommands/GameCommands.h"
@@ -15,7 +15,7 @@
 namespace OpenLoco::GameCommands
 {
     // 0x0042F6DB
-    static uint32_t vehicleRefit(const VehicleRefitArgs& args, const uint8_t flags)
+    static uint32_t vehicleRefit(const VehicleRefitArgs& args, const Flags flags)
     {
         setExpenditureType(ExpenditureType::TrainRunningCosts);
 
@@ -26,12 +26,12 @@ namespace OpenLoco::GameCommands
 
             if (!head->canBeModified())
             {
-                return FAILURE;
+                return kFailure;
             }
 
-            if (!sub_431E6A(head->owner))
+            if (!checkCompanyCompatibility(head->owner))
             {
-                return FAILURE;
+                return kFailure;
             }
 
             if (train.cars.empty())
@@ -49,7 +49,7 @@ namespace OpenLoco::GameCommands
                 return 0;
             }
 
-            if (!(flags & Flags::apply))
+            if (!hasFlags(flags, Flags::apply))
             {
                 return 0;
             }
@@ -87,12 +87,12 @@ namespace OpenLoco::GameCommands
         }
         catch (std::runtime_error&)
         {
-            return FAILURE;
+            return kFailure;
         }
     }
 
-    void vehicleRefit(registers& regs)
+    void vehicleRefit(registers& regs, const Flags flags)
     {
-        regs.ebx = vehicleRefit(VehicleRefitArgs(regs), regs.bl);
+        regs.ebx = vehicleRefit(VehicleRefitArgs(regs), flags);
     }
 }

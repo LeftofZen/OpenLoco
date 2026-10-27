@@ -1,13 +1,13 @@
-#include "RoadElement.h"
+#include "Map/RoadElement.h"
 #include "GameCommands/GameCommands.h"
 #include "GameCommands/Road/RemoveRoad.h"
 #include "GameState.h"
+#include "Map/Tile.h"
+#include "Map/TileManager.h"
 #include "Objects/LevelCrossingObject.h"
 #include "Objects/ObjectManager.h"
 #include "Objects/RoadObject.h"
 #include "Scenario/ScenarioManager.h"
-#include "Tile.h"
-#include "TileManager.h"
 #include "ViewportManager.h"
 #include "World/CompanyManager.h"
 
@@ -19,22 +19,21 @@ namespace OpenLoco::World
         , _6(0)
         , _7(0)
     {
-        _type = 0;
+        _0 = 0;
         _flags = 0;
-        setType(World::ElementType::road);
         setBaseZ(baseZ);
         setClearZ(clearZ);
     }
 
     // 0x00477FC2
-    bool RoadElement::update(const World::Pos2& loc)
+    bool RoadElement::tick(const World::Pos2& loc)
     {
         if (owner() == CompanyId::neutral || CompanyManager::isPlayerCompany(owner()))
         {
             return true;
         }
 
-        if (!(getGameState().roadObjectIdIsNotTram & (1 << roadObjectId())))
+        if (!(getGameState().roadObjectIdIsAnyRoadTypeCompatible & (1 << roadObjectId())))
         {
             return true;
         }
@@ -44,7 +43,7 @@ namespace OpenLoco::World
             return true;
         }
 
-        if (hasUnk7_10() || hasLevelCrossing() || hasUnk7_40() || hasUnk7_80())
+        if (isLevelCrossingClosed() || hasLevelCrossing() || hasUnk7_40() || hasUnk7_80())
         {
             return true;
         }
@@ -80,7 +79,7 @@ namespace OpenLoco::World
                 continue;
             }
 
-            if (!(getGameState().roadObjectIdIsNotTram & (1 << roadEl->roadObjectId())))
+            if (!(getGameState().roadObjectIdIsAnyRoadTypeCompatible & (1 << roadEl->roadObjectId())))
             {
                 continue;
             }
@@ -90,7 +89,7 @@ namespace OpenLoco::World
                 return true;
             }
 
-            if (hasUnk7_10() || hasLevelCrossing() || hasUnk7_40() || hasUnk7_80())
+            if (isLevelCrossingClosed() || hasLevelCrossing() || hasUnk7_40() || hasUnk7_80())
             {
                 return true;
             }
@@ -149,40 +148,43 @@ namespace OpenLoco::World
 
             const auto* levelCrossingObj = ObjectManager::get<LevelCrossingObject>(elRoad->levelCrossingObjectId());
 
-            if (ScenarioManager::getScenarioTicks() & levelCrossingObj->var_0A)
+            if (ScenarioManager::getScenarioTicks() & levelCrossingObj->transitionAnimationDelayBitmask)
             {
-                hasAnimation = true;
+                hasAnimation = true; // skip this tick - don't advance the transition
             }
             else
             {
+                // advance the transition animation by 1 frame
                 shouldInvalidate = true;
-                auto newFrame = elRoad->unk6l();
-                if (elRoad->hasUnk7_10())
+                auto newFrame = elRoad->levelCrossingAnimationFrame();
+
+                if (elRoad->isLevelCrossingClosed()) // closing
                 {
                     if (newFrame != 15)
                     {
                         newFrame++;
-                        if (newFrame > levelCrossingObj->closedFrames)
+                        if (newFrame > levelCrossingObj->transitionAnimationFrameCount)
                         {
-                            newFrame = 15;
+                            newFrame = 15; // transition complete; fully closed
                         }
                     }
                     hasAnimation = true;
                 }
-                else
+                else // opening
                 {
                     if (newFrame != 0)
                     {
                         newFrame--;
                         if (newFrame == 14)
                         {
-                            newFrame = levelCrossingObj->closedFrames;
+                            newFrame = levelCrossingObj->transitionAnimationFrameCount;
                         }
                         hasAnimation = true;
                     }
                     // Doesn't set hasAnimation = true on else branch!
+                    // when newFrame == 0, hasAnimation is false and thus transition is complete; fully open
                 }
-                elRoad->setUnk6l(newFrame);
+                elRoad->setLevelCrossingAnimationFrame(newFrame);
             }
         }
         if (shouldInvalidate)

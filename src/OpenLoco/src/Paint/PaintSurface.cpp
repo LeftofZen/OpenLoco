@@ -1,10 +1,13 @@
-#include "PaintSurface.h"
+#include "Paint/PaintSurface.h"
 #include "Config.h"
 #include "Graphics/ImageIds.h"
 #include "Graphics/RenderTarget.h"
 #include "Map/MapSelection.h"
+#include "Map/RoadElement.h"
 #include "Map/SurfaceElement.h"
 #include "Map/TileManager.h"
+#include "Map/Track/TrackData.h"
+#include "Map/TrackElement.h"
 #include "Map/Wave.h"
 #include "Map/WaveManager.h"
 #include "Objects/IndustryObject.h"
@@ -13,8 +16,8 @@
 #include "Objects/SnowObject.h"
 #include "Objects/TunnelObject.h"
 #include "Objects/WaterObject.h"
-#include "Paint.h"
-#include "PaintTileDecorations.h"
+#include "Paint/Paint.h"
+#include "Paint/PaintTileDecorations.h"
 #include "Ui/ViewportInteraction.h"
 #include "World/IndustryManager.h"
 #include "World/Station.h"
@@ -47,11 +50,11 @@ namespace OpenLoco::Paint
 
     struct TileDescriptor
     {
-        World::Pos2 pos;
         const World::SurfaceElement* elSurface;
+        World::Pos2 pos;
+        EdgeHeight edgeHeight;
         uint8_t landObjectId;
         uint8_t slope;
-        EdgeHeight edgeHeight;
         uint8_t snowCoverage;
         uint8_t growthStage;
     };
@@ -892,8 +895,8 @@ namespace OpenLoco::Paint
     constexpr std::array<World::Pos3, 4> kEdgeBoundingBoxSize = {
         World::Pos3{ 0, 30, 15 },
         World::Pos3{ 30, 0, 15 },
-        World::Pos3{ 30, 0, 15 },
-        World::Pos3{ 0, 30, 15 },
+        World::Pos3{ 30, 0, 13 },
+        World::Pos3{ 0, 30, 13 },
     };
     constexpr std::array<std::array<std::array<uint32_t, 5>, 4>, 2> kEdgeMaskImageFromSlope = {
         std::array<std::array<uint32_t, 5>, 4>{
@@ -1208,7 +1211,7 @@ namespace OpenLoco::Paint
         }
     }
 
-    static void paintSurfaceCliffEdgeImpl(PaintSession& session, uint8_t edge, int16_t baseHeight, const EdgeHeight& edgeHeight, uint32_t cliffEdgeImageBase)
+    static void paintSurfaceCliffEdgeImpl(PaintSession& session, uint8_t edge, int16_t baseHeight, const EdgeHeight& edgeHeight, uint32_t cliffEdgeImageBase, bool hideTopSection)
     {
         if (edgeHeight.self0 <= edgeHeight.neighbour0
             && edgeHeight.self1 <= edgeHeight.neighbour1)
@@ -1302,7 +1305,11 @@ namespace OpenLoco::Paint
                 continue;
             }
 
-            paintEdgeSection(session, cliffEdgeImageBase, factor, uHeight, edge, maskArr[0]);
+            const bool isTopSection = uHeight + 1 >= edgeHeight.self0 && uHeight + 1 >= edgeHeight.self1;
+            if (!(hideTopSection && isTopSection))
+            {
+                paintEdgeSection(session, cliffEdgeImageBase, factor, uHeight, edge, maskArr[0]);
+            }
             uHeight++;
         }
 
@@ -1316,8 +1323,69 @@ namespace OpenLoco::Paint
             }
         }
 
+        if (hideTopSection)
+        {
+            return;
+        }
+
         paintEdgeSection(session, cliffEdgeImageBase, factor, uHeight, edge, maskArr[unk]);
     }
+
+    static bool isCliffEdgeTopCoveredByBridge(const uint8_t sharedEdgeDir, const TileDescriptor& neighbour, const EdgeHeight& edgeHeight)
+    {
+        const auto cliffTopHeight = std::max(edgeHeight.self0, edgeHeight.self1) * kMicroZStep;
+
+        const auto isCovered = [&](const bool isFirstTile,
+                                   const bool isLastTile,
+                                   const int16_t elementBaseHeight,
+                                   const World::TrackData::TrackCoordinates& coords) {
+            if (elementBaseHeight == cliffTopHeight)
+            {
+                return true;
+            }
+
+            if (isFirstTile
+                && ((coords.rotationBegin + 2) & 3) == sharedEdgeDir
+                && elementBaseHeight + std::max<int16_t>(0, -coords.pos.z) == cliffTopHeight)
+            {
+                return true;
+            }
+
+            return isLastTile
+                && (coords.rotationEnd & 3) == sharedEdgeDir
+                && elementBaseHeight + std::max<int16_t>(0, coords.pos.z) == cliffTopHeight;
+        };
+
+        const auto tile = World::TileManager::get(neighbour.pos);
+        for (const auto& el : tile)
+        {
+            const auto* elRoad = el.as<World::RoadElement>();
+            if (elRoad != nullptr && elRoad->hasBridge()
+                && isCovered(
+                    elRoad->sequenceIndex() == 0,
+                    elRoad->isFlag6(),
+                    elRoad->baseHeight(),
+                    World::TrackData::getUnkRoad((elRoad->roadId() << 3) | elRoad->rotation())))
+            {
+                return true;
+            }
+
+            const auto* elTrack = el.as<World::TrackElement>();
+            if (elTrack != nullptr && elTrack->hasBridge()
+                && isCovered(
+                    elTrack->sequenceIndex() == 0,
+                    elTrack->isFlag6(),
+                    elTrack->baseHeight(),
+                    World::TrackData::getUnkTrack((elTrack->trackId() << 3) | elTrack->rotation())))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    constexpr std::array<uint8_t, 4> kEdgeToWorldDirRot0 = { 2, 1, 3, 0 };
 
     static void paintSurfaceCliffEdge(PaintSession& session, uint8_t edge, const int16_t baseHeight, const TileDescriptor& neighbour, uint32_t cliffEdgeImageBase)
     {
@@ -1326,7 +1394,9 @@ namespace OpenLoco::Paint
             return;
         }
 
-        paintSurfaceCliffEdgeImpl(session, edge, baseHeight, neighbour.edgeHeight, cliffEdgeImageBase);
+        const auto sharedEdgeDir = static_cast<uint8_t>((kEdgeToWorldDirRot0[edge] - session.getRotation() + 2) & 3);
+        const bool hideTopSection = edge >= 2 && isCliffEdgeTopCoveredByBridge(sharedEdgeDir, neighbour, neighbour.edgeHeight);
+        paintSurfaceCliffEdgeImpl(session, edge, baseHeight, neighbour.edgeHeight, cliffEdgeImageBase, hideTopSection);
     }
 
     static void paintSurfaceWaterCliffEdge(PaintSession& session, uint8_t edge, const int16_t waterHeight, const TileDescriptor& neighbour, uint32_t cliffEdgeImageBase)
@@ -1342,18 +1412,88 @@ namespace OpenLoco::Paint
 
         const auto edgeHeight = EdgeHeight{ static_cast<uint8_t>(waterHeight / kMicroZStep), neighbour.edgeHeight.neighbour0, static_cast<uint8_t>(waterHeight / kMicroZStep), neighbour.edgeHeight.neighbour1 };
 
-        paintSurfaceCliffEdgeImpl(session, edge, waterHeight, edgeHeight, cliffEdgeImageBase);
+        paintSurfaceCliffEdgeImpl(session, edge, waterHeight, edgeHeight, cliffEdgeImageBase, false);
+    }
+
+    template<std::size_t TDirection>
+    static inline TileDescriptor getTileDescriptor(const PaintSession& session, const uint8_t rotation, const CornerHeight& selfCornerHeight)
+    {
+        const auto& offset = kNeighbourOffsets[rotation][TDirection];
+        const auto position = session.getSpritePosition() + offset;
+
+        if (!World::TileManager::validCoords(position))
+        {
+            return {};
+        }
+
+        const auto* surface = World::TileManager::get(position).surface();
+        if (surface == nullptr)
+        {
+            return {};
+        }
+
+        const uint32_t surfaceSlope = getRotatedSlope(surface->slope(), rotation);
+        const MicroZ microZ = surface->baseZ() / kMicroToSmallZStep;
+        const CornerHeight& ch = kCornerHeights[surfaceSlope];
+
+        TileDescriptor descriptor;
+        descriptor.elSurface = surface;
+        descriptor.pos = position;
+
+        if constexpr (TDirection == 0) // SW edge
+        {
+            descriptor.edgeHeight = {
+                .self0 = selfCornerHeight.left,
+                .neighbour0 = static_cast<MicroZ>(microZ + ch.top),
+                .self1 = selfCornerHeight.bottom,
+                .neighbour1 = static_cast<MicroZ>(microZ + ch.right),
+            };
+        }
+        else if constexpr (TDirection == 1) // SE edge
+        {
+            descriptor.edgeHeight = {
+                .self0 = selfCornerHeight.right,
+                .neighbour0 = static_cast<MicroZ>(microZ + ch.top),
+                .self1 = selfCornerHeight.bottom,
+                .neighbour1 = static_cast<MicroZ>(microZ + ch.left),
+            };
+        }
+        else if constexpr (TDirection == 2) // NW edge
+        {
+            descriptor.edgeHeight = {
+                .self0 = selfCornerHeight.top,
+                .neighbour0 = static_cast<MicroZ>(microZ + ch.right),
+                .self1 = selfCornerHeight.left,
+                .neighbour1 = static_cast<MicroZ>(microZ + ch.bottom),
+            };
+        }
+        else if constexpr (TDirection == 3) // NE edge
+        {
+            descriptor.edgeHeight = {
+                .self0 = selfCornerHeight.top,
+                .neighbour0 = static_cast<MicroZ>(microZ + ch.left),
+                .self1 = selfCornerHeight.right,
+                .neighbour1 = static_cast<MicroZ>(microZ + ch.bottom),
+            };
+        }
+
+        descriptor.landObjectId = surface->isIndustrial() ? static_cast<uint8_t>(0xFFU) : surface->terrain();
+        descriptor.slope = surfaceSlope;
+        descriptor.snowCoverage = surface->snowCoverage();
+        descriptor.growthStage = surface->getGrowthStage();
+
+        return descriptor;
     }
 
     // 0x004656BF
     void paintSurface(PaintSession& session, World::SurfaceElement& elSurface)
     {
         session.setItemType(Ui::ViewportInteraction::InteractionItem::surface);
-        const auto zoomLevel = session.getRenderTarget()->zoomLevel;
+        const auto zoomLevel = session.getZoom();
         session.setDidPassSurface(true);
 
         // 0x00F252B0 / 0x00F252B4 but if 0x00F252B0 == -2 that means industrial
-        [[maybe_unused]] uint8_t landObjId = elSurface.terrain();
+        const auto landObjId = elSurface.terrain();
         const auto* landObj = ObjectManager::get<LandObject>(landObjId);
 
         const auto rotation = session.getRotation();
@@ -1361,11 +1501,11 @@ namespace OpenLoco::Paint
         const auto rotatedSlope = getRotatedSlope(elSurface.slope(), rotation);
 
         const auto selfDescriptor = TileDescriptor{
-            session.getSpritePosition(),
             &elSurface,
+            session.getSpritePosition(),
+            {}, // Edge height unused
             elSurface.isIndustrial() ? static_cast<uint8_t>(0xFFU) : elSurface.terrain(),
             rotatedSlope,
-            {}, // Edge height unused
             elSurface.snowCoverage(),
             elSurface.getGrowthStage(),
         };
@@ -1382,69 +1522,15 @@ namespace OpenLoco::Paint
             static_cast<uint8_t>(selfMicroZ + kCornerHeights[rotatedSlope].left),
         };
 
-        std::array<TileDescriptor, 4> tileDescriptors{};
-
-        for (std::size_t i = 0; i < std::size(tileDescriptors); i++)
-        {
-            const auto& offset = kNeighbourOffsets[rotation][i];
-            const auto position = session.getSpritePosition() + offset;
-
-            TileDescriptor& descriptor = tileDescriptors[i];
-
-            descriptor.elSurface = nullptr;
-            if (!World::TileManager::validCoords(position))
-            {
-                continue;
-            }
-
-            descriptor.elSurface = World::TileManager::get(position).surface();
-            if (descriptor.elSurface == nullptr)
-            {
-                continue;
-            }
-
-            const uint32_t surfaceSlope = getRotatedSlope(descriptor.elSurface->slope(), rotation);
-
-            const uint8_t microZ = descriptor.elSurface->baseZ() / kMicroToSmallZStep;
-            const CornerHeight& ch = kCornerHeights[surfaceSlope];
-
-            descriptor.pos = position;
-            descriptor.landObjectId = descriptor.elSurface->isIndustrial() ? static_cast<uint8_t>(0xFFU) : descriptor.elSurface->terrain();
-            descriptor.slope = surfaceSlope;
-            if (i == 0) // SW edge
-            {
-                descriptor.edgeHeight.self0 = selfCornerHeight.left;
-                descriptor.edgeHeight.neighbour0 = microZ + ch.top;
-                descriptor.edgeHeight.self1 = selfCornerHeight.bottom;
-                descriptor.edgeHeight.neighbour1 = microZ + ch.right;
-            }
-            else if (i == 1) // SE edge
-            {
-                descriptor.edgeHeight.self0 = selfCornerHeight.right;
-                descriptor.edgeHeight.neighbour0 = microZ + ch.top;
-                descriptor.edgeHeight.self1 = selfCornerHeight.bottom;
-                descriptor.edgeHeight.neighbour1 = microZ + ch.left;
-            }
-            else if (i == 2) // NW edge
-            {
-                descriptor.edgeHeight.self0 = selfCornerHeight.top;
-                descriptor.edgeHeight.neighbour0 = microZ + ch.right;
-                descriptor.edgeHeight.self1 = selfCornerHeight.left;
-                descriptor.edgeHeight.neighbour1 = microZ + ch.bottom;
-            }
-            else if (i == 3) // NE edge
-            {
-                descriptor.edgeHeight.self0 = selfCornerHeight.top;
-                descriptor.edgeHeight.neighbour0 = microZ + ch.left;
-                descriptor.edgeHeight.self1 = selfCornerHeight.right;
-                descriptor.edgeHeight.neighbour1 = microZ + ch.bottom;
-            }
-            descriptor.snowCoverage = descriptor.elSurface->snowCoverage();
-            descriptor.growthStage = descriptor.elSurface->getGrowthStage();
-        }
+        const std::array tileDescriptors = {
+            getTileDescriptor<0>(session, rotation, selfCornerHeight), // SW
+            getTileDescriptor<1>(session, rotation, selfCornerHeight), // SE
+            getTileDescriptor<2>(session, rotation, selfCornerHeight), // NW
+            getTileDescriptor<3>(session, rotation, selfCornerHeight), // NE
+        };
 
         if (((session.getViewFlags() & Ui::ViewportFlags::height_marks_on_land) != Ui::ViewportFlags::none)
-            && zoomLevel == 0)
+            && zoomLevel <= ZoomLevel::full)
         {
             const auto markerPos = session.getUnkPosition() + World::Pos2(16, 16);
             const auto markerHeight = World::TileManager::getHeight(markerPos).landHeight + 3;
@@ -1486,7 +1572,7 @@ namespace OpenLoco::Paint
 
             session.setItemType(Ui::ViewportInteraction::InteractionItem::surface);
 
-            if ((zoomLevel == 0 && industryObj->hasFlags(IndustryObjectFlags::farmTilesDrawAboveSnow))
+            if ((zoomLevel <= ZoomLevel::full && industryObj->hasFlags(IndustryObjectFlags::farmTilesDrawAboveSnow))
                 || elSurface.snowCoverage() == 0)
             {
                 // Draw main surface image
@@ -1540,7 +1626,7 @@ namespace OpenLoco::Paint
                 const auto imageIndex = [&elSurface, zoomLevel, displaySlope, &landObj, variation]() {
                     if (!elSurface.water()
                         && elSurface.variation() != 0
-                        && zoomLevel == 0
+                        && zoomLevel <= ZoomLevel::full
                         && displaySlope == 0
                         && (landObj->numGrowthStages - 1) == elSurface.getGrowthStage())
                     {
@@ -1629,7 +1715,7 @@ namespace OpenLoco::Paint
             }
         }
 
-        if (zoomLevel == 0
+        if (zoomLevel <= ZoomLevel::full
             && (session.getViewFlags() & (Ui::ViewportFlags::underground_view | Ui::ViewportFlags::flag_7)) == Ui::ViewportFlags::none
             && Config::get().landscapeSmoothing)
         {
@@ -1650,7 +1736,7 @@ namespace OpenLoco::Paint
                 const auto variation = industryObj->numImagesPerFieldGrowthStage * elSurface.getGrowthStage() + ((industryObj->farmTileNumImageAngles - 1) & rotation) * 21;
                 const auto imageIndex = industryObj->fieldImageIds + variation + displaySlope;
 
-                if ((zoomLevel == 0 && industryObj->hasFlags(IndustryObjectFlags::farmTilesDrawAboveSnow))
+                if ((zoomLevel <= ZoomLevel::full && industryObj->hasFlags(IndustryObjectFlags::farmTilesDrawAboveSnow))
                     || selfDescriptor.snowCoverage == 0)
                 {
                     paintMainUndergroundSurface(session, imageIndex, displaySlope);
@@ -1742,7 +1828,7 @@ namespace OpenLoco::Paint
             session.attachToPrevious(attachedImage, { 0, 0 });
 
             // Draw waves
-            if (elSurface.isFlag6() && zoomLevel == 0)
+            if (elSurface.isFlag6() && zoomLevel <= ZoomLevel::full)
             {
                 const auto waveIndex = WaveManager::getWaveIndex(toTileSpace(session.getUnkPosition()));
                 const auto& wave = WaveManager::getWave(waveIndex);

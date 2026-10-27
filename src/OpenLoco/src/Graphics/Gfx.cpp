@@ -1,12 +1,14 @@
-#include "Gfx.h"
-#include "Colour.h"
+#include "Graphics/Gfx.h"
 #include "Config.h"
 #include "Environment.h"
-#include "Font.h"
+#include "Graphics/Colour.h"
 #include "Graphics/DrawSprite.h"
+#include "Graphics/DrawingContext.h"
+#include "Graphics/Font.h"
+#include "Graphics/ImageIds.h"
+#include "Graphics/PaletteMap.h"
 #include "Graphics/RenderTarget.h"
 #include "Graphics/SoftwareDrawingEngine.h"
-#include "ImageIds.h"
 #include "Input.h"
 #include "Localisation/Formatting.h"
 #include "Localisation/LanguageFiles.h"
@@ -14,7 +16,6 @@
 #include "Logging.h"
 #include "Objects/CurrencyObject.h"
 #include "Objects/ObjectManager.h"
-#include "PaletteMap.h"
 #include "SceneManager.h"
 #include "Ui.h"
 #include "Ui/WindowManager.h"
@@ -34,10 +35,8 @@ using namespace OpenLoco::Diagnostics;
 
 namespace OpenLoco::Gfx
 {
-    constexpr uint32_t kG1CountTemporary = 0x1000;
-
     // 0x009E2424
-    static std::array<G1Element, G1ExpectedCount::kDisc + kG1CountTemporary + G1ExpectedCount::kObjects> _g1Elements;
+    static std::array<G1Element, G1ExpectedCount::kDisc + G1ExpectedCount::kTemporaryObjects + G1ExpectedCount::kObjects> _g1Elements;
 
     static std::unique_ptr<std::byte[]> _g1Buffer;
 
@@ -152,7 +151,7 @@ namespace OpenLoco::Gfx
         // Adjust memory offsets
         for (auto& element : elements)
         {
-            element.offset += (uintptr_t)elementData.get();
+            element.offset = reinterpret_cast<std::uint8_t*>(elementData.get()) + element.offset32;
         }
 
         _g1Buffer = std::move(elementData);
@@ -218,7 +217,7 @@ namespace OpenLoco::Gfx
 
         auto& drawingEngine = getDrawingEngine();
         auto& drawingCtx = drawingEngine.getDrawingContext();
-        drawingCtx.clearSingle(PaletteIndex::black0);
+        drawingCtx.clear(PaletteIndex::black0);
     }
 
     // 0x004CD406
@@ -236,6 +235,11 @@ namespace OpenLoco::Gfx
             engine = std::make_unique<Gfx::SoftwareDrawingEngine>();
         }
         return *engine;
+    }
+
+    void disposeDrawingEngine()
+    {
+        engine.reset();
     }
 
     /**
@@ -271,7 +275,7 @@ namespace OpenLoco::Gfx
             if (!SceneManager::isSceneInitialised())
             {
                 auto& ctx = drawingEngine.getDrawingContext();
-                ctx.clearSingle(PaletteIndex::black0);
+                ctx.clear(PaletteIndex::black0);
             }
 
             drawingEngine.render();
@@ -400,7 +404,6 @@ namespace OpenLoco::Gfx
             /*.width = */ 200,
             /*.height = */ 200,
             /*.pitch = */ 0,
-            /*.zoom_level = */ 0,
         };
 
         auto& drawingCtx = Gfx::getDrawingEngine().getDrawingContext();
@@ -409,7 +412,7 @@ namespace OpenLoco::Gfx
         // Draw all the images on top of the one bitmap
         for (size_t i = 0; i < numImages; ++i)
         {
-            drawingCtx.drawImage({ 0, 0 }, baseImageId.withIndexOffset(static_cast<int32_t>(i)));
+            drawingCtx.drawImage(ZoomLevel::full, { 0, 0 }, baseImageId.withIndexOffset(static_cast<int32_t>(i)));
         }
 
         drawingCtx.popRenderTarget();
@@ -508,11 +511,11 @@ namespace OpenLoco::Gfx
     }
 
     // 0x00451DCB
-    void movePixelsOnScreen(int16_t dstX, int16_t dstY, int16_t width, int16_t height, int16_t srcX, int16_t srcY)
+    void movePixelsOnScreen(int16_t dstX, int16_t dstY, int16_t width, int16_t height, int16_t deltaX, int16_t deltaY)
     {
         auto& drawingEngine = getDrawingEngine();
         auto& screenRT = drawingEngine.getScreenRT();
 
-        drawingEngine.movePixels(screenRT, dstX, dstY, width, height, srcX, srcY);
+        drawingEngine.movePixels(screenRT, dstX, dstY, width, height, deltaX, deltaY);
     }
 }

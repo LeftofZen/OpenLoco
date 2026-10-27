@@ -1,9 +1,9 @@
-#include "ScrollView.h"
+#include "Ui/ScrollView.h"
 #include "Input.h"
-#include "ToolTip.h"
 #include "Ui.h"
-#include "Widget.h"
-#include "WindowManager.h"
+#include "Ui/ToolTip.h"
+#include "Ui/Widget.h"
+#include "Ui/WindowManager.h"
 #include <cmath>
 
 namespace OpenLoco::Ui::ScrollView
@@ -321,13 +321,23 @@ namespace OpenLoco::Ui::ScrollView
         // Horizontal scrollbar
         if (scrollArea.hasFlags(ScrollFlags::hscrollbarVisible))
         {
-            std::tie(scrollArea.hThumbLeft, scrollArea.hThumbRight) = calculateThumbSizeAndPosition(scrollArea.hasFlags(ScrollFlags::vscrollbarVisible), widget.width(), kScrollButtonSize.width, scrollArea.contentWidth, scrollArea.contentOffsetX);
+            std::tie(scrollArea.hThumbLeft, scrollArea.hThumbRight) = calculateThumbSizeAndPosition(
+                scrollArea.hasFlags(ScrollFlags::vscrollbarVisible),
+                widget.width(),
+                kScrollButtonSize.width,
+                scrollArea.contentWidth,
+                scrollArea.contentOffsetX);
         }
 
         // Vertical scrollbar
         if (scrollArea.hasFlags(ScrollFlags::vscrollbarVisible))
         {
-            std::tie(scrollArea.vThumbTop, scrollArea.vThumbBottom) = calculateThumbSizeAndPosition(scrollArea.hasFlags(ScrollFlags::hscrollbarVisible), widget.height(), kScrollButtonSize.height, scrollArea.contentHeight, scrollArea.contentOffsetY);
+            std::tie(scrollArea.vThumbTop, scrollArea.vThumbBottom) = calculateThumbSizeAndPosition(
+                scrollArea.hasFlags(ScrollFlags::hscrollbarVisible),
+                widget.height(),
+                kScrollButtonSize.height,
+                scrollArea.contentHeight,
+                scrollArea.contentOffsetY);
         }
     }
 

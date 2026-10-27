@@ -1,4 +1,4 @@
-#include "CreateIndustry.h"
+#include "GameCommands/Industries/CreateIndustry.h"
 #include "Date.h"
 #include "Economy/Economy.h"
 #include "GameCommands/GameCommands.h"
@@ -107,14 +107,13 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x0045572D
-    static World::TileClearance::ClearFuncResult tileClearFunction(World::TileElement& el, const World::Pos2 pos, const uint8_t flags, currency32_t& cost)
+    static World::TileClearance::ClearFuncResult tileClearFunction(World::TileElementEntry& entry, const World::Pos2 pos, const Flags flags, currency32_t& cost)
     {
-        auto* elTree = el.as<World::TreeElement>();
-        if (elTree == nullptr)
+        if (entry.type() != World::ElementType::tree)
         {
             return World::TileClearance::ClearFuncResult::collision;
         }
-        return World::TileClearance::clearTreeCollision(*elTree, pos, flags, cost);
+        return World::TileClearance::clearTreeCollision(entry, pos, flags, cost);
     }
 
     /* 0x004551CC
@@ -127,13 +126,13 @@ namespace OpenLoco::GameCommands
        cx = pos.y
        bl = flags
     */
-    static currency32_t placeIndustryBuilding(const IndustryId industryId, const World::Pos2& pos, const uint8_t direction, const uint8_t buildingType, const Colour colour, const bool buildImmediate, const uint8_t flags)
+    static currency32_t placeIndustryBuilding(const IndustryId industryId, const World::Pos2& pos, const uint8_t direction, const uint8_t buildingType, const Colour colour, const bool buildImmediate, const Flags flags)
     {
         auto* industry = IndustryManager::get(industryId);
         auto* indObj = industry->getObject();
         if (!World::TileManager::checkFreeElementsAndReorganise())
         {
-            return FAILURE;
+            return kFailure;
         }
 
         const bool isMultiTile = indObj->buildingSizeFlags & (1U << buildingType);
@@ -192,10 +191,10 @@ namespace OpenLoco::GameCommands
             const auto tilePos = World::toTileSpace(pos + offset.pos);
             if (!World::TileManager::validCoords(tilePos))
             {
-                return FAILURE;
+                return kFailure;
             }
 
-            if ((flags & Flags::apply) && !(flags & Flags::ghost))
+            if (hasFlags(flags, Flags::apply) && !hasFlags(flags, Flags::ghost))
             {
                 World::TileManager::removeAllWallsOnTileBelow(tilePos, highestBaseZ + clearHeight / World::kSmallZStep);
             }
@@ -204,8 +203,8 @@ namespace OpenLoco::GameCommands
                 auto tile = World::TileManager::get(tilePos);
                 const auto* surface = tile.surface();
 
-                auto clearFunc = [tilePos, flags, &totalCost](World::TileElement& el) {
-                    return tileClearFunction(el, World::toWorldSpace(tilePos), flags, totalCost);
+                auto clearFunc = [tilePos, flags, &totalCost](World::TileElementEntry& entry) {
+                    return tileClearFunction(entry, World::toWorldSpace(tilePos), flags, totalCost);
                 };
 
                 // Perform clearance checks
@@ -214,18 +213,18 @@ namespace OpenLoco::GameCommands
                     if (surface->water() * World::kMicroToSmallZStep != highestBaseZ)
                     {
                         setErrorText(StringIds::can_only_be_built_on_water);
-                        return FAILURE;
+                        return kFailure;
                     }
 
                     if (surface->hasType6Flag())
                     {
                         setErrorText(StringIds::water_channel_currently_needed_by_ships);
-                        return FAILURE;
+                        return kFailure;
                     }
                     World::QuarterTile qt(0xF, 0xF);
                     if (!World::TileClearance::applyClearAtStandardHeight(World::toWorldSpace(tilePos), highestBaseZ, clearZ, qt, clearFunc))
                     {
-                        return FAILURE;
+                        return kFailure;
                     }
                 }
                 else
@@ -233,12 +232,12 @@ namespace OpenLoco::GameCommands
                     if (surface->water())
                     {
                         setErrorText(StringIds::cant_build_this_underwater);
-                        return FAILURE;
+                        return kFailure;
                     }
                     World::QuarterTile qt(0xF, 0xF);
                     if (!World::TileClearance::applyClearAtStandardHeight(World::toWorldSpace(tilePos), surface->baseZ(), clearZ, qt, clearFunc))
                     {
-                        return FAILURE;
+                        return kFailure;
                     }
                     // TODO: This is dangerous pointer might be invalid?
                     if (surface->slope() || surface->baseZ() != highestBaseZ)
@@ -250,7 +249,7 @@ namespace OpenLoco::GameCommands
             }
 
             // Flatten surfaces (also checks if other elements will cause issues due to the flattening of the surface)
-            if (!(flags & Flags::ghost) && !indObj->hasFlags(IndustryObjectFlags::builtOnWater))
+            if (!hasFlags(flags, Flags::ghost) && !indObj->hasFlags(IndustryObjectFlags::builtOnWater))
             {
                 auto tile = World::TileManager::get(tilePos);
                 auto* surface = tile.surface();
@@ -279,37 +278,37 @@ namespace OpenLoco::GameCommands
                                 if (elTrack != nullptr && !elTrack->isGhost() && !elTrack->hasBridge())
                                 {
                                     setErrorText(StringIds::empty);
-                                    return FAILURE;
+                                    return kFailure;
                                 }
                                 else if (elRoad != nullptr && !elRoad->isGhost() && !elRoad->hasBridge())
                                 {
                                     setErrorText(StringIds::empty);
-                                    return FAILURE;
+                                    return kFailure;
                                 }
                                 else if (elStation != nullptr && elStation->stationType() == StationType::airport)
                                 {
                                     setErrorText(StringIds::empty);
-                                    return FAILURE;
+                                    return kFailure;
                                 }
                                 else if (elBuilding != nullptr)
                                 {
                                     setErrorText(StringIds::empty);
-                                    return FAILURE;
+                                    return kFailure;
                                 }
                                 else if (elIndustry != nullptr)
                                 {
                                     setErrorText(StringIds::empty);
-                                    return FAILURE;
+                                    return kFailure;
                                 }
                                 else if (elTree != nullptr && clearZ <= elTree->baseZ())
                                 {
                                     setErrorText(StringIds::empty);
-                                    return FAILURE;
+                                    return kFailure;
                                 }
                             }
                         }
                     }
-                    if (flags & Flags::apply)
+                    if (hasFlags(flags, Flags::apply))
                     {
                         World::TileManager::mapInvalidateTileFull(World::toWorldSpace(tilePos));
                         surface->setBaseZ(highestBaseZ);
@@ -322,31 +321,32 @@ namespace OpenLoco::GameCommands
             }
 
             // Create new tile
-            if (flags & Flags::apply)
+            if (hasFlags(flags, Flags::apply))
             {
-                if (!(flags & Flags::ghost))
+                if (!hasFlags(flags, Flags::ghost))
                 {
                     World::TileManager::removeSurfaceIndustry(World::toWorldSpace(tilePos));
                     World::TileManager::setTerrainStyleAsCleared(World::toWorldSpace(tilePos));
                 }
-                auto* elIndustry = World::TileManager::insertElement<World::IndustryElement>(World::toWorldSpace(tilePos), highestBaseZ, 0xF);
-                if (elIndustry == nullptr)
+                auto* industryEntry = World::TileManager::insertElement<World::IndustryElement>(World::toWorldSpace(tilePos), highestBaseZ, 0xF);
+                if (industryEntry == nullptr)
                 {
-                    return FAILURE;
+                    return kFailure;
                 }
-                elIndustry->setClearZ(clearZ);
-                elIndustry->setRotation(direction);
-                elIndustry->setIsConstructed(buildImmediate);
-                elIndustry->setIndustryId(industryId);
-                elIndustry->setSequenceIndex(offset.index);
+                auto& elIndustry = industryEntry->get<World::IndustryElement>();
+                elIndustry.setClearZ(clearZ);
+                elIndustry.setRotation(direction);
+                elIndustry.setIsConstructed(buildImmediate);
+                elIndustry.setIndustryId(industryId);
+                elIndustry.setSequenceIndex(offset.index);
                 // TODO: If it turns out there are more vars in _5 they should be cleared here
-                elIndustry->setSectionProgress(0);
-                elIndustry->setColour(colour);
-                elIndustry->setBuildingType(buildingType);
-                elIndustry->setVar_6_003F(0);
-                World::AnimationManager::createAnimation(3, World::toWorldSpace(tilePos), elIndustry->baseZ());
-                elIndustry->setGhost(flags & Flags::ghost);
-                Ui::ViewportManager::invalidate(World::toWorldSpace(tilePos), elIndustry->baseHeight(), elIndustry->clearHeight());
+                elIndustry.setSectionProgress(0);
+                elIndustry.setColour(colour);
+                elIndustry.setBuildingType(buildingType);
+                elIndustry.setSectionsCompleted(0);
+                World::AnimationManager::createAnimation(3, World::toWorldSpace(tilePos), elIndustry.baseZ());
+                elIndustry.setGhost(hasFlags(flags, Flags::ghost));
+                Ui::ViewportManager::invalidate(World::toWorldSpace(tilePos), elIndustry.baseHeight(), elIndustry.clearHeight());
             }
         }
 
@@ -412,7 +412,7 @@ namespace OpenLoco::GameCommands
     };
 
     // 0x0045436B
-    static currency32_t createIndustry(const IndustryPlacementArgs& args, const uint8_t flags)
+    static currency32_t createIndustry(const IndustryPlacementArgs& args, const Flags flags)
     {
         getLegacyReturnState().lastPlacedIndustryId = IndustryId::null;
         GameCommands::setExpenditureType(ExpenditureType::Miscellaneous);
@@ -422,12 +422,11 @@ namespace OpenLoco::GameCommands
             GameCommands::setPosition({ args.pos.x, args.pos.y, centreHeight.landHeight });
         }
 
-        // TODO: Vanilla bug args.srand0 not set. Change this when we can diverge
-        Core::Prng prng{ enumValue(GameCommand::createIndustry), args.srand1 };
+        Core::Prng prng{ args.srand0, args.srand1 };
         const auto newIndustryId = sub_454C91(args.type, args.pos, prng);
         if (newIndustryId == IndustryId::null)
         {
-            return FAILURE;
+            return kFailure;
         }
         getLegacyReturnState().lastPlacedIndustryId = newIndustryId;
         auto* newIndustry = IndustryManager::get(newIndustryId);
@@ -436,7 +435,7 @@ namespace OpenLoco::GameCommands
         {
             newIndustry->under_construction = 0xFF;
         }
-        if (flags & Flags::ghost)
+        if (hasFlags(flags, Flags::ghost))
         {
             newIndustry->flags |= IndustryFlags::isGhost;
         }
@@ -452,29 +451,25 @@ namespace OpenLoco::GameCommands
         // 0x00E0C3BE - C0
         auto lastPlacedBuildingPos = World::Pos2{ newIndustry->x, newIndustry->y };
 
-        // TODO: used also for 0x00454552 break up into two when function allowed to diverge
-        const auto randVal = newIndustry->prng.randNext() & 0xFF;
-
-        auto prodRateRand = randVal;
         for (auto i = 0; i < 2; ++i)
         {
             newIndustry->dailyProduction[i] = 0;
 
             const auto& initalRate = indObj->initialProductionRate[i];
-            newIndustry->dailyProductionTarget[i] = (((initalRate.max - initalRate.min) * prodRateRand) / 256) + initalRate.min;
+            const auto randVal = newIndustry->prng.randNext() & 0xFF;
+            newIndustry->dailyProductionTarget[i] = (((initalRate.max - initalRate.min) * randVal) / 256) + initalRate.min;
 
             if (SceneManager::isEditorMode())
             {
                 newIndustry->dailyProduction[i] = newIndustry->dailyProductionTarget[i];
                 newIndustry->producedCargoQuantityPreviousMonth[i] = newIndustry->dailyProduction[i] * 30;
             }
-            // This is odd but follows vanilla
-            prodRateRand = newIndustry->dailyProductionTarget[i] & 0xFF;
         }
 
         currency32_t totalCost = 0;
 
         // 0x00454552
+        const auto randVal = newIndustry->prng.randNext() & 0xFF;
         const auto numBuildings = (((indObj->maxNumBuildings - indObj->minNumBuildings + 1) * randVal) / 256) + indObj->minNumBuildings;
         const auto buildings = indObj->getBuildings();
         for (auto i = 0U; i < numBuildings; ++i)
@@ -536,11 +531,11 @@ namespace OpenLoco::GameCommands
                 // edi = randColour << 16
                 // dl = building
                 // dh = industryId
-                if (flags & Flags::apply)
+                if (hasFlags(flags, Flags::apply))
                 {
                     // do test placement
                     const uint32_t cost = placeIndustryBuilding(newIndustryId, randPos, direction, building, randColour, args.buildImmediately, flags & ~(Flags::apply));
-                    if (cost == FAILURE)
+                    if (cost == kFailure)
                     {
                         continue;
                     }
@@ -550,7 +545,7 @@ namespace OpenLoco::GameCommands
                 }
 
                 const uint32_t cost = placeIndustryBuilding(newIndustryId, randPos, direction, building, randColour, args.buildImmediately, flags);
-                if (cost == FAILURE)
+                if (cost == kFailure)
                 {
                     continue;
                 }
@@ -564,7 +559,7 @@ namespace OpenLoco::GameCommands
                 StringManager::emptyUserString(newIndustry->name);
                 // Free the industry slot
                 newIndustry->name = StringIds::null;
-                return FAILURE;
+                return kFailure;
             }
         }
 
@@ -591,7 +586,7 @@ namespace OpenLoco::GameCommands
         }
 
         // 0x00454745
-        if ((flags & Flags::apply) && !(flags & Flags::ghost) && newIndustry->numTiles != 0)
+        if (hasFlags(flags, Flags::apply) && !hasFlags(flags, Flags::ghost) && newIndustry->numTiles != 0)
         {
             if (indObj->farmTileGrowthStageNoProduction != 0xFF)
             {
@@ -688,7 +683,7 @@ namespace OpenLoco::GameCommands
         }
 
         // Cleanup
-        if (!(flags & Flags::apply))
+        if (!hasFlags(flags, Flags::apply))
         {
             StringManager::emptyUserString(newIndustry->name);
             // Free the industry slot
@@ -697,7 +692,7 @@ namespace OpenLoco::GameCommands
         totalCost += Economy::getInflationAdjustedCost(indObj->costFactor, indObj->costIndex, 3);
 
         // Send message post
-        if ((flags & Flags::apply) && !(flags & Flags::ghost) && !args.buildImmediately)
+        if (hasFlags(flags, Flags::apply) && !hasFlags(flags, Flags::ghost) && !args.buildImmediately)
         {
             MessageManager::post(MessageType::newIndustry, CompanyId::null, enumValue(newIndustry->id()), 0xFFFFU);
         }
@@ -705,9 +700,9 @@ namespace OpenLoco::GameCommands
         return totalCost;
     }
 
-    void createIndustry(registers& regs)
+    void createIndustry(registers& regs, const Flags flags)
     {
         IndustryPlacementArgs args(regs);
-        regs.ebx = createIndustry(args, regs.bl);
+        regs.ebx = createIndustry(args, flags);
     }
 }

@@ -1,10 +1,10 @@
-#include "ExplosionSmokeEffect.h"
+#include "Effects/ExplosionSmokeEffect.h"
 #include "Entities/EntityManager.h"
 
 namespace OpenLoco
 {
     // 0x00440078D
-    void ExplosionSmoke::update()
+    void ExplosionSmoke::tick()
     {
         invalidateSprite();
         frame += 0x80;

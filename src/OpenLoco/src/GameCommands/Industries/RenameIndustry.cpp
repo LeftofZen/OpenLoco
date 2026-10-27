@@ -1,4 +1,4 @@
-#include "RenameIndustry.h"
+#include "GameCommands/Industries/RenameIndustry.h"
 #include "Economy/Expenditures.h"
 #include "GameCommands/GameCommands.h"
 #include "GameCommands/Industries/RenameIndustry.h"
@@ -26,9 +26,9 @@ namespace OpenLoco::GameCommands
      * @param buffer0 @<edx> - First part (4 chars) of the 12 update buffer
      * @param buffer1 @<dx> - Second part (4 chars) of the 12 update buffer
      * @param buffer2 @<bp> - Third part (4 chars) of the 12 update buffer
-     * @return @<ebx> - returns 0 if rename is successful; otherwise GameCommands::FAILURE
+     * @return @<ebx> - returns 0 if rename is successful; otherwise GameCommands::kFailure
      */
-    static uint32_t renameIndustry(const GameCommands::RenameIndustryArgs& args, const uint8_t flags)
+    static uint32_t renameIndustry(const GameCommands::RenameIndustryArgs& args, const Flags flags)
     {
         GameCommands::setExpenditureType(ExpenditureType::Miscellaneous);
 
@@ -42,7 +42,7 @@ namespace OpenLoco::GameCommands
         static char staticRenameBuffer[37]{};
 
         // Fill buffer over calls into the renameBuffer
-        if ((flags & GameCommands::Flags::apply) != 0)
+        if (hasFlags(flags, GameCommands::Flags::apply))
         {
             static constexpr std::array<int, 3> kTransformTable = { 2, 0, 1 };
             int arrayIndex = kTransformTable.at(args.nameBufferIndex);
@@ -82,11 +82,11 @@ namespace OpenLoco::GameCommands
         StringId allocatedStringId = StringManager::userStringAllocate(renameStringBuffer, true);
         if (allocatedStringId == StringIds::empty)
         {
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
         // Bailing out early?
-        if ((flags & GameCommands::Flags::apply) == 0)
+        if (!hasFlags(flags, GameCommands::Flags::apply))
         {
             StringManager::emptyUserString(allocatedStringId);
             return 0;
@@ -100,8 +100,8 @@ namespace OpenLoco::GameCommands
         return 0;
     }
 
-    void renameIndustry(registers& regs)
+    void renameIndustry(registers& regs, const Flags flags)
     {
-        regs.ebx = renameIndustry(GameCommands::RenameIndustryArgs(regs), regs.bl);
+        regs.ebx = renameIndustry(GameCommands::RenameIndustryArgs(regs), flags);
     }
 }

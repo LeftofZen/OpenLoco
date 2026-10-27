@@ -1,4 +1,5 @@
-#include "VehiclePickupWater.h"
+#include "GameCommands/Vehicles/VehiclePickupWater.h"
+#include "Config.h"
 #include "Entities/EntityManager.h"
 #include "GameCommands/GameCommands.h"
 #include "Map/StationElement.h"
@@ -16,27 +17,27 @@ using namespace OpenLoco::Vehicles;
 namespace OpenLoco::GameCommands
 {
     // 0x004279CC
-    static uint32_t vehiclePickupWater(EntityId head, uint8_t flags)
+    static uint32_t vehiclePickupWater(EntityId head, Flags flags)
     {
         setExpenditureType(ExpenditureType::ShipRunningCosts);
         Vehicle train(head);
         setPosition(train.veh2->position);
-        if (!sub_431E6A(train.head->owner))
+        if (!checkCompanyCompatibility(train.head->owner))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         if (!train.head->canBeModified())
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if (!(flags & Flags::apply))
+        if (!hasFlags(flags, Flags::apply))
         {
             return 0;
         }
 
-        if (!(flags & Flags::ghost))
+        if (!hasFlags(flags, Flags::ghost))
         {
             Vehicles::playPickupSound(train.veh2);
         }
@@ -68,7 +69,6 @@ namespace OpenLoco::GameCommands
 
         train.applyToComponents([](auto& component) {
             component.tileX = -1;
-            component.invalidateSprite();
             component.moveTo({ static_cast<int16_t>(0x8000), 0, 0 });
         });
 
@@ -80,18 +80,21 @@ namespace OpenLoco::GameCommands
         });
 
         train.head->vehicleFlags |= VehicleFlags::commandStop;
-        for (auto& car : train.cars)
+        if (!Config::get().keepCargoModifyPickup)
         {
-            for (auto& component : car)
+            for (auto& car : train.cars)
             {
-                removeAllCargo(component);
+                for (auto& component : car)
+                {
+                    removeAllCargo(component);
+                }
             }
         }
         return 0;
     }
 
-    void vehiclePickupWater(registers& regs)
+    void vehiclePickupWater(registers& regs, const Flags flags)
     {
-        regs.ebx = vehiclePickupWater(EntityId(regs.di), regs.bl);
+        regs.ebx = vehiclePickupWater(EntityId(regs.di), flags);
     }
 }

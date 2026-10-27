@@ -18,11 +18,15 @@ Includes all git commit authors. Aliases are GitHub user names.
 * LeeSpork
 * Kelson Blakewood (spacek531)
 * luciditee
+* killerdevildog
+* ravsmedstrom
+* ben-leone
 
 ## Bugfixes
 * seifer7
 * Ryan D. (rctdude2)
 * Soham Roy (sohamroy19)
+* kevinz26
 
 ## Translations
 * Czech - Ríša Szlachta (tygrysek90)

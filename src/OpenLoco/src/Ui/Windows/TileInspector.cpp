@@ -2,7 +2,6 @@
 #include "Graphics/Gfx.h"
 #include "Graphics/ImageIds.h"
 #include "Graphics/RenderTarget.h"
-#include "Graphics/SoftwareDrawingEngine.h"
 #include "Graphics/TextRenderer.h"
 #include "Input.h"
 #include "Localisation/FormatArguments.hpp"
@@ -48,6 +47,8 @@
 #include "World/CompanyManager.h"
 #include "World/Industry.h"
 #include "World/Station.h"
+
+#include <OpenLoco/Utility/LookupTable.hpp>
 #include <map>
 
 using namespace OpenLoco::World;
@@ -58,46 +59,62 @@ namespace OpenLoco::Ui::Windows::TileInspector
 
     static constexpr Ui::Size kWindowSize = { 350, 200 };
 
-    namespace widx
+    enum widx
     {
-        enum
-        {
-            frame,
-            title,
-            close,
-            panel,
-            xPos,
-            xPosDecrease,
-            xPosIncrease,
-            yPos,
-            yPosDecrease,
-            yPosIncrease,
-            select,
-            nameTypeHeader,
-            baseHeightHeader,
-            clearHeightHeader,
-            directionHeader,
-            ghostHeader,
-            scrollview,
-            detailsGroup,
-        };
+        frame,
+        title,
+        close,
+        panel,
+        xPos,
+        xPosDecrease,
+        xPosIncrease,
+        yPos,
+        yPosDecrease,
+        yPosIncrease,
+        select,
+        nameTypeHeader,
+        baseHeightHeader,
+        clearHeightHeader,
+        directionHeader,
+        ghostHeader,
+        scrollview,
+        detailsGroup,
+    };
+
+    namespace Widx
+    {
+        constexpr WidgetId kClose{ "close" };
+        constexpr WidgetId kPanel{ "panel" };
+        constexpr WidgetId kXPos{ "xPos" };
+        constexpr WidgetId kXPosDecrease{ "xPosDecrease" };
+        constexpr WidgetId kXPosIncrease{ "xPosIncrease" };
+        constexpr WidgetId kYPos{ "yPos" };
+        constexpr WidgetId kYPosDecrease{ "yPosDecrease" };
+        constexpr WidgetId kYPosIncrease{ "yPosIncrease" };
+        constexpr WidgetId kSelect{ "select" };
+        constexpr WidgetId kNameTypeHeader{ "nameTypeHeader" };
+        constexpr WidgetId kBaseHeightHeader{ "baseHeightHeader" };
+        constexpr WidgetId kClearHeightHeader{ "clearHeightHeader" };
+        constexpr WidgetId kDirectionHeader{ "directionHeader" };
+        constexpr WidgetId kGhostHeader{ "ghostHeader" };
+        constexpr WidgetId kDetailsGroup{ "detailsGroup" };
     }
 
     static constexpr auto _widgets = makeWidgets(
         Widgets::Frame({ 0, 0 }, kWindowSize, WindowColour::primary),
         Widgets::Caption({ 1, 1 }, { kWindowSize.width - 2, 13 }, Widgets::Caption::Style::whiteText, WindowColour::primary, StringIds::tile_inspector),
-        Widgets::ImageButton({ kWindowSize.width - 15, 2 }, { 13, 13 }, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
-        Widgets::Panel({ 0, 15 }, { kWindowSize.width, kWindowSize.height - 15 }, WindowColour::secondary),
-        Widgets::stepperWidgets({ 19, 24 }, { 55, 12 }, WindowColour::secondary),
-        Widgets::stepperWidgets({ 92, 24 }, { 55, 12 }, WindowColour::secondary),
-        Widgets::ImageButton({ kWindowSize.width - 26, 18 }, { 24, 24 }, WindowColour::secondary, ImageIds::construction_new_position, StringIds::tile_inspector_select_btn_tooltip),
-        Widgets::TableHeader({ 4, 46 }, { kWindowSize.width - 98, 12 }, WindowColour::secondary, StringIds::tileInspectorHeaderNameType, StringIds::tileInspectorHeaderNameTypeTip), // name
-        Widgets::TableHeader({ kWindowSize.width - 109, 46 }, { 30, 12 }, WindowColour::secondary, StringIds::tileInspectorHeaderBaseHeight, StringIds::tileInspectorHeaderBaseHeightTip),
-        Widgets::TableHeader({ kWindowSize.width - 79, 46 }, { 30, 12 }, WindowColour::secondary, StringIds::tileInspectorHeaderClearHeight, StringIds::tileInspectorHeaderClearHeightTip),
-        Widgets::TableHeader({ kWindowSize.width - 49, 46 }, { 15, 12 }, WindowColour::secondary, StringIds::tileInspectorHeaderDirection, StringIds::tileInspectorHeaderDirectionTip),
-        Widgets::TableHeader({ kWindowSize.width - 34, 46 }, { 30, 12 }, WindowColour::secondary, StringIds::tileInspectorHeaderGhost, StringIds::tileInspectorHeaderGhostTip),
+        Widgets::ImageButton(Widx::kClose, { kWindowSize.width - 15, 2 }, { 13, 13 }, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
+        Widgets::Panel(Widx::kPanel, { 0, 15 }, { kWindowSize.width, kWindowSize.height - 15 }, WindowColour::secondary),
+        Widgets::stepperWidgets(Widx::kXPos, Widx::kXPosDecrease, Widx::kXPosIncrease, { 19, 24 }, { 55, 12 }, WindowColour::secondary),
+        Widgets::stepperWidgets(Widx::kYPos, Widx::kYPosDecrease, Widx::kYPosIncrease, { 92, 24 }, { 55, 12 }, WindowColour::secondary),
+        Widgets::ImageButton(Widx::kSelect, { kWindowSize.width - 26, 18 }, { 24, 24 }, WindowColour::secondary, ImageIds::construction_new_position, StringIds::tile_inspector_select_btn_tooltip),
+        Widgets::TableHeader(Widx::kNameTypeHeader, { 4, 46 }, { kWindowSize.width - 98, 12 }, WindowColour::secondary, StringIds::tileInspectorHeaderNameType, StringIds::tileInspectorHeaderNameTypeTip), // name
+        Widgets::TableHeader(Widx::kBaseHeightHeader, { kWindowSize.width - 109, 46 }, { 30, 12 }, WindowColour::secondary, StringIds::tileInspectorHeaderBaseHeight, StringIds::tileInspectorHeaderBaseHeightTip),
+        Widgets::TableHeader(Widx::kClearHeightHeader, { kWindowSize.width - 79, 46 }, { 30, 12 }, WindowColour::secondary, StringIds::tileInspectorHeaderClearHeight, StringIds::tileInspectorHeaderClearHeightTip),
+        Widgets::TableHeader(Widx::kDirectionHeader, { kWindowSize.width - 49, 46 }, { 15, 12 }, WindowColour::secondary, StringIds::tileInspectorHeaderDirection, StringIds::tileInspectorHeaderDirectionTip),
+        Widgets::TableHeader(Widx::kGhostHeader, { kWindowSize.width - 34, 46 }, { 30, 12 }, WindowColour::secondary, StringIds::tileInspectorHeaderGhost, StringIds::tileInspectorHeaderGhostTip),
         Widgets::ScrollView({ 4, 60 }, { kWindowSize.width - 8, 103 }, WindowColour::secondary, Ui::Scrollbars::vertical),
-        Widgets::GroupBox({ 4, 165 }, { kWindowSize.width - 8, 30 }, WindowColour::secondary, StringIds::tile_element_data)
+        Widgets::GroupBox(Widx::kDetailsGroup, { 4, 165 }, { kWindowSize.width - 8, 30 }, WindowColour::secondary, StringIds::tile_element_data)
 
     );
 
@@ -161,14 +178,14 @@ namespace OpenLoco::Ui::Windows::TileInspector
             FormatArguments args{};
             args.push(StringIds::tile_inspector_x_coord);
             auto& widget = self.widgets[widx::xPos];
-            auto point = Point(self.x + widget.left - 15, self.y + widget.top + 1);
+            auto point = Point(widget.left - 15, widget.top + 1);
             tr.drawStringLeft(point, Colour::black, StringIds::wcolour2_stringid, args);
         }
         {
             FormatArguments args{};
             args.push(StringIds::tile_inspector_y_coord);
             auto& widget = self.widgets[widx::yPos];
-            auto point = Point(self.x + widget.left - 15, self.y + widget.top + 1);
+            auto point = Point(widget.left - 15, widget.top + 1);
             tr.drawStringLeft(point, Colour::black, StringIds::wcolour2_stringid, args);
         }
 
@@ -177,14 +194,14 @@ namespace OpenLoco::Ui::Windows::TileInspector
             FormatArguments args{};
             args.push<int16_t>(_currentPosition.x);
             auto& widget = self.widgets[widx::xPos];
-            auto point = Point(self.x + widget.left + 2, self.y + widget.top + 1);
+            auto point = Point(widget.left + 2, widget.top + 1);
             tr.drawStringLeft(point, Colour::black, StringIds::tile_inspector_coord, args);
         }
         {
             FormatArguments args{};
             args.push<int16_t>(_currentPosition.y);
             auto& widget = self.widgets[widx::yPos];
-            auto point = Point(self.x + widget.left + 2, self.y + widget.top + 1);
+            auto point = Point(widget.left + 2, widget.top + 1);
             tr.drawStringLeft(point, Colour::black, StringIds::tile_inspector_coord, args);
         }
 
@@ -199,14 +216,14 @@ namespace OpenLoco::Ui::Windows::TileInspector
             snprintf(&buffer[1], std::size(buffer) - 1, "Data: %02x %02x %02x %02x %02x %02x %02x %02x", data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
 
             auto widget = self.widgets[widx::detailsGroup];
-            auto point = Point(self.x + widget.left + 7, self.y + widget.top + 14);
+            auto point = Point(widget.left + 7, widget.top + 14);
             tr.drawString(point, Colour::black, buffer);
         }
     }
 
-    static StringId getElementTypeName(const TileElement& element)
+    static StringId getElementTypeName(const TileElementEntry& element)
     {
-        static const std::map<ElementType, StringId> typeToString = {
+        static constexpr auto kTypeToString = Utility::buildLookupTable<ElementType, StringId>({
             { ElementType::surface, StringIds::tile_inspector_element_type_surface },
             { ElementType::track, StringIds::tile_inspector_element_type_track },
             { ElementType::station, StringIds::tile_inspector_element_type_station },
@@ -216,12 +233,12 @@ namespace OpenLoco::Ui::Windows::TileInspector
             { ElementType::wall, StringIds::tile_inspector_element_type_wall },
             { ElementType::road, StringIds::tile_inspector_element_type_road },
             { ElementType::industry, StringIds::tile_inspector_element_type_industry },
-        };
+        });
 
-        return typeToString.at(element.type());
+        return kTypeToString.at(element.type());
     }
 
-    static StringId getObjectName(const TileElement& element)
+    static StringId getObjectName(const TileElementEntry& element)
     {
         switch (element.type())
         {
@@ -316,7 +333,7 @@ namespace OpenLoco::Ui::Windows::TileInspector
         return StringIds::empty;
     }
 
-    static StringId getOwnerName(const TileElement& element)
+    static StringId getOwnerName(const TileElementEntry& element)
     {
         if (element.type() == ElementType::road)
         {
@@ -477,40 +494,40 @@ namespace OpenLoco::Ui::Windows::TileInspector
         }
     }
 
-    static void onMouseUp(Ui::Window& self, WidgetIndex_t widgetIndex, [[maybe_unused]] const WidgetId id)
+    static void onMouseUp(Ui::Window& self, [[maybe_unused]] WidgetIndex_t widgetIndex, const WidgetId id)
     {
-        switch (widgetIndex)
+        switch (id)
         {
-            case widx::close:
+            case Widx::kClose:
                 WindowManager::close(self.type);
                 break;
 
-            case widx::select:
+            case Widx::kSelect:
                 activateMapSelectionTool(self);
                 break;
         }
     }
 
-    static void onMouseDown(Ui::Window& self, const WidgetIndex_t widgetIndex, [[maybe_unused]] const WidgetId id)
+    static void onMouseDown(Ui::Window& self, [[maybe_unused]] const WidgetIndex_t widgetIndex, const WidgetId id)
     {
-        switch (widgetIndex)
+        switch (id)
         {
-            case widx::xPosDecrease:
+            case Widx::kXPosDecrease:
                 _currentPosition.x = std::clamp<coord_t>(_currentPosition.x - 1, 1, World::TileManager::getMapColumns());
                 self.invalidate();
                 break;
 
-            case widx::xPosIncrease:
+            case Widx::kXPosIncrease:
                 _currentPosition.x = std::clamp<coord_t>(_currentPosition.x + 1, 1, World::TileManager::getMapColumns());
                 self.invalidate();
                 break;
 
-            case widx::yPosDecrease:
+            case Widx::kYPosDecrease:
                 _currentPosition.y = std::clamp<coord_t>(_currentPosition.y - 1, 1, World::TileManager::getMapRows());
                 self.invalidate();
                 break;
 
-            case widx::yPosIncrease:
+            case Widx::kYPosIncrease:
                 _currentPosition.y = std::clamp<coord_t>(_currentPosition.y + 1, 1, World::TileManager::getMapRows());
                 self.invalidate();
                 break;

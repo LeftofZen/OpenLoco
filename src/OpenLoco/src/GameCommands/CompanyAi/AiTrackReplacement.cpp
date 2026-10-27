@@ -1,4 +1,4 @@
-#include "AiTrackReplacement.h"
+#include "GameCommands/CompanyAi/AiTrackReplacement.h"
 #include "Economy/Economy.h"
 #include "GameState.h"
 #include "Map/BuildingElement.h"
@@ -34,11 +34,11 @@ namespace OpenLoco::GameCommands
             uint8_t trackId;
             uint8_t bridgeId;
             uint8_t trackObjectId;
-            uint8_t flags;
+            Flags flags;
         };
     }
 
-    static World::TrackElement* getTrackElement(const World::Pos3 pos, const uint8_t rotation, const uint8_t trackObjectId, const uint8_t trackId, const uint8_t sequenceIndex, const CompanyId companyId)
+    static World::TileElementEntry* getTrackElement(const World::Pos3 pos, const uint8_t rotation, const uint8_t trackObjectId, const uint8_t trackId, const uint8_t sequenceIndex, const CompanyId companyId)
     {
         auto tile = World::TileManager::get(pos);
         for (auto& el : tile)
@@ -76,7 +76,7 @@ namespace OpenLoco::GameCommands
                 return nullptr;
             }
 
-            return elTrack;
+            return &el;
         }
         return nullptr;
     }
@@ -130,12 +130,12 @@ namespace OpenLoco::GameCommands
         hasLevelCrossing = true;
         getLegacyReturnState().flags_1136073 |= (1U << 2);
 
-        if (args.flags & Flags::apply)
+        if (hasFlags(args.flags, Flags::apply))
         {
             elRoad.setHasLevelCrossing(true);
             elRoad.setLevelCrossingObjectId(getGameState().currentDefaultLevelCrossingType);
-            elRoad.setUnk7_10(false);
-            elRoad.setUnk6l(0);
+            elRoad.setLevelCrossingClosed(false);
+            elRoad.setLevelCrossingAnimationFrame(0);
         }
 
         return World::TileClearance::ClearFuncResult::noCollision;
@@ -143,13 +143,13 @@ namespace OpenLoco::GameCommands
 
     // 0x004A7A7F
     static World::TileClearance::ClearFuncResult clearFunction(
-        World::TileElement& el,
+        World::TileElementEntry& entry,
         currency32_t& totalCost,
         bool& hasLevelCrossing,
         World::TileClearance::RemovedBuildings& removedBuildings,
         const ClearFunctionArgs& args)
     {
-        switch (el.type())
+        switch (entry.type())
         {
             case World::ElementType::track:
             {
@@ -157,7 +157,7 @@ namespace OpenLoco::GameCommands
             }
             case World::ElementType::station:
             {
-                auto* elStation = el.as<World::StationElement>();
+                auto* elStation = entry.as<World::StationElement>();
                 if (elStation->stationType() == StationType::trainStation)
                 {
                     return World::TileClearance::ClearFuncResult::noCollision;
@@ -167,26 +167,12 @@ namespace OpenLoco::GameCommands
             case World::ElementType::signal:
                 return World::TileClearance::ClearFuncResult::noCollision;
             case World::ElementType::building:
-            {
-                auto* elBuilding = el.as<World::BuildingElement>();
-                if (elBuilding == nullptr)
-                {
-                    return World::TileClearance::ClearFuncResult::noCollision;
-                }
-                return World::TileClearance::clearBuildingCollision(*elBuilding, args.pos, removedBuildings, args.flags | Flags::flag_7, totalCost);
-            }
+                return World::TileClearance::clearBuildingCollision(entry, args.pos, removedBuildings, args.flags | Flags::flag_7, totalCost);
             case World::ElementType::tree:
-            {
-                auto* elTree = el.as<World::TreeElement>();
-                if (elTree == nullptr)
-                {
-                    return World::TileClearance::ClearFuncResult::noCollision;
-                }
-                return World::TileClearance::clearTreeCollision(*elTree, args.pos, args.flags, totalCost);
-            }
+                return World::TileClearance::clearTreeCollision(entry, args.pos, args.flags, totalCost);
             case World::ElementType::road:
             {
-                auto* elRoad = el.as<World::RoadElement>();
+                auto* elRoad = entry.as<World::RoadElement>();
                 if (elRoad != nullptr)
                 {
                     return clearRoad(*elRoad, args, hasLevelCrossing);
@@ -203,28 +189,36 @@ namespace OpenLoco::GameCommands
         return World::TileClearance::ClearFuncResult::collision;
     }
 
-    static currency32_t aiTrackReplacement(const AiTrackReplacementArgs& args, const uint8_t flags)
+    static currency32_t aiTrackReplacement(const AiTrackReplacementArgs& args, const Flags flags)
     {
         getLegacyReturnState().flags_1136072 = World::TileManager::ElementPositionFlags::none;
         GameCommands::setExpenditureType(ExpenditureType::Construction);
         const auto companyId = GameCommands::getUpdatingCompanyId();
-        if (flags & GameCommands::Flags::apply)
+        if (hasFlags(flags, GameCommands::Flags::apply))
         {
             const auto center = World::Pos2(args.pos) + World::Pos2{ 16, 16 };
             companySetObservation(companyId, ObservationStatus::buildingTrackRoad, center, EntityId::null, args.trackObjectId);
         }
 
-        auto* elTrackSeq = getTrackElement(args.pos, args.rotation, args.trackObjectId, args.trackId, args.sequenceIndex, companyId);
-
-        if (elTrackSeq == nullptr)
+        auto* trackSeqEntry = getTrackElement(args.pos, args.rotation, args.trackObjectId, args.trackId, args.sequenceIndex, companyId);
+        if (trackSeqEntry == nullptr)
         {
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
-
         auto* trackObj = ObjectManager::get<TrackObject>(args.trackObjectId);
+        if (trackObj == nullptr)
+        {
+            return GameCommands::kFailure;
+        }
 
         currency32_t totalCost = 0;
         const auto trackIdCostFactor = World::TrackData::getTrackMiscData(args.trackId).costFactor;
+        auto* elTrackSeq = trackSeqEntry->as<World::TrackElement>();
+        if (elTrackSeq == nullptr)
+        {
+            return GameCommands::kFailure;
+        }
+
         if (elTrackSeq->isAiAllocated())
         {
             {
@@ -246,7 +240,7 @@ namespace OpenLoco::GameCommands
 
         if (elTrackSeq->hasSignal())
         {
-            auto* elSignal = elTrackSeq->next()->as<World::SignalElement>();
+            auto* elSignal = trackSeqEntry->next()->as<World::SignalElement>();
             if (elSignal != nullptr && elSignal->isAiAllocated())
             {
                 auto getSignalCost = [](const World::SignalElement::Side& side) {
@@ -266,7 +260,7 @@ namespace OpenLoco::GameCommands
 
         if (elTrackSeq->hasStationElement())
         {
-            auto* elStation = elTrackSeq->next()->as<World::StationElement>();
+            auto* elStation = trackSeqEntry->next()->as<World::StationElement>();
             if (elStation != nullptr && elStation->isAiAllocated())
             {
                 auto* stationObj = ObjectManager::get<TrainStationObject>(elStation->objectId());
@@ -298,11 +292,18 @@ namespace OpenLoco::GameCommands
             {
                 overWater = true;
             }
-            auto* elTrack = getTrackElement(trackLoc, args.rotation, args.trackObjectId, args.trackId, piece.index, companyId);
+            auto* trackEntry = getTrackElement(trackLoc, args.rotation, args.trackObjectId, args.trackId, piece.index, companyId);
+            if (trackEntry == nullptr)
+            {
+                continue;
+            }
+
+            auto* elTrack = trackEntry->as<World::TrackElement>();
             if (elTrack == nullptr)
             {
                 continue;
             }
+
             if (elTrack->hasBridge())
             {
                 hasBridge = true;
@@ -310,7 +311,7 @@ namespace OpenLoco::GameCommands
             }
             if (elTrack->isAiAllocated())
             {
-                if (flags & GameCommands::Flags::apply)
+                if (hasFlags(flags, GameCommands::Flags::apply))
                 {
                     elTrack->setAiAllocated(false);
                     World::TileManager::mapInvalidateTileFull(trackLoc);
@@ -318,8 +319,8 @@ namespace OpenLoco::GameCommands
             }
             if (elTrack->hasSignal())
             {
-                auto* elSignal = elTrack->next()->as<World::SignalElement>();
-                if (elSignal != nullptr && (flags & GameCommands::Flags::apply))
+                auto* elSignal = trackEntry->next()->as<World::SignalElement>();
+                if (elSignal != nullptr && hasFlags(flags, GameCommands::Flags::apply))
                 {
                     elSignal->setAiAllocated(false);
                     World::TileManager::mapInvalidateTileFull(trackLoc);
@@ -327,8 +328,8 @@ namespace OpenLoco::GameCommands
             }
             if (elTrack->hasStationElement())
             {
-                auto* elStation = elTrack->next()->as<World::StationElement>();
-                if (elStation != nullptr && (flags & GameCommands::Flags::apply))
+                auto* elStation = trackEntry->next()->as<World::StationElement>();
+                if (elStation != nullptr && hasFlags(flags, GameCommands::Flags::apply))
                 {
                     elStation->setAiAllocated(false);
                     World::TileManager::mapInvalidateTileFull(trackLoc);
@@ -360,12 +361,12 @@ namespace OpenLoco::GameCommands
 
             bool hasLevelCrossing = false;
 
-            auto clearFunc = [&totalCost, &hasLevelCrossing, &removedBuildings, &clearArgs](World::TileElement& el) {
-                return clearFunction(el, totalCost, hasLevelCrossing, removedBuildings, clearArgs);
+            auto clearFunc = [&totalCost, &hasLevelCrossing, &removedBuildings, &clearArgs](World::TileElementEntry& entry) {
+                return clearFunction(entry, totalCost, hasLevelCrossing, removedBuildings, clearArgs);
             };
             if (!World::TileClearance::applyClearAtStandardHeight(trackLoc, elTrack->baseZ(), elTrack->clearZ(), World::QuarterTile(elTrack->occupiedQuarter(), 0), clearFunc))
             {
-                return GameCommands::FAILURE;
+                return GameCommands::kFailure;
             }
 
             const auto posFlags = World::TileClearance::getPositionFlags();
@@ -373,14 +374,19 @@ namespace OpenLoco::GameCommands
             const auto newGroundFlags = posFlags & (World::TileManager::ElementPositionFlags::aboveGround | World::TileManager::ElementPositionFlags::underground);
             getLegacyReturnState().flags_1136072 = newGroundFlags;
 
-            if (hasLevelCrossing && (flags & GameCommands::Flags::apply))
+            if (hasLevelCrossing && hasFlags(flags, GameCommands::Flags::apply))
             {
                 // elTrack is invalid after clearFunction
-                elTrack = getTrackElement(trackLoc, args.rotation, args.trackObjectId, args.trackId, piece.index, companyId);
-                elTrack->setHasLevelCrossing(true);
+                trackEntry = getTrackElement(trackLoc, args.rotation, args.trackObjectId, args.trackId, piece.index, companyId);
+
+                auto* trackEl = trackEntry->as<World::TrackElement>();
+                if (trackEl != nullptr)
+                {
+                    trackEl->setHasLevelCrossing(true);
+                }
             }
 
-            if (flags & Flags::apply)
+            if (hasFlags(flags, Flags::apply))
             {
                 World::TileManager::removeAllWallsOnTileBelow(World::toTileSpace(trackLoc), trackLoc.z / World::kSmallZStep);
 
@@ -410,7 +416,7 @@ namespace OpenLoco::GameCommands
             totalCost += cost;
         }
 
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
             playConstructionPlacementSound(getPosition());
         }
@@ -419,8 +425,8 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x004A734F
-    void aiTrackReplacement(registers& regs)
+    void aiTrackReplacement(registers& regs, const Flags flags)
     {
-        regs.ebx = aiTrackReplacement(AiTrackReplacementArgs(regs), regs.bl);
+        regs.ebx = aiTrackReplacement(AiTrackReplacementArgs(regs), flags);
     }
 }

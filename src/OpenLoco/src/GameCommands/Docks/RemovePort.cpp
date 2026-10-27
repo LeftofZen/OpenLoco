@@ -1,4 +1,4 @@
-#include "RemovePort.h"
+#include "GameCommands/Docks/RemovePort.h"
 #include "Economy/Economy.h"
 #include "Localisation/StringIds.h"
 #include "Map/StationElement.h"
@@ -36,13 +36,13 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x00494706
-    static bool removePortTileElements(const World::Pos3& pos, const uint8_t flags)
+    static bool removePortTileElements(const World::Pos3& pos, const Flags flags)
     {
         for (auto& searchTile : getBuildingTileOffsets(true))
         {
             const auto portPos = World::Pos3(searchTile.pos + pos, pos.z);
 
-            if ((flags & (Flags::aiAllocated | Flags::apply)) != 0)
+            if (hasFlags(flags, Flags::aiAllocated | Flags::apply))
             {
                 auto tile = World::TileManager::get(portPos);
                 auto* surfaceEl = tile.surface();
@@ -52,30 +52,48 @@ namespace OpenLoco::GameCommands
                 }
             }
 
-            auto* stationEl = getStationEl(portPos);
-            if (stationEl == nullptr)
+            World::TileElementEntry* stationEntry = nullptr;
+            World::StationElement* stationEl = nullptr;
+            {
+                auto tile = World::TileManager::get(portPos);
+                for (auto& el : tile)
+                {
+                    auto* candidate = el.as<World::StationElement>();
+                    if (candidate == nullptr)
+                    {
+                        continue;
+                    }
+                    if (candidate->baseHeight() == portPos.z)
+                    {
+                        stationEntry = &el;
+                        stationEl = candidate;
+                        break;
+                    }
+                }
+            }
+            if (stationEntry == nullptr)
             {
                 return false;
             }
 
-            if ((flags & Flags::apply) == 0)
+            if (!hasFlags(flags, Flags::apply))
             {
                 continue;
             }
 
-            if ((flags & (Flags::aiAllocated)) == 0)
+            if (!hasFlags(flags, Flags::aiAllocated))
             {
                 Ui::ViewportManager::invalidate(World::Pos2(portPos), stationEl->baseHeight(), stationEl->clearHeight(), ZoomLevel::eighth);
             }
 
-            World::TileManager::removeElement(*reinterpret_cast<World::TileElement*>(stationEl));
+            World::TileManager::removeElement(*stationEntry);
         }
 
         return true;
     }
 
     // 0x00494570
-    static currency32_t removePort(const PortRemovalArgs& args, const uint8_t flags)
+    static currency32_t removePort(const PortRemovalArgs& args, const Flags flags)
     {
         setExpenditureType(ExpenditureType::Construction);
         setPosition(args.pos + World::Pos3(16, 16, 0));
@@ -84,14 +102,14 @@ namespace OpenLoco::GameCommands
         auto* stationEl = getStationEl(args.pos);
         if (stationEl == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
         StationId stationId = StationId::null;
         const auto rotation = stationEl->rotation();
 
         // Do we need to remove the port from a station?
-        if ((flags & Flags::ghost) == 0)
+        if (!hasFlags(flags, Flags::ghost))
         {
             stationId = stationEl->stationId();
         }
@@ -100,7 +118,7 @@ namespace OpenLoco::GameCommands
         if (stationEl->isFlag6())
         {
             GameCommands::setErrorText(StringIds::currently_in_use_by_at_least_one_vehicle);
-            return FAILURE;
+            return kFailure;
         }
 
         // Calculate base removal cost
@@ -110,11 +128,11 @@ namespace OpenLoco::GameCommands
         // Remove the actual tile elements associated with the port
         if (!removePortTileElements(args.pos, flags))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         // Should we update the station meta data?
-        if ((flags & Flags::ghost) == 0 && (flags & Flags::apply) != 0)
+        if (!hasFlags(flags, Flags::ghost) && hasFlags(flags, Flags::apply))
         {
             auto* station = StationManager::get(stationId);
 
@@ -130,8 +148,8 @@ namespace OpenLoco::GameCommands
         return totalCost;
     }
 
-    void removePort(registers& regs)
+    void removePort(registers& regs, const Flags flags)
     {
-        regs.ebx = removePort(PortRemovalArgs(regs), regs.bl);
+        regs.ebx = removePort(PortRemovalArgs(regs), flags);
     }
 }

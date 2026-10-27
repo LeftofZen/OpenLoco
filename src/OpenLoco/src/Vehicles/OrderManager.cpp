@@ -1,7 +1,6 @@
-#include "OrderManager.h"
+#include "Vehicles/OrderManager.h"
 #include "GameState.h"
 #include "Graphics/ImageIds.h"
-#include "Graphics/SoftwareDrawingEngine.h"
 #include "Graphics/TextRenderer.h"
 #include "Input.h"
 #include "Localisation/FormatArguments.hpp"
@@ -16,8 +15,8 @@
 #include "S5/Limits.h"
 #include "Scenario/ScenarioOptions.h"
 #include "Ui/WindowManager.h"
-#include "Vehicle.h"
 #include "Vehicles/OrderManager.h"
+#include "Vehicles/Vehicle.h"
 #include "Vehicles/VehicleHead.h"
 #include "Vehicles/VehicleManager.h"
 #include "World/StationManager.h"
@@ -72,6 +71,12 @@ namespace OpenLoco::Vehicles
         if (enumValue(_currentOrder->getType()) >= std::size(kOrderSizes))
         {
             throw Exception::RuntimeError("Invalid order type!");
+        }
+        if (_currentOrder->getType() == OrderType::End && _currentOrder == _beginOrderTable)
+        {
+            // If you incremented an end iterator you might get here.
+            // Although you shouldn't really be incrementing without first checking if you are an end iterator.
+            return *this;
         }
         auto* newOrders = reinterpret_cast<uint8_t*>(_currentOrder) + kOrderSizes[static_cast<uint8_t>(_currentOrder->getType())];
         _currentOrder = reinterpret_cast<Order*>(newOrders);
@@ -400,21 +405,27 @@ namespace OpenLoco::Vehicles::OrderManager
             auto [loc, str] = generateOrderUiStringAndLoc(order->getOffset(), i);
             const auto pos = World::gameToScreen(loc, Ui::WindowManager::getCurrentRotation());
             auto stringWidth = Gfx::TextRenderer::getStringWidth(Gfx::Font::medium_bold, str.c_str());
-            for (auto zoom = 0; zoom < 4; ++zoom)
+            for (auto level = ZoomLevel::min; level <= ZoomLevel::max; ++level)
             {
+                const auto zoom = ZoomLevel{ level };
+                const auto index = zoom.index();
+
                 // The first line of the label will always be at the centre
                 // of the station/waypoint. This works out where the subsequent
                 // lines of the label will end up.
-                auto width = (stringWidth + 3) << zoom;
-                auto numberHeight = (unk.lineNumber * 10 /* lineHeight TODO make same as Windows::Vehicle.cpp lineHeight */) << zoom;
-                auto firstLineHeight = 11 << zoom;
+                const auto uiWidth = stringWidth + 3;
+                const auto uiHeight = 11;
+
+                auto width = zoom.applyTo<int32_t>(uiWidth);
+                auto numberHeight = zoom.applyTo(unk.lineNumber * 10 /* lineHeight TODO make same as Windows::Vehicle.cpp lineHeight */);
+                auto firstLineHeight = zoom.applyTo(uiHeight);
                 auto midX = width / 2;
                 auto midFirstLineY = firstLineHeight / 2;
 
-                unk.frame.left[zoom] = (pos.x - midX) >> zoom;
-                unk.frame.right[zoom] = (pos.x + midX) >> zoom;
-                unk.frame.top[zoom] = (pos.y - midFirstLineY + numberHeight) >> zoom;
-                unk.frame.bottom[zoom] = (pos.y + midFirstLineY + numberHeight) >> zoom;
+                unk.frame.left[index] = zoom.applyInversedTo(pos.x - midX);
+                unk.frame.right[index] = unk.frame.left[index] + uiWidth;
+                unk.frame.top[index] = zoom.applyInversedTo(pos.y - midFirstLineY + numberHeight);
+                unk.frame.bottom[index] = unk.frame.top[index] + uiHeight;
             }
             i++;
         }
@@ -502,7 +513,7 @@ namespace OpenLoco::Vehicles::OrderManager
                     // Find the vehicle that has the order
                     for (auto* head : VehicleManager::VehicleList())
                     {
-                        if (head->orderTableOffset < i
+                        if (head->orderTableOffset <= i
                             && i < head->orderTableOffset + head->sizeOfOrderTable)
                         {
                             deleteOrder(head, i - head->orderTableOffset);

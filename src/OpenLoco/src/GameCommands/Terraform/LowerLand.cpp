@@ -1,4 +1,4 @@
-#include "LowerLand.h"
+#include "GameCommands/Terraform/LowerLand.h"
 #include "Audio/Audio.h"
 #include "Economy/Expenditures.h"
 #include "GameCommands/GameCommands.h"
@@ -20,16 +20,16 @@ using namespace OpenLoco::World::SurfaceSlope;
 namespace OpenLoco::GameCommands
 {
     // 0x004638C6, 0x004638CF
-    uint32_t lowerLand(const LowerLandArgs& args, World::TileClearance::RemovedBuildings& removedBuildings, const uint8_t flags)
+    uint32_t lowerLand(const LowerLandArgs& args, World::TileClearance::RemovedBuildings& removedBuildings, const Flags flags)
     {
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
             Scenario::getOptions().madeAnyChanges = 1;
 
             if (getCommandNestLevel() == 1 && getUpdatingCompanyId() != CompanyId::neutral)
             {
                 const auto height = TileManager::getHeight(args.centre).landHeight;
-                Audio::playSound(Audio::SoundId::construct, World::Pos3(args.centre.x, args.centre.y, height));
+                Audio::playSound(Audio::SoundId::construct, Audio::ChannelId::effects, World::Pos3(args.centre.x, args.centre.y, height));
             }
         }
 
@@ -68,9 +68,9 @@ namespace OpenLoco::GameCommands
             }
 
             auto cost = TileManager::adjustSurfaceHeight(toWorldSpace(tilePos), targetBaseZ, slopeFlags, removedBuildings, flags);
-            if (cost == FAILURE)
+            if (cost == kFailure)
             {
-                return FAILURE;
+                return kFailure;
             }
             else
             {
@@ -86,7 +86,7 @@ namespace OpenLoco::GameCommands
         return totalCost;
     }
 
-    void lowerLand(registers& regs)
+    void lowerLand(registers& regs, const Flags flags)
     {
         // We keep track of removed buildings for each tile visited
         // this prevents accidentally double counting their removal
@@ -94,6 +94,6 @@ namespace OpenLoco::GameCommands
         World::TileClearance::RemovedBuildings removedBuildings{};
 
         const LowerLandArgs args(regs);
-        regs.ebx = lowerLand(args, removedBuildings, regs.bl);
+        regs.ebx = lowerLand(args, removedBuildings, flags);
     }
 }

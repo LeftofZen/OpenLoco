@@ -7,7 +7,6 @@
 #include "Graphics/Colour.h"
 #include "Graphics/Gfx.h"
 #include "Graphics/ImageIds.h"
-#include "Graphics/SoftwareDrawingEngine.h"
 #include "Graphics/TextRenderer.h"
 #include "Input.h"
 #include "Localisation/FormatArguments.hpp"
@@ -131,18 +130,33 @@ namespace OpenLoco::Ui::Windows::MapWindow
         statusBar,
     };
 
+    namespace Widx
+    {
+        constexpr WidgetId kFrame{ "frame" };
+        constexpr WidgetId kCaption{ "caption" };
+        constexpr WidgetId kCloseButton{ "closeButton" };
+        constexpr WidgetId kPanel{ "panel" };
+        constexpr WidgetId kTabOverall{ "tabOverall" };
+        constexpr WidgetId kTabVehicles{ "tabVehicles" };
+        constexpr WidgetId kTabIndustries{ "tabIndustries" };
+        constexpr WidgetId kTabRoutes{ "tabRoutes" };
+        constexpr WidgetId kTabOwnership{ "tabOwnership" };
+        constexpr WidgetId kScrollview{ "scrollview" };
+        constexpr WidgetId kStatusBar{ "statusBar" };
+    }
+
     static constexpr auto kWidgets = makeWidgets(
-        Widgets::Frame({ 0, 0 }, { 350, 272 }, WindowColour::primary),
-        Widgets::Caption({ 1, 1 }, { 348, 13 }, Widgets::Caption::Style::whiteText, WindowColour::primary, StringIds::title_map),
-        Widgets::ImageButton({ 335, 2 }, { 13, 13 }, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
-        Widgets::Panel({ 0, 41 }, { 350, 230 }, WindowColour::secondary),
-        Widgets::Tab({ 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tab_map_overall),
-        Widgets::Tab({ 34, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tab_map_vehicles),
-        Widgets::Tab({ 65, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tab_map_industries),
-        Widgets::Tab({ 96, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tab_map_routes),
-        Widgets::Tab({ 158, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tab_map_ownership),
-        Widgets::ScrollView({ 3, 44 }, { 240, 215 }, WindowColour::secondary, Scrollbars::horizontal | Scrollbars::vertical),
-        Widgets::Label({ 3, 250 }, { 322, 21 }, WindowColour::secondary, ContentAlign::center)
+        Widgets::Frame(Widx::kFrame, { 0, 0 }, { 350, 272 }, WindowColour::primary),
+        Widgets::Caption(Widx::kCaption, { 1, 1 }, { 348, 13 }, Widgets::Caption::Style::whiteText, WindowColour::primary, StringIds::title_map),
+        Widgets::ImageButton(Widx::kCloseButton, { 335, 2 }, { 13, 13 }, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
+        Widgets::Panel(Widx::kPanel, { 0, 41 }, { 350, 230 }, WindowColour::secondary),
+        Widgets::Tab(Widx::kTabOverall, { 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tab_map_overall),
+        Widgets::Tab(Widx::kTabVehicles, { 34, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tab_map_vehicles),
+        Widgets::Tab(Widx::kTabIndustries, { 65, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tab_map_industries),
+        Widgets::Tab(Widx::kTabRoutes, { 96, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tab_map_routes),
+        Widgets::Tab(Widx::kTabOwnership, { 158, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tab_map_ownership),
+        Widgets::ScrollView(Widx::kScrollview, { 3, 44 }, { 240, 215 }, WindowColour::secondary, Scrollbars::horizontal | Scrollbars::vertical),
+        Widgets::Label(Widx::kStatusBar, { 3, 250 }, { 322, 21 }, WindowColour::secondary, ContentAlign::center)
 
     );
 
@@ -212,18 +226,18 @@ namespace OpenLoco::Ui::Windows::MapWindow
     // 0x0046B8CF
     static void onMouseUp(Window& self, WidgetIndex_t widgetIndex, [[maybe_unused]] const WidgetId id)
     {
-        switch (widgetIndex)
+        switch (id)
         {
-            case widx::closeButton:
+            case Widx::kCloseButton:
                 WindowManager::close(&self);
                 break;
 
-            case widx::tabOverall:
-            case widx::tabVehicles:
-            case widx::tabIndustries:
-            case widx::tabRoutes:
-            case widx::tabOwnership:
-            case widx::scrollview:
+            case Widx::kTabOverall:
+            case Widx::kTabVehicles:
+            case Widx::kTabIndustries:
+            case Widx::kTabRoutes:
+            case Widx::kTabOwnership:
+            case Widx::kScrollview:
             {
                 auto tabIndex = widgetIndex - widx::tabOverall;
 
@@ -244,8 +258,7 @@ namespace OpenLoco::Ui::Windows::MapWindow
     static void onResize(Window& self)
     {
         self.flags |= WindowFlags::resizable;
-        self.minWidth = kMinWindowSize.width;
-        self.setSize(kMinWindowSize, getMaxWindowSize());
+        self.setSizeBounds(kMinWindowSize, getMaxWindowSize());
 
         auto& widget = self.widgets[widx::scrollview];
         auto& map = self.scrollAreas[0];
@@ -320,7 +333,7 @@ namespace OpenLoco::Ui::Windows::MapWindow
                             }
 
                             auto* trackObj = ObjectManager::get<TrackObject>(trackEl->trackObjectId());
-                            if (trackObj->hasFlags(TrackObjectFlags::unk_02))
+                            if (trackObj->hasFlags(TrackObjectFlags::isRoad))
                             {
                                 colour0 = colourFlash0 = PaletteIndex::black2;
                                 if (_flashingItems & (1 << 2))
@@ -395,7 +408,7 @@ namespace OpenLoco::Ui::Windows::MapWindow
                             }
 
                             auto* roadObj = ObjectManager::get<RoadObject>(roadEl->roadObjectId());
-                            if (roadObj->hasFlags(RoadObjectFlags::unk_01))
+                            if (roadObj->hasFlags(RoadObjectFlags::isRail))
                             {
                                 colour0 = colourFlash0 = PaletteIndex::black7;
                                 if (_flashingItems & (1 << 3))
@@ -1652,8 +1665,8 @@ namespace OpenLoco::Ui::Windows::MapWindow
                 stringId = industryObj->nameSingular;
             }
 
-            auto buffer = StringManager::getString(StringIds::buffer_1250);
-            char* ptr = const_cast<char*>(buffer);
+            auto buffer = StringManager::getBufferString(StringIds::buffer_1250);
+            char* ptr = buffer;
 
             auto argsBuf = FormatArgumentsBuffer{};
             auto argsTmp = FormatArguments{ argsBuf };
@@ -1700,8 +1713,8 @@ namespace OpenLoco::Ui::Windows::MapWindow
         drawTabs(self, drawingCtx);
 
         {
-            auto x = self.x + self.width - 104;
-            uint16_t y = self.y + 44;
+            auto x = self.width - 104;
+            uint16_t y = 44;
 
             switch (self.currentTab + widx::tabOverall)
             {
@@ -1726,7 +1739,6 @@ namespace OpenLoco::Ui::Windows::MapWindow
                     break;
             }
 
-            y -= self.y;
             y += 14;
             y = std::max<uint16_t>(y, kMinWindowSize.height);
 
@@ -1753,7 +1765,7 @@ namespace OpenLoco::Ui::Windows::MapWindow
         }
 
         auto& widget = self.widgets[widx::statusBar];
-        auto point = Point(self.x + widget.left - 1, self.y + widget.top - 1);
+        auto point = Point(widget.left - 1, widget.top - 1);
         auto width = widget.width();
 
         tr.drawStringLeftClipped(point, width, Colour::black, StringIds::black_stringid, args);
@@ -2181,7 +2193,7 @@ namespace OpenLoco::Ui::Windows::MapWindow
             return;
         }
 
-        drawingCtx.clearSingle(PaletteIndex::black0);
+        drawingCtx.clear(PaletteIndex::black0);
 
         auto* element = Gfx::getG1Element(0);
         auto backupElement = *element;
@@ -2199,7 +2211,7 @@ namespace OpenLoco::Ui::Windows::MapWindow
         Gfx::getG1Element(0)->yOffset = 0;
         Gfx::getG1Element(0)->flags = Gfx::G1ElementFlags::none;
 
-        drawingCtx.drawImage(0, 0, 0);
+        drawingCtx.drawImage(ZoomLevel::full, 0, 0, 0);
 
         *element = backupElement;
 
@@ -2275,20 +2287,13 @@ namespace OpenLoco::Ui::Windows::MapWindow
         }
 
         // Then, assign surface texture colours
-        for (auto i = 0U; i < ObjectManager::getMaxObjects(ObjectType::land); i++)
-        {
-            auto landObj = ObjectManager::get<LandObject>(i);
-            if (landObj == nullptr)
-            {
-                continue;
-            }
-
-            auto landPixel = Gfx::getG1Element(landObj->mapPixelImage)->offset[0];
+        ObjectManager::forEachLoaded<LandObject>([&availableColours](const LandObject& landObj) {
+            auto landPixel = Gfx::getG1Element(landObj.mapPixelImage)->offset[0];
             availableColours = checkIndustryColours(landPixel, availableColours);
 
-            landPixel = Gfx::getG1Element(landObj->mapPixelImage)->offset[1];
+            landPixel = Gfx::getG1Element(landObj.mapPixelImage)->offset[1];
             availableColours = checkIndustryColours(landPixel, availableColours);
-        }
+        });
 
         availableColours = checkIndustryColours(PaletteIndex::mutedDarkRed2, availableColours);
         availableColours = checkIndustryColours(PaletteIndex::black2, availableColours);
@@ -2301,41 +2306,27 @@ namespace OpenLoco::Ui::Windows::MapWindow
         }
 
         // Assign preferred industry colours, if possible
-        for (auto i = 0U; i < ObjectManager::getMaxObjects(ObjectType::industry); i++)
-        {
-            auto industryObj = ObjectManager::get<IndustryObject>(i);
-            if (industryObj == nullptr)
-            {
-                continue;
-            }
-
+        ObjectManager::forEachLoaded<IndustryObject>([&availableColours](LoadedObjectId i, const IndustryObject& industryObj) {
             // Preferred colour still available?
-            auto preferredColour = enumValue(industryObj->mapColour);
+            auto preferredColour = enumValue(industryObj.mapColour);
             if (availableColours & (1U << preferredColour))
             {
                 _assignedIndustryColours[i] = preferredColour;
                 availableColours &= ~(1U << preferredColour);
             }
-        }
+        });
 
         // Assign alternative industry colours if needed
-        for (auto i = 0U; i < ObjectManager::getMaxObjects(ObjectType::industry); i++)
-        {
-            auto industryObj = ObjectManager::get<IndustryObject>(i);
-            if (industryObj == nullptr)
-            {
-                continue;
-            }
-
+        ObjectManager::forEachLoaded<IndustryObject>([&availableColours](LoadedObjectId i, [[maybe_unused]] const IndustryObject& industryObj) {
             if (_assignedIndustryColours[i] != 0xFF)
             {
-                continue;
+                return;
             }
 
             auto freeColour = std::max(0, Numerics::bitScanForward(availableColours));
             availableColours &= ~(1U << freeColour);
             _assignedIndustryColours[i] = freeColour;
-        }
+        });
     }
 
     // 0x0046CED0
@@ -2355,20 +2346,13 @@ namespace OpenLoco::Ui::Windows::MapWindow
         }
 
         // Then, assign surface texture colours
-        for (auto i = 0U; i < ObjectManager::getMaxObjects(ObjectType::land); i++)
-        {
-            auto landObj = ObjectManager::get<LandObject>(i);
-            if (landObj == nullptr)
-            {
-                continue;
-            }
-
-            auto landPixel = Gfx::getG1Element(landObj->mapPixelImage)->offset[0];
+        ObjectManager::forEachLoaded<LandObject>([&availableColours](const LandObject& landObj) {
+            auto landPixel = Gfx::getG1Element(landObj.mapPixelImage)->offset[0];
             availableColours = checkIndustryColours(landPixel, availableColours);
 
-            landPixel = Gfx::getG1Element(landObj->mapPixelImage)->offset[1];
+            landPixel = Gfx::getG1Element(landObj.mapPixelImage)->offset[1];
             availableColours = checkIndustryColours(landPixel, availableColours);
-        }
+        });
 
         availableColours = checkIndustryColours(PaletteIndex::mutedDarkRed2, availableColours);
         availableColours = checkIndustryColours(PaletteIndex::orange8, availableColours);
@@ -2446,13 +2430,14 @@ namespace OpenLoco::Ui::Windows::MapWindow
 
         if (Ui::getLastMapWindowAttributes().flags != WindowFlags::none)
         {
-            size = { Ui::getLastMapWindowAttributes().size.width, Ui::getLastMapWindowAttributes().size.height };
+            size = Ui::getLastMapWindowAttributes().size;
             size.width = std::clamp<uint16_t>(size.width, 350, Ui::width());
             size.height = std::clamp<uint16_t>(size.height, 272, Ui::height() - 56);
         }
 
         window = WindowManager::createWindow(WindowType::map, size, WindowFlags::none, getEvents());
         window->setWidgets(kWidgets);
+        window->callOnResize();
         window->initScrollWidgets();
         window->frameNo = 0;
 
@@ -2460,7 +2445,7 @@ namespace OpenLoco::Ui::Windows::MapWindow
         {
             window->var_88A = Ui::getLastMapWindowAttributes().var88A;
             window->var_88C = Ui::getLastMapWindowAttributes().var88C;
-            window->flags |= (Ui::getLastMapWindowAttributes().flags & WindowFlags::beingResized); // ???
+            window->flags |= (Ui::getLastMapWindowAttributes().flags & WindowFlags::maximised);
         }
 
         auto skin = ObjectManager::get<InterfaceSkinObject>();

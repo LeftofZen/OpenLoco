@@ -1,9 +1,9 @@
-#include "InterfaceSkinObject.h"
+#include "Objects/InterfaceSkinObject.h"
 #include "Graphics/Colour.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
-#include "ObjectImageTable.h"
-#include "ObjectStringTable.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectStringTable.h"
 
 namespace OpenLoco
 {
@@ -30,6 +30,6 @@ namespace OpenLoco
     void InterfaceSkinObject::drawPreviewImage(Gfx::DrawingContext& drawingCtx, const int16_t x, const int16_t y) const
     {
         auto image = Gfx::recolour(img + InterfaceSkin::ImageIds::preview_image, Colour::mutedSeaGreen);
-        drawingCtx.drawImage(x - 32, y - 32, image);
+        drawingCtx.drawImage(ZoomLevel::full, x - 32, y - 32, image);
     }
 }

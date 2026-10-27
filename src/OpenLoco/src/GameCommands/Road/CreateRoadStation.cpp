@@ -1,4 +1,4 @@
-#include "CreateRoadStation.h"
+#include "GameCommands/Road/CreateRoadStation.h"
 #include "Economy/Economy.h"
 #include "Localisation/FormatArguments.hpp"
 #include "Localisation/StringIds.h"
@@ -163,10 +163,10 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x0048BAF5
-    static World::TileClearance::ClearFuncResult clearFunc0(World::TileElement& el, World::RoadElement* elReferenceRoad0, World::RoadElement* elReferenceRoad1)
+    static World::TileClearance::ClearFuncResult clearFunc0(World::TileElementEntry& entry, World::RoadElement* elReferenceRoad0, World::RoadElement* elReferenceRoad1)
     {
-        auto* elStation = el.as<World::StationElement>();
-        auto* elRoad = el.as<World::RoadElement>();
+        auto* elStation = entry.as<World::StationElement>();
+        auto* elRoad = entry.as<World::RoadElement>();
         if (elStation != nullptr)
         {
             if (elStation->stationType() == StationType::roadStation)
@@ -183,10 +183,9 @@ namespace OpenLoco::GameCommands
 
     // TODO THIS IS A DUPLICATE MOVE TO SOMEWHERE ELSE
     // 0x0048BAE5
-    static World::TileClearance::ClearFuncResult clearFuncCollideWithSurface(World::TileElement& el)
+    static World::TileClearance::ClearFuncResult clearFuncCollideWithSurface(World::TileElementEntry& entry)
     {
-        auto* elSurface = el.as<World::SurfaceElement>();
-        if (elSurface != nullptr)
+        if (entry.type() == World::ElementType::surface)
         {
             return World::TileClearance::ClearFuncResult::collision;
         }
@@ -194,7 +193,7 @@ namespace OpenLoco::GameCommands
     };
 
     // 0x0048C708
-    static currency32_t createRoadStation(const RoadStationPlacementArgs& args, const uint8_t flags)
+    static currency32_t createRoadStation(const RoadStationPlacementArgs& args, const Flags flags)
     {
         setExpenditureType(ExpenditureType::Construction);
         setPosition(args.pos + World::Pos3(16, 16, 0));
@@ -211,15 +210,15 @@ namespace OpenLoco::GameCommands
         if (compatibleTrack != trackIdCompatFlags)
         {
             setErrorText(StringIds::track_road_unsuitable_for_station);
-            return FAILURE;
+            return kFailure;
         }
 
         if (!World::TileManager::checkFreeElementsAndReorganise())
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if (!(flags & Flags::apply))
+        if (!hasFlags(flags, Flags::apply))
         {
             if (stationObj->hasFlags(RoadStationFlags::roadEnd))
             {
@@ -237,7 +236,7 @@ namespace OpenLoco::GameCommands
                     if (!rc2.connections.empty())
                     {
                         setErrorText(StringIds::station_type_can_only_be_built_at_road_ends);
-                        return FAILURE;
+                        return kFailure;
                     }
                 }
             }
@@ -250,13 +249,13 @@ namespace OpenLoco::GameCommands
         bool unk112C7F3 = false;
         if (initialElRoad == nullptr)
         {
-            if (flags & Flags::apply)
+            if (hasFlags(flags, Flags::apply))
             {
-                return FAILURE;
+                return kFailure;
             }
-            if (!(flags & Flags::aiAllocated))
+            if (!hasFlags(flags, Flags::aiAllocated))
             {
-                return FAILURE;
+                return kFailure;
             }
             // Why???
             index = 0;
@@ -264,10 +263,10 @@ namespace OpenLoco::GameCommands
         }
         else
         {
-            if ((flags & Flags::aiAllocated) && initialElRoad->hasStationElement())
+            if (hasFlags(flags, Flags::aiAllocated) && initialElRoad->hasStationElement())
             {
                 setErrorText(StringIds::empty);
-                return FAILURE;
+                return kFailure;
             }
 
             if (initialElRoad->hasStationElement())
@@ -277,12 +276,12 @@ namespace OpenLoco::GameCommands
                 if (elStation == nullptr)
                 {
                     setErrorText(StringIds::empty);
-                    return FAILURE;
+                    return kFailure;
                 }
                 // Do not allow replacing station elements owned by other companies
-                if (!sub_431E6A(elStation->owner(), reinterpret_cast<const World::TileElement*>(elStation)))
+                if (!checkCompanyCompatibility(elStation->owner(), *elStation))
                 {
-                    return FAILURE;
+                    return kFailure;
                 }
                 // Otherwise, allow replacement
             }
@@ -291,7 +290,7 @@ namespace OpenLoco::GameCommands
         auto& argPiece = roadPieces[index];
         const auto roadStart = args.pos - World::Pos3(Math::Vector::rotate(World::Pos2(argPiece.x, argPiece.y), args.rotation), argPiece.z);
 
-        if ((flags & Flags::ghost) && (flags & Flags::apply))
+        if (hasFlags(flags, Flags::ghost) && hasFlags(flags, Flags::apply))
         {
             returnState.lastConstructedAdjoiningStationPos = roadStart;
             uint16_t tad = (args.roadId << 3) | args.rotation;
@@ -301,9 +300,9 @@ namespace OpenLoco::GameCommands
 
         bool isNewStationTile = false; // 0x0112C7A9
 
-        if (!(flags & Flags::ghost))
+        if (!hasFlags(flags, Flags::ghost))
         {
-            if (flags & Flags::apply)
+            if (hasFlags(flags, Flags::apply))
             {
                 auto [result, nearbyStationId] = validateNearbyStation(roadStart, (args.roadId << 3) | args.rotation, args.roadObjectId);
                 switch (result)
@@ -335,13 +334,13 @@ namespace OpenLoco::GameCommands
                 switch (result)
                 {
                     case NearbyStationValidation::failure:
-                        return FAILURE;
+                        return kFailure;
                     case NearbyStationValidation::requiresNewStation:
                     {
                         const auto newStationId = StationManager::allocateNewStation(roadStart, getUpdatingCompanyId(), 0);
                         if (newStationId == StationId::null)
                         {
-                            return FAILURE;
+                            return kFailure;
                         }
                         StationManager::deallocateStation(newStationId);
                         // _lastPlacedTrackStationId not set but that's fine since this is the no apply side
@@ -355,7 +354,10 @@ namespace OpenLoco::GameCommands
         }
 
         currency32_t totalCost = 0;
-
+        // It is possible that this might not == args.rotation but
+        // we need it later on for the stations tile list to exactly match
+        // what we place so hence why we are tracking it.
+        uint8_t stationPiece0Rotation = args.rotation;
         for (auto& piece : roadPieces)
         {
             const auto roadLoc = roadStart + World::Pos3{ Math::Vector::rotate(World::Pos2{ piece.x, piece.y }, args.rotation), piece.z };
@@ -365,7 +367,7 @@ namespace OpenLoco::GameCommands
                 if (elRoadIsJunctionAi(roadLoc, args.rotation))
                 {
                     setErrorText(StringIds::station_cannot_be_built_on_a_junction);
-                    return FAILURE;
+                    return kFailure;
                 }
             }
             else
@@ -374,24 +376,24 @@ namespace OpenLoco::GameCommands
                 auto* elRoad = getElRoad(roadLoc, args.rotation, args.roadObjectId, args.roadId, piece.index);
                 if (elRoad == nullptr)
                 {
-                    return FAILURE;
+                    return kFailure;
                 }
                 if (elRoad->hasSignalElement())
                 {
                     setErrorText(StringIds::signal_in_the_way);
-                    return FAILURE;
+                    return kFailure;
                 }
                 if (elRoad->hasLevelCrossing())
                 {
                     setErrorText(StringIds::level_crossing_in_the_way);
-                    return FAILURE;
+                    return kFailure;
                 }
                 if (elRoad->roadId() == 0)
                 {
                     if (elRoadIsJunctionAi(roadLoc, args.rotation))
                     {
                         setErrorText(StringIds::station_cannot_be_built_on_a_junction);
-                        return FAILURE;
+                        return kFailure;
                     }
                 }
                 else
@@ -421,7 +423,7 @@ namespace OpenLoco::GameCommands
                         if (connectFlags & connectPiece.connectFlags[elConnectRoad->rotation()])
                         {
                             setErrorText(StringIds::station_cannot_be_built_on_a_junction);
-                            return FAILURE;
+                            return kFailure;
                         }
                     }
                 }
@@ -430,6 +432,10 @@ namespace OpenLoco::GameCommands
             bool unk112C7F4 = false;
             // 0x0112C738 & 0x0112C73C
             std::array<World::RoadElement*, 2> elRoads = {
+                nullptr,
+                nullptr,
+            };
+            std::array<World::TileElementEntry*, 2> elRoadEntries = {
                 nullptr,
                 nullptr,
             };
@@ -453,11 +459,11 @@ namespace OpenLoco::GameCommands
                         auto formatter = FormatArguments::common();
                         formatter.push(roadObj2->name);
                         setErrorText(StringIds::station_not_compatible_with_string_id);
-                        return FAILURE;
+                        return kFailure;
                     }
-                    if (roadObj2->hasFlags(RoadObjectFlags::unk_03)
-                        || roadObj2->hasFlags(RoadObjectFlags::unk_07)
-                        || sub_431E6A(elRoad->owner(), &el))
+                    if (roadObj2->hasFlags(RoadObjectFlags::anyRoadTypeCompatible)
+                        || roadObj2->hasFlags(RoadObjectFlags::allowUseByAllCompanies)
+                        || checkCompanyCompatibility(elRoad->owner(), *elRoad))
                     {
                         unk112C7F4 = true;
                     }
@@ -467,9 +473,11 @@ namespace OpenLoco::GameCommands
                         if (elRoad->roadObjectId() == stationObj->mods[i])
                         {
                             elRoads[1] = elRoad;
+                            elRoadEntries[1] = &el;
                             if (elRoads[0] == nullptr)
                             {
                                 elRoads[0] = elRoad;
+                                elRoadEntries[0] = &el;
                             }
                             isCompatible = true;
                             break;
@@ -484,9 +492,11 @@ namespace OpenLoco::GameCommands
                         if (roadObj2->stations[i] == args.type)
                         {
                             elRoads[1] = elRoad;
+                            elRoadEntries[1] = &el;
                             if (elRoads[0] == nullptr)
                             {
                                 elRoads[0] = elRoad;
+                                elRoadEntries[0] = &el;
                             }
                             isCompatible = true;
                             break;
@@ -500,11 +510,11 @@ namespace OpenLoco::GameCommands
                     auto formatter = FormatArguments::common();
                     formatter.push(roadObj2->name);
                     setErrorText(StringIds::wrong_type_of_station_for_string_id);
-                    return FAILURE;
+                    return kFailure;
                 }
                 if (!unk112C7F4 && !unk112C7F3)
                 {
-                    return FAILURE;
+                    return kFailure;
                 }
             }
             // Calculate station costs
@@ -515,10 +525,10 @@ namespace OpenLoco::GameCommands
                 // Replace station if it already exists
                 if (!unk112C7F3 && elRoads[1]->hasStationElement())
                 {
-                    auto* elStation = elRoads[1]->next()->as<World::StationElement>();
+                    auto* elStation = elRoadEntries[1]->next()->as<World::StationElement>();
                     if (elStation == nullptr)
                     {
-                        return FAILURE;
+                        return kFailure;
                     }
                     if (elStation->objectId() == args.type)
                     {
@@ -546,34 +556,34 @@ namespace OpenLoco::GameCommands
             const auto clearZ = baseZ + 8 + stationObj->height / World::kSmallZStep;
             World::QuarterTile qt(0b1111, 0);
 
-            auto clearFunc = [&elRoads](World::TileElement& el) {
-                return clearFunc0(el, elRoads[0], elRoads[1]);
+            auto clearFunc = [&elRoads](World::TileElementEntry& entry) {
+                return clearFunc0(entry, elRoads[0], elRoads[1]);
             };
             // Perform clearance at just the road clear height to road clear height + station height
             if (!World::TileClearance::applyClearAtStandardHeight(roadLoc, baseZ + 8, clearZ, qt, clearFunc))
             {
-                return FAILURE;
+                return kFailure;
             }
 
-            if (!(flags & Flags::aiAllocated))
+            if (!hasFlags(flags, Flags::aiAllocated))
             {
                 // Perform clearance at full station height (only checks for surface collisions)
                 if (!World::TileClearance::applyClearAtStandardHeight(roadLoc, baseZ, clearZ, qt, clearFuncCollideWithSurface))
                 {
-                    return FAILURE;
+                    return kFailure;
                 }
             }
 
             // elTrack is still valid as applyClearAtStandardHeight set to not remove anything
             // this will need changed if ever a different clear function is used
-            if (!unk112C7F3 && elRoads[1]->hasStationElement() && (flags & Flags::ghost))
+            if (!unk112C7F3 && elRoads[1]->hasStationElement() && hasFlags(flags, Flags::ghost))
             {
                 // ?????
                 setErrorText(StringIds::empty);
-                return FAILURE;
+                return kFailure;
             }
 
-            if (!(flags & Flags::apply))
+            if (!hasFlags(flags, Flags::apply))
             {
                 continue;
             }
@@ -587,15 +597,18 @@ namespace OpenLoco::GameCommands
             // Actually place the new station
             if (elRoads[1]->hasStationElement())
             {
-                auto* elStation = elRoads[1]->next()->as<World::StationElement>();
+                auto* elStation = elRoadEntries[1]->next()->as<World::StationElement>();
                 if (elStation == nullptr)
                 {
-                    return FAILURE;
+                    return kFailure;
                 }
                 auto* oldStationObj = ObjectManager::get<RoadStationObject>(elStation->objectId());
-                for (auto elRoad = elRoads[0]; elRoad <= elRoads[1]; ++elRoad)
+                for (auto* entry = elRoadEntries[0]; entry <= elRoadEntries[1]; ++entry)
                 {
-                    elRoad->setClearZ(elRoad->clearZ() - oldStationObj->height / World::kSmallZStep);
+                    if (auto* elRoad = entry->as<World::RoadElement>())
+                    {
+                        elRoad->setClearZ(elRoad->clearZ() - oldStationObj->height / World::kSmallZStep);
+                    }
                 }
                 isNewStationTile = false; // We are just replacing so not a new tile
                 Ui::ViewportManager::invalidate(roadLoc, elStation->baseHeight(), elStation->clearHeight());
@@ -604,17 +617,20 @@ namespace OpenLoco::GameCommands
             else
             {
                 // elTrack pointer will be invalid after this call
-                newStationElement = World::TileManager::insertElementAfterNoReorg<World::StationElement>(
-                    reinterpret_cast<World::TileElement*>(elRoads[1]),
+                auto* stationEntry = World::TileManager::insertElementAfterNoReorg<World::StationElement>(
+                    elRoadEntries[1],
                     roadLoc,
                     elRoads[1]->baseZ(),
                     elRoads[1]->occupiedQuarter());
-                if (newStationElement == nullptr)
+                if (stationEntry == nullptr)
                 {
-                    return FAILURE;
+                    return kFailure;
                 }
+                newStationElement = &stationEntry->get<World::StationElement>();
                 elRoads[0] = nullptr;
                 elRoads[1] = nullptr;
+                elRoadEntries[0] = nullptr;
+                elRoadEntries[1] = nullptr;
                 auto tile = World::TileManager::get(roadLoc);
                 for (auto& el : tile)
                 {
@@ -628,19 +644,25 @@ namespace OpenLoco::GameCommands
                         continue;
                     }
                     elRoads[1] = elRoad;
+                    elRoadEntries[1] = &el;
                     if (elRoads[0] == nullptr)
                     {
                         elRoads[0] = elRoad;
+                        elRoadEntries[0] = &el;
                     }
                 }
+                if (piece.index == 0)
+                {
+                    stationPiece0Rotation = elRoads[1]->rotation();
+                }
                 newStationElement->setRotation(elRoads[1]->rotation());
-                newStationElement->setGhost(flags & Flags::ghost);
-                newStationElement->setAiAllocated(flags & Flags::aiAllocated);
+                newStationElement->setGhost(hasFlags(flags, Flags::ghost));
+                newStationElement->setAiAllocated(hasFlags(flags, Flags::aiAllocated));
                 newStationElement->setSequenceIndex(0);
                 newStationElement->setUnk4SLR4(0);
                 newStationElement->setStationType(StationType::roadStation);
                 newStationElement->setBuildingType(0);
-                if (!(flags & Flags::ghost))
+                if (!hasFlags(flags, Flags::ghost))
                 {
                     newStationElement->setStationId(returnState.lastPlacedTrackRoadStationId);
                 }
@@ -648,26 +670,32 @@ namespace OpenLoco::GameCommands
                 {
                     newStationElement->setStationId(static_cast<StationId>(0));
                 }
-                for (auto elRoad = elRoads[0]; elRoad <= elRoads[1]; ++elRoad)
+                for (auto* entry = elRoadEntries[0]; entry <= elRoadEntries[1]; ++entry)
                 {
-                    elRoad->setHasStationElement(true);
+                    if (auto* elRoad = entry->as<World::RoadElement>())
+                    {
+                        elRoad->setHasStationElement(true);
+                    }
                 }
             }
             newStationElement->setObjectId(args.type);
-            for (auto elRoad = elRoads[0]; elRoad <= elRoads[1]; ++elRoad)
+            for (auto* entry = elRoadEntries[0]; entry <= elRoadEntries[1]; ++entry)
             {
-                elRoad->setClearZ(elRoad->clearZ() + stationObj->height / World::kSmallZStep);
+                if (auto* elRoad = entry->as<World::RoadElement>())
+                {
+                    elRoad->setClearZ(elRoad->clearZ() + stationObj->height / World::kSmallZStep);
+                }
             }
             newStationElement->setClearZ(elRoads[0]->clearZ());
             newStationElement->setOwner(getUpdatingCompanyId());
             Ui::ViewportManager::invalidate(roadLoc, newStationElement->baseHeight(), newStationElement->clearHeight());
         }
 
-        if (!(flags & Flags::ghost) && (flags & Flags::apply))
+        if (!hasFlags(flags, Flags::ghost) && hasFlags(flags, Flags::apply))
         {
             if (isNewStationTile)
             {
-                addTileToStation(returnState.lastPlacedTrackRoadStationId, roadStart, args.rotation);
+                addTileToStation(returnState.lastPlacedTrackRoadStationId, roadStart, stationPiece0Rotation);
             }
             auto* station = StationManager::get(returnState.lastPlacedTrackRoadStationId);
             station->invalidate();
@@ -679,8 +707,8 @@ namespace OpenLoco::GameCommands
         return totalCost;
     }
 
-    void createRoadStation(registers& regs)
+    void createRoadStation(registers& regs, const Flags flags)
     {
-        regs.ebx = createRoadStation(RoadStationPlacementArgs(regs), regs.bl);
+        regs.ebx = createRoadStation(RoadStationPlacementArgs(regs), flags);
     }
 }

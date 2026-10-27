@@ -1,4 +1,4 @@
-#include "RaiseLand.h"
+#include "GameCommands/Terraform/RaiseLand.h"
 #include "Audio/Audio.h"
 #include "Economy/Expenditures.h"
 #include "GameCommands/GameCommands.h"
@@ -20,16 +20,16 @@ using namespace OpenLoco::World::SurfaceSlope;
 namespace OpenLoco::GameCommands
 {
     // 0x00463702, 0x0046370B
-    uint32_t raiseLand(const RaiseLandArgs& args, World::TileClearance::RemovedBuildings& removedBuildings, const uint8_t flags)
+    uint32_t raiseLand(const RaiseLandArgs& args, World::TileClearance::RemovedBuildings& removedBuildings, const Flags flags)
     {
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
             Scenario::getOptions().madeAnyChanges = 1;
 
             if (getCommandNestLevel() == 1 && getUpdatingCompanyId() != CompanyId::neutral)
             {
                 const auto height = TileManager::getHeight(args.centre).landHeight;
-                Audio::playSound(Audio::SoundId::construct, World::Pos3(args.centre.x, args.centre.y, height));
+                Audio::playSound(Audio::SoundId::construct, Audio::ChannelId::effects, World::Pos3(args.centre.x, args.centre.y, height));
             }
         }
 
@@ -64,9 +64,9 @@ namespace OpenLoco::GameCommands
             }
 
             auto cost = TileManager::adjustSurfaceHeight(toWorldSpace(tilePos), targetBaseZ, slopeFlags, removedBuildings, flags);
-            if (cost == FAILURE)
+            if (cost == kFailure)
             {
-                return FAILURE;
+                return kFailure;
             }
             else
             {
@@ -82,7 +82,7 @@ namespace OpenLoco::GameCommands
         return totalCost;
     }
 
-    void raiseLand(registers& regs)
+    void raiseLand(registers& regs, const Flags flags)
     {
         // We keep track of removed buildings for each tile visited
         // this prevents accidentally double counting their removal
@@ -90,6 +90,6 @@ namespace OpenLoco::GameCommands
         World::TileClearance::RemovedBuildings removedBuildings{};
 
         const RaiseLandArgs args(regs);
-        regs.ebx = raiseLand(args, removedBuildings, regs.bl);
+        regs.ebx = raiseLand(args, removedBuildings, flags);
     }
 }

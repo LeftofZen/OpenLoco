@@ -1,7 +1,6 @@
 #include "Graphics/Colour.h"
 #include "Graphics/Gfx.h"
 #include "Graphics/ImageIds.h"
-#include "Graphics/SoftwareDrawingEngine.h"
 #include "Graphics/TextRenderer.h"
 #include "Localisation/StringIds.h"
 #include "OpenLoco.h"
@@ -18,7 +17,7 @@
 
 namespace OpenLoco::Ui::Windows::NetworkStatus
 {
-    enum Widx
+    enum widx
     {
         frame,
         caption,
@@ -26,12 +25,17 @@ namespace OpenLoco::Ui::Windows::NetworkStatus
         panel,
     };
 
+    namespace Widx
+    {
+        constexpr WidgetId kCloseBtn{ "closeBtn" };
+    }
+
     static constexpr Ui::Size kWindowSize = { 441, 91 };
 
     static constexpr auto widgets = makeWidgets(
         Widgets::Frame({ 0, 0 }, { 441, 91 }, WindowColour::primary),
         Widgets::Caption({ 1, 1 }, { 439, 13 }, Widgets::Caption::Style::whiteText, WindowColour::primary, StringIds::empty),
-        Widgets::ImageButton({ 426, 2 }, { 13, 13 }, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
+        Widgets::ImageButton(Widx::kCloseBtn, { 426, 2 }, { 13, 13 }, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
         Widgets::Panel({ 0, 15 }, { 441, 76 }, WindowColour::secondary)
 
     );
@@ -41,7 +45,7 @@ namespace OpenLoco::Ui::Windows::NetworkStatus
 
     static const WindowEventList& getEvents();
 
-    Window* open(std::string_view text, CloseCallback cbClose)
+    Window& open(std::string_view text, CloseCallback cbClose)
     {
         _text = text;
         _cbClose = cbClose;
@@ -57,7 +61,7 @@ namespace OpenLoco::Ui::Windows::NetworkStatus
         window->setColour(WindowColour::primary, Colour::black);
         window->setColour(WindowColour::secondary, Colour::black);
 
-        return window;
+        return *window;
     }
 
     void setText(std::string_view text)
@@ -87,11 +91,11 @@ namespace OpenLoco::Ui::Windows::NetworkStatus
         }
     }
 
-    static void onMouseUp(Ui::Window& window, WidgetIndex_t widgetIndex, [[maybe_unused]] const WidgetId id)
+    static void onMouseUp(Ui::Window& window, [[maybe_unused]] WidgetIndex_t widgetIndex, const WidgetId id)
     {
-        switch (widgetIndex)
+        switch (id)
         {
-            case Widx::closeBtn:
+            case Widx::kCloseBtn:
                 WindowManager::close(&window);
                 break;
         }
@@ -99,7 +103,8 @@ namespace OpenLoco::Ui::Windows::NetworkStatus
 
     static void prepareDraw([[maybe_unused]] Window& self)
     {
-        StringManager::setString(StringIds::buffer_1250, _text.c_str());
+        char* buffer = StringManager::getBufferString(StringIds::buffer_2039);
+        strcpy(buffer, _text.c_str());
     }
 
     static void draw(Window& self, Gfx::DrawingContext& drawingCtx)
@@ -108,7 +113,7 @@ namespace OpenLoco::Ui::Windows::NetworkStatus
 
         self.draw(drawingCtx);
 
-        auto origin = Point(self.x + (self.width / 2), self.y + (self.height / 2));
+        auto origin = Point(self.width / 2, self.height / 2);
         auto width = self.width;
 
         tr.drawStringCentredClipped(origin, width, Colour::black, StringIds::buffer_1250);

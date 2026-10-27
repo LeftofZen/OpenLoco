@@ -1,4 +1,4 @@
-#include "VehicleBody.h"
+#include "Vehicles/VehicleBody.h"
 #include "Audio/Audio.h"
 #include "Config.h"
 #include "Effects/Effect.h"
@@ -15,9 +15,9 @@
 #include "Objects/VehicleObject.h"
 #include "Random.h"
 #include "Scenario/ScenarioManager.h"
-#include "Vehicle2.h"
-#include "VehicleBogie.h"
-#include "VehicleHead.h"
+#include "Vehicles/Vehicle2.h"
+#include "Vehicles/VehicleBogie.h"
+#include "Vehicles/VehicleHead.h"
 #include <OpenLoco/Math/Trigonometry.hpp>
 #include <cassert>
 
@@ -1034,7 +1034,7 @@ namespace OpenLoco::Vehicles
                     continue;
                 }
 
-                if (!track->isLast())
+                if (!el.isLast())
                 {
                     stationFound = true;
                 }
@@ -1054,7 +1054,7 @@ namespace OpenLoco::Vehicles
                 volume -= 1500;
             }
 
-            Audio::playSound(Audio::makeObjectSoundId(soundId), smokeLoc, volume, 22050);
+            Audio::playSound(Audio::makeObjectSoundId(soundId), Audio::ChannelId::vehicles, smokeLoc, volume, 22050);
         }
         else
         {
@@ -1081,7 +1081,7 @@ namespace OpenLoco::Vehicles
                 volume = -400;
             }
 
-            Audio::playSound(Audio::makeObjectSoundId(soundId), smokeLoc, volume, 22050);
+            Audio::playSound(Audio::makeObjectSoundId(soundId), Audio::ChannelId::vehicles, smokeLoc, volume, 22050);
         }
     }
 

@@ -1,4 +1,4 @@
-#include "CreateWall.h"
+#include "GameCommands/Terraform/CreateWall.h"
 #include "Economy/Economy.h"
 #include "Economy/Expenditures.h"
 #include "GameCommands/GameCommands.h"
@@ -131,7 +131,7 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x004C436C
-    static uint32_t createWall(const WallPlacementArgs& args, const uint8_t flags)
+    static uint32_t createWall(const WallPlacementArgs& args, const Flags flags)
     {
         getLegacyReturnState().lastPlacedWall = nullptr;
         setExpenditureType(ExpenditureType::Construction);
@@ -146,13 +146,13 @@ namespace OpenLoco::GameCommands
 
         if (!World::TileManager::validCoords(args.pos))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         auto* surface = World::TileManager::get(args.pos).surface();
         if (surface == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
         auto slopeFlags = EdgeSlope::none;
@@ -174,13 +174,13 @@ namespace OpenLoco::GameCommands
         if (surface->water() && targetBaseZ < surface->water() * kMicroToSmallZStep)
         {
             setErrorText(StringIds::cant_build_this_underwater);
-            return FAILURE;
+            return kFailure;
         }
 
         if (targetBaseZ < surface->baseZ())
         {
             setErrorText(StringIds::error_can_only_build_above_ground);
-            return FAILURE;
+            return kFailure;
         }
 
         if ((slopeFlags & (EdgeSlope::upwards | EdgeSlope::downwards)) == EdgeSlope::none)
@@ -196,7 +196,7 @@ namespace OpenLoco::GameCommands
                     if (targetBaseZ < testHeight)
                     {
                         setErrorText(StringIds::error_can_only_build_above_ground);
-                        return FAILURE;
+                        return kFailure;
                     }
 
                     if (surface->isSlopeDoubleHeight())
@@ -210,7 +210,7 @@ namespace OpenLoco::GameCommands
                                 if (targetBaseZ < testHeight + kSmallZStep)
                                 {
                                     setErrorText(StringIds::error_can_only_build_above_ground);
-                                    return FAILURE;
+                                    return kFailure;
                                 }
                             }
                         }
@@ -228,7 +228,7 @@ namespace OpenLoco::GameCommands
             if ((wallObj->flags & WallObjectFlags::onlyOnLevelLand) != WallObjectFlags::none)
             {
                 setErrorText(StringIds::can_only_build_this_on_level_land);
-                return FAILURE;
+                return kFailure;
             }
 
             clearZ += kSmallZStep;
@@ -237,55 +237,56 @@ namespace OpenLoco::GameCommands
 
         if (!canConstructWall(args.pos, targetBaseZ, clearZ, args.rotation))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         if (!TileManager::checkFreeElementsAndReorganise())
         {
             // Error message set in checkFreeElementsAndReorganise
-            return FAILURE;
+            return kFailure;
         }
 
-        if (!(flags & Flags::apply))
+        if (!hasFlags(flags, Flags::apply))
         {
             return 0;
         }
 
-        auto* wall = TileManager::insertElement<WallElement>(args.pos, targetBaseZ, 0);
-        if (wall == nullptr)
+        auto* wallEntry = TileManager::insertElement<WallElement>(args.pos, targetBaseZ, 0);
+        if (wallEntry == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        wall->setClearZ(clearZ);
-        wall->setRotation(args.rotation);
-        wall->setSlopeFlags(slopeFlags);
-        wall->setPrimaryColour(args.primaryColour);
-        wall->setSecondaryColour(args.secondaryColour);
-        wall->setWallObjectId(args.type);
+        auto& wall = wallEntry->get<WallElement>();
+        wall.setClearZ(clearZ);
+        wall.setRotation(args.rotation);
+        wall.setSlopeFlags(slopeFlags);
+        wall.setPrimaryColour(args.primaryColour);
+        wall.setSecondaryColour(args.secondaryColour);
+        wall.setWallObjectId(args.type);
 
         if ((wallObj->flags & WallObjectFlags::hasTertiaryColour) != WallObjectFlags::none)
         {
-            wall->setTertiaryColour(args.tertiaryColour);
+            wall.setTertiaryColour(args.tertiaryColour);
         }
 
-        if (flags & Flags::ghost)
+        if (hasFlags(flags, Flags::ghost))
         {
-            wall->setGhost(true);
+            wall.setGhost(true);
         }
 
-        getLegacyReturnState().lastPlacedWall = wall;
+        getLegacyReturnState().lastPlacedWall = &wall;
 
-        Ui::ViewportManager::invalidate(args.pos, wall->baseHeight(), wall->baseHeight() + 72, ZoomLevel::half);
+        Ui::ViewportManager::invalidate(args.pos, wall.baseHeight(), wall.baseHeight() + 72, ZoomLevel::half);
 
         Scenario::getOptions().madeAnyChanges = 1;
 
         return 0;
     }
 
-    void createWall(registers& regs)
+    void createWall(registers& regs, const Flags flags)
     {
         WallPlacementArgs args(regs);
-        regs.ebx = createWall(args, regs.bl);
+        regs.ebx = createWall(args, flags);
     }
 }

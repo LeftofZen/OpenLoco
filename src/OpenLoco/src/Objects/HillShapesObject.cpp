@@ -1,9 +1,9 @@
-#include "HillShapesObject.h"
+#include "Objects/HillShapesObject.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
-#include "ObjectImageTable.h"
-#include "ObjectManager.h"
-#include "ObjectStringTable.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectManager.h"
+#include "Objects/ObjectStringTable.h"
 
 #include <cassert>
 
@@ -13,7 +13,7 @@ namespace OpenLoco
     void HillShapesObject::drawPreviewImage(Gfx::DrawingContext& drawingCtx, const int16_t x, const int16_t y) const
     {
         auto imageId = image + hillHeightMapCount + mountainHeightMapCount;
-        drawingCtx.drawImage(x, y, imageId);
+        drawingCtx.drawImage(ZoomLevel::full, x, y, imageId);
     }
 
     // 0x00463B70

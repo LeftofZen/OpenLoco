@@ -1,4 +1,4 @@
-#include "VehiclePlaceWater.h"
+#include "GameCommands/Vehicles/VehiclePlaceWater.h"
 #include "Audio/Audio.h"
 #include "Economy/Expenditures.h"
 #include "Entities/EntityManager.h"
@@ -26,11 +26,11 @@ namespace OpenLoco::GameCommands
     static void playWaterPlacedownSound(const World::Pos3 pos)
     {
         const auto frequency = gPrng2().randNext(20003, 24095);
-        Audio::playSound(Audio::SoundId::constructShip, pos, -600, frequency);
+        Audio::playSound(Audio::SoundId::constructShip, Audio::ChannelId::effects, pos, -600, frequency);
     }
 
     // 0x004267BE
-    static uint32_t vehiclePlaceWater(const VehicleWaterPlacementArgs& args, uint8_t flags)
+    static uint32_t vehiclePlaceWater(const VehicleWaterPlacementArgs& args, Flags flags)
     {
         setExpenditureType(ExpenditureType::ShipRunningCosts);
         setPosition(args.pos + World::Pos3{ 32, 32, 0 }); // Odd why 32,32
@@ -38,12 +38,12 @@ namespace OpenLoco::GameCommands
         auto* head = EntityManager::get<Vehicles::VehicleHead>(args.head);
         if (head == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if (!sub_431E6A(head->owner))
+        if (!checkCompanyCompatibility(head->owner))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         Vehicles::Vehicle train(head->id);
@@ -53,12 +53,12 @@ namespace OpenLoco::GameCommands
             if (head->tileX != -1)
             {
                 setErrorText(StringIds::empty);
-                return FAILURE;
+                return kFailure;
             }
             if (train.cars.empty())
             {
                 setErrorText(StringIds::empty);
-                return FAILURE;
+                return kFailure;
             }
         }
 
@@ -90,24 +90,24 @@ namespace OpenLoco::GameCommands
             }();
             if (elStation == nullptr)
             {
-                return FAILURE;
+                return kFailure;
             }
             if (elStation->isGhost() || elStation->isAiAllocated())
             {
-                return FAILURE;
+                return kFailure;
             }
 
             auto* station = StationManager::get(elStation->stationId());
 
-            if (!sub_431E6A(station->owner))
+            if (!checkCompanyCompatibility(station->owner))
             {
-                return FAILURE;
+                return kFailure;
             }
 
             if (elStation->isFlag6())
             {
                 setErrorText(StringIds::vehicle_approaching_or_in_the_way);
-                return FAILURE;
+                return kFailure;
             }
 
             auto* dockObj = ObjectManager::get<DockObject>(elStation->objectId());
@@ -118,10 +118,10 @@ namespace OpenLoco::GameCommands
             if (waterHeight == 0)
             {
                 setErrorText(StringIds::noWater);
-                return FAILURE;
+                return kFailure;
             }
 
-            if (!(flags & Flags::apply))
+            if (!hasFlags(flags, Flags::apply))
             {
                 return 0;
             }
@@ -142,7 +142,7 @@ namespace OpenLoco::GameCommands
 
             train.veh1->var_48 |= Vehicles::Flags48::flag2;
 
-            if (flags & Flags::ghost)
+            if (hasFlags(flags, Flags::ghost))
             {
                 train.applyToComponents([](auto& component) {
                     component.var_38 |= Vehicles::Flags38::isGhost;
@@ -150,15 +150,15 @@ namespace OpenLoco::GameCommands
             }
         }
 
-        if ((flags & Flags::apply) && !(flags & Flags::ghost))
+        if (hasFlags(flags, Flags::apply) && !hasFlags(flags, Flags::ghost))
         {
             playWaterPlacedownSound(getPosition());
         }
         return 0;
     }
 
-    void vehiclePlaceWater(registers& regs)
+    void vehiclePlaceWater(registers& regs, const Flags flags)
     {
-        regs.ebx = vehiclePlaceWater(VehicleWaterPlacementArgs(regs), regs.bl);
+        regs.ebx = vehiclePlaceWater(VehicleWaterPlacementArgs(regs), flags);
     }
 }

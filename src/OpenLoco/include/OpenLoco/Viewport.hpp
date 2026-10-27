@@ -1,0 +1,252 @@
+#pragma once
+
+#include "Graphics/Gfx.h"
+#include "Location.hpp"
+#include "Types.hpp"
+#include "ZoomLevel.hpp"
+#include <OpenLoco/Core/EnumFlags.hpp>
+#include <OpenLoco/Engine/World.hpp>
+#include <algorithm>
+
+namespace OpenLoco::Gfx
+{
+    class DrawingContext;
+}
+
+namespace OpenLoco::Ui
+{
+    struct SavedViewSimple;
+
+    struct viewport_pos
+    {
+        int32_t x{};
+        int32_t y{};
+
+        viewport_pos()
+            : viewport_pos(0, 0)
+        {
+        }
+        viewport_pos(int32_t _x, int32_t _y)
+            : x(_x)
+            , y(_y)
+        {
+        }
+    };
+
+    struct ViewportRect
+    {
+        int32_t left = 0;
+        int32_t top = 0;
+        int32_t bottom = 0;
+        int32_t right = 0;
+
+        constexpr bool contains(const viewport_pos& vpos)
+        {
+            return (left < vpos.x && top < vpos.y && right >= vpos.x && bottom >= vpos.y);
+        }
+    };
+
+    enum class ViewportFlags : uint16_t
+    {
+        none = 0U,
+        underground_view = 1U << 0,
+        seeThroughTracks = 1U << 1,
+        height_marks_on_land = 1U << 2,
+        height_marks_on_tracks_roads = 1U << 3,
+        one_way_direction_arrows = 1U << 4,
+        gridlines_on_landscape = 1U << 5,
+        seeThroughScenery = 1U << 6,
+        flag_7 = 1U << 7,
+        flag_8 = 1U << 8,
+        hideTownNames = 1U << 9,
+        hideStationNames = 1U << 10,
+        seeThroughRoads = 1U << 11,
+        seeThroughBuildings = 1U << 12,
+        seeThroughTrees = 1U << 13,
+        seeThroughBridges = 1U << 14,
+    };
+    OPENLOCO_ENABLE_ENUM_OPERATORS(ViewportFlags);
+
+    struct Viewport;
+
+    namespace WindowToViewport
+    {
+        [[nodiscard]] constexpr Point applyTransform(const Point& uiPoint, const Viewport& vp);
+    }
+
+    namespace ViewportToWindow
+    {
+        [[nodiscard]] constexpr Point applyTransform(const Point& vpPoint, const Viewport& vp);
+    }
+
+    struct Viewport
+    {
+        int32_t width;       // 0x00
+        int32_t height;      // 0x02
+        int32_t x;           // 0x04
+        int32_t y;           // 0x06
+        int32_t viewX;       // 0x08
+        int32_t viewY;       // 0x0A
+        int32_t viewWidth;   // 0x0C
+        int32_t viewHeight;  // 0x0E
+        ZoomLevel zoom;      // 0x10
+        uint8_t pad_11;      // 0x11
+        ViewportFlags flags; // 0x12
+
+        constexpr bool contains(const viewport_pos& vpos)
+        {
+            return (vpos.y >= viewY && vpos.y < viewY + viewHeight && vpos.x >= viewX && vpos.x < viewX + viewWidth);
+        }
+
+        constexpr bool containsWindowPos(const Point& pos) const
+        {
+            return (pos.x >= x && pos.x < x + width && pos.y >= y && pos.y < y + height);
+        }
+
+        Ui::Rect getUiRect() const
+        {
+            return Ui::Rect::fromLTRB(x, y, x + width, y + height);
+        }
+
+        constexpr bool intersects(const ViewportRect& vpos)
+        {
+            if (vpos.right <= viewX)
+            {
+                return false;
+            }
+
+            if (vpos.bottom <= viewY)
+            {
+                return false;
+            }
+
+            if (vpos.left >= viewX + viewWidth)
+            {
+                return false;
+            }
+
+            if (vpos.top >= viewY + viewHeight)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        constexpr ViewportRect getIntersection(const ViewportRect& rect)
+        {
+            auto out = ViewportRect();
+            out.left = std::max(rect.left, viewX);
+            out.right = std::min(rect.right, viewX + viewWidth);
+            out.top = std::max(rect.top, viewY);
+            out.bottom = std::min(rect.bottom, viewY + viewHeight);
+
+            return out;
+        }
+
+        int getRotation() const;
+        void setRotation(int32_t value);
+
+        /**
+         * Maps a 2D viewport position to a window relative position.
+         */
+        Point viewportToWindow(const viewport_pos& vpos) const
+        {
+            const auto vpPoint = ViewportToWindow::applyTransform({ vpos.x, vpos.y }, *this);
+            return vpPoint;
+        }
+
+        /**
+         * Maps a window relative position to a 2D viewport position.
+         */
+        viewport_pos windowToViewport(const Point& pos) const
+        {
+            const auto vpPoint = WindowToViewport::applyTransform(pos, *this);
+            return { vpPoint.x, vpPoint.y };
+        }
+        /**
+         * Maps a window relative rectangle to a 2D viewport rectangle.
+         */
+        Rect windowToViewport(const Rect& rect)
+        {
+            auto leftTop = windowToViewport(Point(rect.left(), rect.top()));
+            auto rightBottom = windowToViewport(Point(rect.right(), rect.bottom()));
+            return Rect::fromLTRB(leftTop.x, leftTop.y, rightBottom.x, rightBottom.y);
+        }
+
+        void render(Gfx::DrawingContext& drawingCtx);
+        viewport_pos centre2dCoordinates(const World::Pos3& loc);
+        SavedViewSimple toSavedView() const;
+
+        viewport_pos getCentre() const;
+        Point getWindowCentre() const;
+        World::Pos2 getCentreMapPosition() const;
+        std::optional<World::Pos2> getCentreScreenMapPosition() const;
+
+        constexpr bool hasFlags(ViewportFlags flagsToTest) const
+        {
+            return (flags & flagsToTest) != ViewportFlags::none;
+        }
+
+        constexpr bool isValid() const
+        {
+            return width != 0 && height != 0;
+        }
+
+    private:
+        void paint(Gfx::DrawingContext& drawingCtx, const Ui::Rect& rect);
+    };
+
+    struct ViewportConfig
+    {
+        EntityId viewportTargetSprite; // 0x0
+        int32_t savedViewX;            // 0x2
+        int32_t savedViewY;            // 0x4
+    };
+
+    namespace WindowToViewport
+    {
+        [[nodiscard]] constexpr Point windowOffsetTransform(const Point& uiPoint, const Viewport& vp)
+        {
+            return uiPoint - Point{ vp.x, vp.y };
+        }
+
+        [[nodiscard]] constexpr Point scaleTransform(const Point& uiPoint, const Viewport& vp)
+        {
+            return Point{ vp.zoom.applyTo(uiPoint.x), vp.zoom.applyTo(uiPoint.y) };
+        }
+
+        [[nodiscard]] constexpr Point viewOffsetTransform(const Point& point, const Viewport& vp)
+        {
+            return point + Point{ vp.viewX, vp.viewY };
+        }
+
+        [[nodiscard]] constexpr Point applyTransform(const Point& uiPoint, const Viewport& vp)
+        {
+            return viewOffsetTransform(scaleTransform(windowOffsetTransform(uiPoint, vp), vp), vp);
+        }
+    }
+
+    namespace ViewportToWindow
+    {
+        [[nodiscard]] constexpr Point windowOffsetTransform(const Point& uiPoint, const Viewport& vp)
+        {
+            return uiPoint + Point{ vp.x, vp.y };
+        }
+
+        [[nodiscard]] constexpr Point scaleTransform(const Point& uiPoint, const Viewport& vp)
+        {
+            return Point{ vp.zoom.applyInversedTo(uiPoint.x), vp.zoom.applyInversedTo(uiPoint.y) };
+        }
+
+        [[nodiscard]] constexpr Point viewOffsetTransform(const Point& point, const Viewport& vp)
+        {
+            return point - Point{ vp.viewX, vp.viewY };
+        }
+
+        [[nodiscard]] constexpr Point applyTransform(const Point& vpPoint, const Viewport& vp)
+        {
+            return windowOffsetTransform(scaleTransform(viewOffsetTransform(vpPoint, vp), vp), vp);
+        }
+    }
+}

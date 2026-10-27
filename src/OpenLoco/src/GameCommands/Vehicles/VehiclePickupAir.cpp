@@ -1,4 +1,5 @@
-#include "VehiclePickupAir.h"
+#include "GameCommands/Vehicles/VehiclePickupAir.h"
+#include "Config.h"
 #include "Entities/EntityManager.h"
 #include "GameCommands/GameCommands.h"
 #include "Vehicles/Vehicle.h"
@@ -15,29 +16,29 @@ using namespace OpenLoco::Vehicles;
 namespace OpenLoco::GameCommands
 {
     // 0x00426B29
-    static uint32_t vehiclePickupAir(const VehiclePickupAirArgs& args, uint8_t flags)
+    static uint32_t vehiclePickupAir(const VehiclePickupAirArgs& args, Flags flags)
     {
         setExpenditureType(ExpenditureType::AircraftRunningCosts);
         Vehicle train(args.head);
         setPosition(train.veh2->position);
-        if (!sub_431E6A(train.head->owner))
+        if (!checkCompanyCompatibility(train.head->owner))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         if (!train.head->canBeModified())
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if (!(flags & Flags::apply))
+        if (!hasFlags(flags, Flags::apply))
         {
             return 0;
         }
 
         if (train.head->tileX != -1)
         {
-            if (!(flags & Flags::ghost))
+            if (!hasFlags(flags, Flags::ghost))
             {
                 Vehicles::playPickupSound(train.veh2);
             }
@@ -64,20 +65,23 @@ namespace OpenLoco::GameCommands
             component.var_38 &= ~(Vehicles::Flags38::isGhost);
         });
 
-        for (auto& car : train.cars)
+        if (!Config::get().keepCargoModifyPickup)
         {
-            for (auto& component : car)
+            for (auto& car : train.cars)
             {
-                removeAllCargo(component);
+                for (auto& component : car)
+                {
+                    removeAllCargo(component);
+                }
             }
         }
 
         return 0;
     }
 
-    void vehiclePickupAir(registers& regs)
+    void vehiclePickupAir(registers& regs, const Flags flags)
     {
         const VehiclePickupAirArgs args(regs);
-        regs.ebx = vehiclePickupAir(args, regs.bl);
+        regs.ebx = vehiclePickupAir(args, flags);
     }
 }

@@ -1,10 +1,10 @@
-#include "ExplosionEffect.h"
+#include "Effects/ExplosionEffect.h"
 #include "Entities/EntityManager.h"
 
 namespace OpenLoco
 {
     // 0x004407CC
-    void ExplosionCloud::update()
+    void ExplosionCloud::tick()
     {
         invalidateSprite();
         frame += 0x80;

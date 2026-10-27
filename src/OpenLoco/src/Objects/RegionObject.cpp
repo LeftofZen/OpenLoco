@@ -1,16 +1,16 @@
-#include "RegionObject.h"
+#include "Objects/RegionObject.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
-#include "ObjectImageTable.h"
-#include "ObjectManager.h"
-#include "ObjectStringTable.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectManager.h"
+#include "Objects/ObjectStringTable.h"
 
 namespace OpenLoco
 {
     // 0x0043CB93
     void RegionObject::drawPreviewImage(Gfx::DrawingContext& drawingCtx, const int16_t x, const int16_t y) const
     {
-        drawingCtx.drawImage(x, y, image);
+        drawingCtx.drawImage(ZoomLevel::full, x, y, image);
     }
 
     // 0x0043CA8C

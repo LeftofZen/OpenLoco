@@ -1,5 +1,4 @@
 #include "Audio/Audio.h"
-#include "Construction.h"
 #include "GameCommands/Airports/CreateAirport.h"
 #include "GameCommands/Airports/RemoveAirport.h"
 #include "GameCommands/Docks/CreatePort.h"
@@ -11,7 +10,6 @@
 #include "GameCommands/Track/RemoveTrainStation.h"
 #include "GameState.h"
 #include "Graphics/ImageIds.h"
-#include "Graphics/SoftwareDrawingEngine.h"
 #include "Graphics/TextRenderer.h"
 #include "Input.h"
 #include "Localisation/FormatArguments.hpp"
@@ -21,6 +19,7 @@
 #include "Map/RoadElement.h"
 #include "Map/StationElement.h"
 #include "Map/SurfaceElement.h"
+#include "Map/TileElementEntry.h"
 #include "Map/TileManager.h"
 #include "Map/TrackElement.h"
 #include "Objects/AirportObject.h"
@@ -39,6 +38,7 @@
 #include "Ui/Widgets/DropdownWidget.h"
 #include "Ui/Widgets/ImageButtonWidget.h"
 #include "Ui/Widgets/Wt3Widget.h"
+#include "Ui/Windows/Construction/Construction.h"
 #include "World/CompanyManager.h"
 #include "World/Industry.h"
 #include "World/StationManager.h"
@@ -53,15 +53,15 @@ namespace OpenLoco::Ui::Windows::Construction::Station
     static World::TilePos2 _toolPosDrag;
     static World::TilePos2 _toolPosInitial;
 
-    static constexpr auto widgets = makeWidgets(
+    static constexpr auto kWidgets = makeWidgets(
         Common::makeCommonWidgets(138, 190, StringIds::stringid_2),
-        Widgets::dropdownWidgets({ 3, 45 }, { 132, 12 }, WindowColour::secondary, Widget::kContentNull, StringIds::tooltip_select_station_type),
-        Widgets::Wt3Widget({ 35, 60 }, { 68, 68 }, WindowColour::secondary),
-        Widgets::ImageButton({ 112, 104 }, { 24, 24 }, WindowColour::secondary, ImageIds::rotate_object, StringIds::rotate_90));
+        Widgets::dropdownWidgets(Widx::kStation, Widx::kStationDropdown, { 3, 45 }, { 132, 12 }, WindowColour::secondary, Widget::kContentNull, StringIds::tooltip_select_station_type),
+        Widgets::Wt3Widget(Widx::kImage, { 35, 60 }, { 68, 68 }, WindowColour::secondary),
+        Widgets::ImageButton(Widx::kRotate, { 112, 104 }, { 24, 24 }, WindowColour::secondary, ImageIds::rotate_object, StringIds::rotate_90));
 
     std::span<const Widget> getWidgets()
     {
-        return widgets;
+        return kWidgets;
     }
 
     WindowEventList events;
@@ -71,23 +71,23 @@ namespace OpenLoco::Ui::Windows::Construction::Station
     {
         auto& cState = getConstructionState();
 
-        switch (widgetIndex)
+        switch (id)
         {
-            case Common::widx::close_button:
+            case Common::Widx::kCloseButton:
                 WindowManager::close(&self);
                 break;
 
-            case Common::widx::tab_construction:
-            case Common::widx::tab_overhead:
-            case Common::widx::tab_signal:
-            case Common::widx::tab_station:
+            case Common::Widx::kTabConstruction:
+            case Common::Widx::kTabOverhead:
+            case Common::Widx::kTabSignal:
+            case Common::Widx::kTabStation:
                 Common::switchTab(self, widgetIndex);
                 break;
 
-            case widx::rotate:
+            case Widx::kRotate:
                 cState.constructionRotation++;
                 cState.constructionRotation = cState.constructionRotation & 3;
-                cState.stationCost = 0x80000000;
+                cState.stationCost = GameCommands::kFailure;
                 self.invalidate();
                 break;
         }
@@ -116,9 +116,9 @@ namespace OpenLoco::Ui::Windows::Construction::Station
     {
         auto& cState = getConstructionState();
 
-        switch (widgetIndex)
+        switch (id)
         {
-            case widx::station_dropdown:
+            case Widx::kStationDropdown:
             {
                 uint8_t stationCount = 0;
                 while (cState.stationList[stationCount] != 0xFF)
@@ -151,7 +151,7 @@ namespace OpenLoco::Ui::Windows::Construction::Station
                 }
                 break;
             }
-            case widx::image:
+            case Widx::kImage:
             {
                 ToolManager::toolCancel();
                 ToolManager::toolSet(self, widgetIndex, CursorId::placeStation);
@@ -161,11 +161,11 @@ namespace OpenLoco::Ui::Windows::Construction::Station
     }
 
     // 0x0049E256
-    static void onDropdown(Window& self, WidgetIndex_t widgetIndex, [[maybe_unused]] const WidgetId id, int16_t itemIndex)
+    static void onDropdown(Window& self, [[maybe_unused]] WidgetIndex_t widgetIndex, const WidgetId id, int16_t itemIndex)
     {
         auto& cState = getConstructionState();
 
-        if (widgetIndex == widx::station_dropdown)
+        if (id == Widx::kStationDropdown)
         {
             if (itemIndex == -1)
             {
@@ -200,7 +200,7 @@ namespace OpenLoco::Ui::Windows::Construction::Station
     // 0x0049E437
     static void onUpdate(Window& self)
     {
-        Common::onUpdate(&self, GhostVisibilityFlags::station);
+        Common::onUpdate(self, GhostVisibilityFlags::station);
     }
 
     // 0x0049FF4B
@@ -278,9 +278,9 @@ namespace OpenLoco::Ui::Windows::Construction::Station
         auto& cState = getConstructionState();
 
         removeConstructionGhosts();
-        if (cState.stationCost != 0x80000000U)
+        if (cState.stationCost != GameCommands::kFailure)
         {
-            cState.stationCost = 0x80000000U;
+            cState.stationCost = GameCommands::kFailure;
             Ui::WindowManager::invalidate(Ui::WindowType::construction);
         }
     }
@@ -324,7 +324,7 @@ namespace OpenLoco::Ui::Windows::Construction::Station
 
         Ui::WindowManager::invalidate(Ui::WindowType::construction);
 
-        if (cost == GameCommands::FAILURE)
+        if (cost == GameCommands::kFailure)
         {
             return;
         }
@@ -388,7 +388,7 @@ namespace OpenLoco::Ui::Windows::Construction::Station
 
         Ui::WindowManager::invalidate(Ui::WindowType::construction);
 
-        if (cost == GameCommands::FAILURE)
+        if (cost == GameCommands::kFailure)
         {
             return;
         }
@@ -450,7 +450,7 @@ namespace OpenLoco::Ui::Windows::Construction::Station
 
         Ui::WindowManager::invalidate(Ui::WindowType::construction);
 
-        if (cost == GameCommands::FAILURE)
+        if (cost == GameCommands::kFailure)
         {
             return;
         }
@@ -525,7 +525,7 @@ namespace OpenLoco::Ui::Windows::Construction::Station
 
         Ui::WindowManager::invalidate(Ui::WindowType::construction);
 
-        if (cost == GameCommands::FAILURE)
+        if (cost == GameCommands::kFailure)
         {
             return;
         }
@@ -850,8 +850,8 @@ namespace OpenLoco::Ui::Windows::Construction::Station
             return std::nullopt;
         }
 
-        auto* elRoad = reinterpret_cast<const TileElement*>(interaction.object)->as<RoadElement>();
-        auto* elStation = reinterpret_cast<const TileElement*>(interaction.object)->as<StationElement>();
+        auto* elRoad = reinterpret_cast<const TileElementEntry*>(interaction.object)->as<RoadElement>();
+        auto* elStation = reinterpret_cast<const TileElementEntry*>(interaction.object)->as<StationElement>();
         if (elRoad == nullptr && elStation == nullptr)
         {
             return std::nullopt;
@@ -912,9 +912,9 @@ namespace OpenLoco::Ui::Windows::Construction::Station
         formatArgs.skip(3 * sizeof(StringId));
         formatArgs.push(roadStationObject->name);
         GameCommands::setErrorTitle(StringIds::cant_build_pop3_string);
-        if (GameCommands::doCommand(*args, GameCommands::Flags::apply) != GameCommands::FAILURE)
+        if (GameCommands::doCommand(*args, GameCommands::Flags::apply) != GameCommands::kFailure)
         {
-            Audio::playSound(Audio::SoundId::construct, GameCommands::getPosition());
+            Audio::playSound(Audio::SoundId::construct, Audio::ChannelId::effects, GameCommands::getPosition());
         }
     }
 
@@ -927,8 +927,8 @@ namespace OpenLoco::Ui::Windows::Construction::Station
             return std::nullopt;
         }
 
-        auto* elTrack = reinterpret_cast<const TileElement*>(interaction.object)->as<TrackElement>();
-        auto* elStation = reinterpret_cast<const TileElement*>(interaction.object)->as<StationElement>();
+        auto* elTrack = reinterpret_cast<const TileElementEntry*>(interaction.object)->as<TrackElement>();
+        auto* elStation = reinterpret_cast<const TileElementEntry*>(interaction.object)->as<StationElement>();
         if (elTrack == nullptr && elStation == nullptr)
         {
             return std::nullopt;
@@ -995,9 +995,9 @@ namespace OpenLoco::Ui::Windows::Construction::Station
             Error::open(StringIds::null, StringIds::wrong_type_of_track_road);
             return;
         }
-        if (GameCommands::doCommand(*args, GameCommands::Flags::apply) != GameCommands::FAILURE)
+        if (GameCommands::doCommand(*args, GameCommands::Flags::apply) != GameCommands::kFailure)
         {
-            Audio::playSound(Audio::SoundId::construct, GameCommands::getPosition());
+            Audio::playSound(Audio::SoundId::construct, Audio::ChannelId::effects, GameCommands::getPosition());
         }
     }
 
@@ -1055,7 +1055,7 @@ namespace OpenLoco::Ui::Windows::Construction::Station
                 return GameCommands::doCommand(*args, GameCommands::Flags::apply);
             }
         }
-        return GameCommands::FAILURE;
+        return GameCommands::kFailure;
     }
 
     static void onToolUpMultiple()
@@ -1084,7 +1084,7 @@ namespace OpenLoco::Ui::Windows::Construction::Station
 
                 // Try placing the station at this location, ignoring errors if they occur
                 GameCommands::setErrorSound(false);
-                builtAnything |= constructPieceAtPosition(pos) != GameCommands::FAILURE;
+                builtAnything |= constructPieceAtPosition(pos) != GameCommands::kFailure;
                 GameCommands::setErrorSound(true);
             }
         }
@@ -1165,7 +1165,25 @@ namespace OpenLoco::Ui::Windows::Construction::Station
             self.widgets[widx::station].text = trainStationObject->name;
         }
 
-        Common::repositionTabs(&self);
+        Common::repositionTabs(self);
+
+        // Following information is only calculated when a ghost has been placed
+        if (!Common::hasGhostVisibilityFlag(GhostVisibilityFlags::station))
+        {
+            return;
+        }
+
+        // Scan number of cargo types accepted and produced
+        auto numAcceptedCargoTypes = std::max(1, std::popcount(cState.constructingStationAcceptedCargoTypes));
+        auto numProducedCargoTypes = std::max(1, std::popcount(cState.constructingStationProducedCargoTypes));
+
+        auto& baseFrame = kWidgets[Common::widx::frame];
+        auto newHeight = baseFrame.height() + (numAcceptedCargoTypes + numProducedCargoTypes) * 11;
+        auto newSize = Size{ baseFrame.width(), newHeight };
+        self.setSizeFixed(newSize);
+
+        self.widgets[Common::widx::frame].bottom = newHeight - 1;
+        self.widgets[Common::widx::panel].bottom = newHeight - 1;
     }
 
     // 0x0049DE40
@@ -1178,8 +1196,8 @@ namespace OpenLoco::Ui::Windows::Construction::Station
 
         auto company = CompanyManager::getPlayerCompany();
         auto companyColour = company->mainColours.primary;
-        int16_t xPos = self.widgets[widx::image].left + self.x;
-        int16_t yPos = self.widgets[widx::image].top + self.y;
+        int16_t xPos = self.widgets[widx::image].left;
+        int16_t yPos = self.widgets[widx::image].top;
 
         auto& cState = getConstructionState();
 
@@ -1187,20 +1205,20 @@ namespace OpenLoco::Ui::Windows::Construction::Station
         {
             auto airportObj = ObjectManager::get<AirportObject>(cState.lastSelectedStationType);
             auto imageId = Gfx::recolour(airportObj->image, companyColour);
-            drawingCtx.drawImage(xPos, yPos, imageId);
+            drawingCtx.drawImage(ZoomLevel::full, xPos, yPos, imageId);
         }
         else if (cState.byte_1136063 & (1 << 6))
         {
             auto dockObj = ObjectManager::get<DockObject>(cState.lastSelectedStationType);
             auto imageId = Gfx::recolour(dockObj->image, companyColour);
-            drawingCtx.drawImage(xPos, yPos, imageId);
+            drawingCtx.drawImage(ZoomLevel::full, xPos, yPos, imageId);
         }
         else if (cState.trackType & (1 << 7))
         {
             auto roadStationObj = ObjectManager::get<RoadStationObject>(cState.lastSelectedStationType);
 
             auto imageId = Gfx::recolour(roadStationObj->image + RoadStation::ImageIds::preview_image, companyColour);
-            drawingCtx.drawImage(xPos, yPos, imageId);
+            drawingCtx.drawImage(ZoomLevel::full, xPos, yPos, imageId);
 
             auto colour = Colours::getTranslucent(companyColour);
             if (!roadStationObj->hasFlags(RoadStationFlags::recolourable))
@@ -1209,14 +1227,14 @@ namespace OpenLoco::Ui::Windows::Construction::Station
             }
 
             imageId = Gfx::recolourTranslucent(roadStationObj->image + RoadStation::ImageIds::preview_image_windows, colour);
-            drawingCtx.drawImage(xPos, yPos, imageId);
+            drawingCtx.drawImage(ZoomLevel::full, xPos, yPos, imageId);
         }
         else
         {
             auto trainStationObj = ObjectManager::get<TrainStationObject>(cState.lastSelectedStationType);
 
             auto imageId = Gfx::recolour(trainStationObj->image + TrainStation::ImageIds::preview_image, companyColour);
-            drawingCtx.drawImage(xPos, yPos, imageId);
+            drawingCtx.drawImage(ZoomLevel::full, xPos, yPos, imageId);
 
             auto colour = Colours::getTranslucent(companyColour);
             if (!trainStationObj->hasFlags(TrainStationFlags::recolourable))
@@ -1225,13 +1243,13 @@ namespace OpenLoco::Ui::Windows::Construction::Station
             }
 
             imageId = Gfx::recolourTranslucent(trainStationObj->image + TrainStation::ImageIds::preview_image_windows, colour);
-            drawingCtx.drawImage(xPos, yPos, imageId);
+            drawingCtx.drawImage(ZoomLevel::full, xPos, yPos, imageId);
         }
 
-        if (cState.stationCost != 0x80000000 && cState.stationCost != 0)
+        if (cState.stationCost != GameCommands::kFailure && cState.stationCost != 0)
         {
             auto& widget = self.widgets[widx::image];
-            auto point = Point(self.x + 69, widget.bottom + self.y + 4);
+            auto point = Point(69, widget.bottom + 4);
 
             FormatArguments args{};
             args.push<uint32_t>(cState.stationCost);
@@ -1239,9 +1257,9 @@ namespace OpenLoco::Ui::Windows::Construction::Station
             tr.drawStringCentred(point, Colour::black, StringIds::build_cost, args);
         }
 
-        xPos = self.x + 3;
-        yPos = self.widgets[widx::image].bottom + self.y + 16;
-        auto width = self.width - 4;
+        xPos = 3;
+        yPos = self.widgets[widx::image].bottom + 16;
+        auto width = self.width - 7;
         drawingCtx.drawRectInset(xPos, yPos, width, 1, self.getColour(WindowColour::secondary), Gfx::RectInsetFlags::borderInset);
 
         // Following information is only calculated when a ghost has been placed
@@ -1252,6 +1270,7 @@ namespace OpenLoco::Ui::Windows::Construction::Station
 
         FormatArguments args{};
 
+        // Prepare (new) station name
         if (cState.constructingStationId == StationId::null)
         {
             args.push(StringIds::new_station);
@@ -1263,69 +1282,71 @@ namespace OpenLoco::Ui::Windows::Construction::Station
             args.push(station->town);
         }
 
-        xPos = self.x + 69;
-        yPos = self.widgets[widx::image].bottom + self.y + 18;
+        xPos = 69;
+        yPos = self.widgets[widx::image].bottom + 18;
 
+        // Draw new station name
         auto origin = Point(xPos, yPos);
         width = self.width - 4;
         tr.drawStringCentredClipped(origin, width, Colour::black, StringIds::new_station_buffer, args);
 
-        xPos = self.x + 2;
-        yPos = self.widgets[widx::image].bottom + self.y + 29;
+        xPos = 2;
+        yPos = self.widgets[widx::image].bottom + 29;
 
+        // Catchment area cargo acceptance list
         origin = Point(xPos, yPos);
         origin = tr.drawStringLeft(origin, Colour::black, StringIds::catchment_area_accepts);
 
+        // Indent cargo list compared to the header
+        origin.x = 14;
+        origin.y += 11;
+
+        auto drawCargoList = [&origin, &drawingCtx, &tr, &self](uint32_t cargoTypes) {
+            for (uint8_t i = 0; i < ObjectManager::getMaxObjects(ObjectType::cargo); i++)
+            {
+                if (!(cargoTypes & (1 << i)))
+                {
+                    continue;
+                }
+
+                auto* cargoObj = ObjectManager::get<CargoObject>(i);
+                drawingCtx.drawImage(ZoomLevel::full, origin.x, origin.y, cargoObj->unitInlineSprite);
+
+                FormatArguments args{};
+                args.push(cargoObj->name);
+
+                auto width = self.width - 12 - 10;
+                tr.drawStringLeftClipped(origin + Point{ 12, 1 }, width, Colour::black, StringIds::black_stringid, args);
+                origin.y += 11;
+            }
+        };
+
         if (cState.constructingStationAcceptedCargoTypes == 0)
         {
-            origin = tr.drawStringLeft(origin, Colour::black, StringIds::catchment_area_nothing);
+            tr.drawStringLeft(origin, Colour::black, StringIds::catchment_area_nothing);
+            origin.y += 11;
         }
         else
         {
-            yPos--;
-            for (uint8_t i = 0; i < ObjectManager::getMaxObjects(ObjectType::cargo); i++)
-            {
-                if (cState.constructingStationAcceptedCargoTypes & (1 << i))
-                {
-                    auto xPosMax = self.x + self.width - 12;
-                    if (origin.x <= xPosMax)
-                    {
-                        auto cargoObj = ObjectManager::get<CargoObject>(i);
-
-                        drawingCtx.drawImage(origin.x, origin.y, cargoObj->unitInlineSprite);
-                        origin.x += 10;
-                    }
-                }
-            }
+            drawCargoList(cState.constructingStationAcceptedCargoTypes);
         }
 
-        xPos = self.x + 2;
-        yPos = self.widgets[widx::image].bottom + self.y + 49;
-        origin = Point(xPos, yPos);
-
+        // Catchment area cargo production list
+        origin.x = 2;
         origin = tr.drawStringLeft(origin, Colour::black, StringIds::catchment_area_produces);
+
+        // Indent cargo list compared to the header
+        origin.x = 14;
+        origin.y += 11;
 
         if (cState.constructingStationProducedCargoTypes == 0)
         {
-            origin = tr.drawStringLeft(origin, Colour::black, StringIds::catchment_area_nothing);
+            tr.drawStringLeft(origin, Colour::black, StringIds::catchment_area_nothing);
+            origin.y = 11;
         }
         else
         {
-            yPos--;
-            for (uint8_t i = 0; i < ObjectManager::getMaxObjects(ObjectType::cargo); i++)
-            {
-                if (cState.constructingStationProducedCargoTypes & (1 << i))
-                {
-                    auto xPosMax = self.x + self.width - 12;
-                    if (origin.x <= xPosMax)
-                    {
-                        auto cargoObj = ObjectManager::get<CargoObject>(i);
-
-                        drawingCtx.drawImage(origin.x, origin.y, cargoObj->unitInlineSprite);
-                        origin.x += 10;
-                    }
-                }
-            }
+            drawCargoList(cState.constructingStationProducedCargoTypes);
         }
     }
 

@@ -1,4 +1,4 @@
-#include "ExhaustEffect.h"
+#include "Effects/ExhaustEffect.h"
 #include "Entities/EntityManager.h"
 #include "Map/StationElement.h"
 #include "Map/SurfaceElement.h"
@@ -16,7 +16,7 @@ namespace OpenLoco
     }
 
     // 0x004408C2
-    void Exhaust::update()
+    void Exhaust::tick()
     {
         const auto* steamObj = getObject();
         if (steamObj->hasFlags(SteamObjectFlags::applyWind))
@@ -28,9 +28,7 @@ namespace OpenLoco
             newPos.x += res / (std::numeric_limits<uint16_t>::max() + 1);
             if (newPos.x != position.x)
             {
-                invalidateSprite();
                 moveTo(newPos);
-                invalidateSprite();
             }
         }
         stationaryProgress++;
@@ -45,16 +43,13 @@ namespace OpenLoco
 
         if (frameNum >= totalNumFrames)
         {
-            invalidateSprite();
             EntityManager::freeEntity(this);
             return;
         }
 
         auto newPos = position;
         newPos.z += frameInfo[frameNum].height;
-        invalidateSprite();
         moveTo(newPos);
-        invalidateSprite();
 
         if (!steamObj->hasFlags(SteamObjectFlags::disperseOnCollision))
         {
@@ -72,7 +67,6 @@ namespace OpenLoco
             }
             if (lowZ < el.baseZ() && highZ > el.baseZ())
             {
-                invalidateSprite();
                 EntityManager::freeEntity(this);
                 return;
             }
@@ -86,7 +80,7 @@ namespace OpenLoco
             {
                 continue;
             }
-            auto* elStation = elTrack->next()->as<World::StationElement>();
+            auto* elStation = el.next()->as<World::StationElement>();
             if (elStation == nullptr)
             {
                 continue;
@@ -117,7 +111,6 @@ namespace OpenLoco
                 continue;
             }
 
-            invalidateSprite();
             EntityManager::freeEntity(this);
             return;
         }
@@ -147,7 +140,6 @@ namespace OpenLoco
         if (_exhaust != nullptr)
         {
             _exhaust->baseType = EntityBaseType::effect;
-            _exhaust->moveTo(loc);
             _exhaust->objectId = type;
             const auto* obj = _exhaust->getObject();
             _exhaust->spriteWidth = obj->spriteWidth;
@@ -159,6 +151,7 @@ namespace OpenLoco
             _exhaust->windProgress = 0;
             _exhaust->var_34 = 0;
             _exhaust->var_36 = 0;
+            _exhaust->moveTo(loc);
         }
         return _exhaust;
     }

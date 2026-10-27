@@ -1,10 +1,10 @@
-#include "BuildingObject.h"
+#include "Objects/BuildingObject.h"
 #include "Graphics/Colour.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
-#include "ObjectImageTable.h"
-#include "ObjectManager.h"
-#include "ObjectStringTable.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectManager.h"
+#include "Objects/ObjectStringTable.h"
 #include <OpenLoco/Core/Numerics.hpp>
 
 namespace OpenLoco
@@ -28,7 +28,7 @@ namespace OpenLoco
         for (const auto part : getBuildingParts(0))
         {
             auto partImage = baseImage.withIndexOffset(part * 4 + buildingRotation);
-            drawingCtx.drawImage(pos, partImage);
+            drawingCtx.drawImage(ZoomLevel::full, pos, partImage);
             pos.y -= partHeights[part];
         }
     }
@@ -46,6 +46,21 @@ namespace OpenLoco
         if ((numParts == 0) || (numParts > 63))
         {
             return false;
+        }
+        if (hasFlags(BuildingObjectFlags::miscBuilding))
+        {
+            if (generatorFunction >= 4)
+            {
+                return false;
+            }
+        }
+        if (townAmenityCategory != TownAmenityCategory::none)
+        {
+            // Max of 8 different building categories
+            if (enumValue(townAmenityCategory) > enumValue(TownAmenityCategory::unk7))
+            {
+                return false;
+            }
         }
         return (numVariations != 0) && (numVariations <= 31);
     }
@@ -102,8 +117,8 @@ namespace OpenLoco
             remainingData = remainingData.subspan(sizeof(ObjectHeader));
         }
 
-        // Load Required Cargo
-        for (auto& cargo : requiredCargoType)
+        // Load Consumed Cargo
+        for (auto& cargo : consumedCargoType)
         {
             cargo = 0xFF;
             if (*remainingData.data() != static_cast<std::byte>(0xFF))
@@ -146,7 +161,7 @@ namespace OpenLoco
         partAnimationsOffset = 0;
         std::fill(std::begin(variationPartsOffset), std::end(variationPartsOffset), 0);
         std::fill(std::begin(producedCargoType), std::end(producedCargoType), 0);
-        std::fill(std::begin(requiredCargoType), std::end(requiredCargoType), 0);
+        std::fill(std::begin(consumedCargoType), std::end(consumedCargoType), 0);
         std::fill(std::begin(elevatorHeightSequencesOffset), std::end(elevatorHeightSequencesOffset), 0);
     }
 

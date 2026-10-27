@@ -1,11 +1,11 @@
-#include "LandObject.h"
-#include "CliffEdgeObject.h"
+#include "Objects/LandObject.h"
 #include "Graphics/Colour.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
-#include "ObjectImageTable.h"
-#include "ObjectManager.h"
-#include "ObjectStringTable.h"
+#include "Objects/CliffEdgeObject.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectManager.h"
+#include "Objects/ObjectStringTable.h"
 
 namespace OpenLoco
 {
@@ -103,6 +103,6 @@ namespace OpenLoco
     void LandObject::drawPreviewImage(Gfx::DrawingContext& drawingCtx, const int16_t x, const int16_t y) const
     {
         uint32_t imageId = image + (numGrowthStages - 1) * numImagesPerGrowthStage;
-        drawingCtx.drawImage(x, y, imageId);
+        drawingCtx.drawImage(ZoomLevel::full, x, y, imageId);
     }
 }

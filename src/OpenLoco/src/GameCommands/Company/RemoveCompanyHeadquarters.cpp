@@ -1,4 +1,4 @@
-#include "RemoveCompanyHeadquarters.h"
+#include "GameCommands/Company/RemoveCompanyHeadquarters.h"
 #include "Audio/Audio.h"
 #include "Economy/Expenditures.h"
 #include "GameCommands/Buildings/RemoveBuilding.h"
@@ -9,7 +9,7 @@
 namespace OpenLoco::GameCommands
 {
     // 0x0042EEAF
-    static uint32_t removeCompanyHeadquarters(World::Pos3 pos, uint8_t flags)
+    static uint32_t removeCompanyHeadquarters(World::Pos3 pos, Flags flags)
     {
         setExpenditureType(ExpenditureType::Construction);
         setPosition(pos);
@@ -17,7 +17,7 @@ namespace OpenLoco::GameCommands
         currency32_t totalCost = 0;
         auto targetCompanyId = CompanyId::null;
 
-        if (!(flags & Flags::ghost))
+        if (!hasFlags(flags, Flags::ghost))
         {
             auto baseZ = pos.z / World::kSmallZStep;
             for (auto& company : CompanyManager::companies())
@@ -37,9 +37,9 @@ namespace OpenLoco::GameCommands
                     continue;
                 }
 
-                if (!sub_431E6A(company.id(), nullptr))
+                if (!checkCompanyCompatibility(company.id()))
                 {
-                    return GameCommands::FAILURE;
+                    return GameCommands::kFailure;
                 }
 
                 targetCompanyId = company.id();
@@ -49,33 +49,33 @@ namespace OpenLoco::GameCommands
 
         BuildingRemovalArgs args{};
         args.pos = pos;
-        if (auto cost = GameCommands::doCommand(args, flags); cost != FAILURE)
+        if (auto cost = GameCommands::doCommand(args, flags); cost != kFailure)
         {
             totalCost += cost;
         }
         else
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if ((flags & Flags::apply) && !(flags & Flags::ghost))
+        if (hasFlags(flags, Flags::apply) && !hasFlags(flags, Flags::ghost))
         {
             auto* company = CompanyManager::get(targetCompanyId);
             company->headquartersX = -1;
             Ui::WindowManager::invalidate(Ui::WindowType::company, Ui::WindowNumber_t(targetCompanyId));
         }
 
-        if ((flags & Flags::apply) && !(flags & (Flags::aiAllocated | Flags::ghost)))
+        if (hasFlags(flags, Flags::apply) && !hasFlags(flags, Flags::aiAllocated | Flags::ghost))
         {
-            Audio::playSound(Audio::SoundId::demolish, pos);
+            Audio::playSound(Audio::SoundId::demolish, Audio::ChannelId::effects, pos);
         }
 
         return totalCost;
     }
 
-    void removeCompanyHeadquarters(registers& regs)
+    void removeCompanyHeadquarters(registers& regs, const Flags flags)
     {
         HeadquarterRemovalArgs args(regs);
-        regs.ebx = removeCompanyHeadquarters(args.pos, regs.bl);
+        regs.ebx = removeCompanyHeadquarters(args.pos, flags);
     }
 }

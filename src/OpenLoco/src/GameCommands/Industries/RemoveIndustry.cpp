@@ -1,4 +1,4 @@
-#include "RemoveIndustry.h"
+#include "GameCommands/Industries/RemoveIndustry.h"
 #include "Economy/Economy.h"
 #include "Economy/Expenditures.h"
 #include "GameCommands/GameCommands.h"
@@ -20,10 +20,10 @@ namespace OpenLoco::GameCommands
 {
     // 0x00455916
     // NOTE: Element is invalid after this call and all elements on tile
-    static void removeElement(const World::Pos2& pos, World::TileElement& el)
+    static void removeElement(const World::Pos2& pos, World::TileElementEntry& entry)
     {
-        Ui::ViewportManager::invalidate(pos, el.baseHeight(), el.clearHeight());
-        World::TileManager::removeElement(el);
+        Ui::ViewportManager::invalidate(pos, entry.baseHeight(), entry.clearHeight());
+        World::TileManager::removeElement(entry);
     }
 
     // 0x0045579F
@@ -119,23 +119,23 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x00455943
-    static uint32_t removeIndustry(IndustryId id, uint8_t flags)
+    static uint32_t removeIndustry(IndustryId id, Flags flags)
     {
         setExpenditureType(ExpenditureType::Miscellaneous);
         auto* industry = IndustryManager::get(id);
         if (industry == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
         auto* indObj = industry->getObject();
         if (indObj == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
         const auto height = World::TileManager::getHeight(World::Pos2{ industry->x, industry->y } + World::Pos2{ 16, 16 });
         setPosition({ industry->x, industry->y, height.landHeight });
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
             for (auto i = industry->numTiles; i != 0; --i)
             {
@@ -168,9 +168,9 @@ namespace OpenLoco::GameCommands
         return Economy::getInflationAdjustedCost(indObj->clearCostFactor, indObj->costIndex, 3);
     }
 
-    void removeIndustry(registers& regs)
+    void removeIndustry(registers& regs, const Flags flags)
     {
         IndustryRemovalArgs args(regs);
-        regs.ebx = removeIndustry(args.industryId, regs.bl);
+        regs.ebx = removeIndustry(args.industryId, flags);
     }
 }

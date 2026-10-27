@@ -1,10 +1,10 @@
-#include "TrackObject.h"
+#include "Objects/TrackObject.h"
 #include "Graphics/Colour.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
-#include "ObjectImageTable.h"
-#include "ObjectManager.h"
-#include "ObjectStringTable.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectManager.h"
+#include "Objects/ObjectStringTable.h"
 
 namespace OpenLoco
 {
@@ -13,9 +13,9 @@ namespace OpenLoco
     {
         auto colourImage = Gfx::recolour(image + TrackObj::ImageIds::kUiPreviewImage0, Colour::mutedDarkRed);
 
-        drawingCtx.drawImage(x, y, colourImage + TrackObj::ImageIds::Style0::kStraight0BallastNE);
-        drawingCtx.drawImage(x, y, colourImage + TrackObj::ImageIds::Style0::kStraight0SleeperNE);
-        drawingCtx.drawImage(x, y, colourImage + TrackObj::ImageIds::Style0::kStraight0RailNE);
+        drawingCtx.drawImage(ZoomLevel::full, x, y, colourImage + TrackObj::ImageIds::Style0::kStraight0BallastNE);
+        drawingCtx.drawImage(ZoomLevel::full, x, y, colourImage + TrackObj::ImageIds::Style0::kStraight0SleeperNE);
+        drawingCtx.drawImage(ZoomLevel::full, x, y, colourImage + TrackObj::ImageIds::Style0::kStraight0RailNE);
     }
 
     // 0x004A6C6C

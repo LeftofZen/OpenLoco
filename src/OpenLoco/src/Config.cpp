@@ -3,10 +3,13 @@
 #include "Environment.h"
 #include <Message.h>
 #include <OpenLoco/Core/FileSystem.hpp>
-#include <OpenLoco/Engine/Input/ShortcutManager.h>
+#include <OpenLoco/Logging.h>
 #include <fstream>
 #include <locale>
+#include <yaml-cpp/exceptions.h>
 #include <yaml-cpp/yaml.h>
+
+using namespace OpenLoco::Diagnostics;
 
 namespace OpenLoco::Config
 {
@@ -22,20 +25,32 @@ namespace OpenLoco::Config
 
     static void readShortcutConfig(const YAML::Node& scNode)
     {
-        const auto& shortcutDefs = Input::ShortcutManager::getList();
         auto& shortcuts = _config.shortcuts;
-        for (const auto& def : shortcutDefs)
+        shortcuts.clear();
+
+        if (!scNode.IsMap())
         {
-            auto node = scNode[def.configName];
-            if (node)
-            {
-                shortcuts[def.id] = node.as<KeyboardShortcut>();
-            }
-            else
-            {
-                shortcuts[def.id] = YAML::Node(def.defaultBinding).as<KeyboardShortcut>();
-            }
+            return;
         }
+
+        for (const auto& entry : scNode)
+        {
+            shortcuts[entry.first.as<std::string>()] = entry.second.as<std::string>("");
+        }
+    }
+
+    static void resetPlaylistConfig()
+    {
+        auto& audioConfig = _config.audio;
+        std::fill(audioConfig.customJukebox.begin(), audioConfig.customJukebox.end(), true);
+        audioConfig.customJukebox[enumValue(PlaylistItem::locomotionTitle)] = false;
+    }
+
+    static Config& fallbackToDefaultConfig()
+    {
+        readShortcutConfig(YAML::Node());
+        resetPlaylistConfig();
+        return _config;
     }
 
     Config& read()
@@ -43,19 +58,32 @@ namespace OpenLoco::Config
         auto configPath = Environment::getPathNoWarning(Environment::PathId::openlocoYML);
 
         // No config file? Use defaults.
-        if (!fs::exists(configPath))
+        if (!fs::exists(configPath) || fs::file_size(configPath) == 0)
         {
-            readShortcutConfig(YAML::Node());
-            return _config;
+            return fallbackToDefaultConfig();
         }
 
         // On Windows, YAML::LoadFile only supports ANSI paths, so we pass an ifstream instead.
         std::ifstream stream;
         stream.exceptions(std::ifstream::failbit);
         stream.open(configPath, std::ios::in | std::ios::binary);
-        _configYaml = YAML::Load(stream);
+
+        try
+        {
+            _configYaml = YAML::Load(stream);
+        }
+        catch (const YAML::Exception&)
+        {
+            Logging::warn("Malformed YAML syntax in config file, falling back to default config");
+            return fallbackToDefaultConfig();
+        }
 
         const auto& config = _configYaml;
+        if (!config.IsMap())
+        {
+            Logging::warn("Configuration root in config file must be a YAML mapping, falling back to default config");
+            return fallbackToDefaultConfig();
+        }
 
         // Display settings
         auto& displayNode = config["display"];
@@ -66,28 +94,38 @@ namespace OpenLoco::Config
             displayConfig.index = displayNode["index"].as<int32_t>(0);
             displayConfig.windowResolution = displayNode["window_resolution"].as<Resolution>(Resolution{ 800, 600 });
             displayConfig.fullscreenResolution = displayNode["fullscreen_resolution"].as<Resolution>(Resolution{ 1920, 1080 });
+            displayConfig.vsync = displayNode["vsync"].as<bool>(false);
         }
 
         // Audio settings
         auto& audioNode = config["audio"];
+        bool havePlaylist = false;
         if (audioNode && audioNode.IsMap())
         {
             auto& audioConfig = _config.audio;
             audioConfig.device = audioNode["device"].as<std::string>("");
             audioConfig.mainVolume = audioNode["mainVolume"].as<int32_t>(-1100);
+            audioConfig.masterVolume = audioNode["masterVolume"].as<int32_t>(100);
+            audioConfig.musicVolume = audioNode["musicVolume"].as<int32_t>(100);
+            audioConfig.effectsVolume = audioNode["effectsVolume"].as<int32_t>(100);
+            audioConfig.vehiclesVolume = audioNode["vehiclesVolume"].as<int32_t>(100);
+            audioConfig.uiVolume = audioNode["uiVolume"].as<int32_t>(100);
+            audioConfig.ambientVolume = audioNode["ambientVolume"].as<int32_t>(100);
             audioConfig.playJukeboxMusic = audioNode["playJukeboxMusic"].as<bool>(true);
             audioConfig.playTitleMusic = audioNode["play_title_music"].as<bool>(true);
-            audioConfig.playNewsSounds = audioNode["play_news_sounds"].as<bool>(true);
+            audioConfig.playNewsSounds = audioNode["playNewsSounds"].as<bool>(true);
             audioConfig.playlist = audioNode["playlist"].as<MusicPlaylistType>(MusicPlaylistType::currentEra);
 
             if (audioNode["customJukebox"])
             {
                 audioConfig.customJukebox = audioNode["customJukebox"].as<Playlist>(Playlist{});
+                havePlaylist = true;
             }
-            else
-            {
-                std::fill(audioConfig.customJukebox.begin(), audioConfig.customJukebox.end(), true);
-            }
+        }
+
+        if (!havePlaylist)
+        {
+            resetPlaylistConfig();
         }
 
         // Network settings
@@ -151,6 +189,9 @@ namespace OpenLoco::Config
         _config.cashPopupRendering = config["cashPopupRendering"].as<bool>(true);
         _config.edgeScrolling = config["edgeScrolling"].as<bool>(true);
         _config.edgeScrollingSpeed = config["edgeScrollingSpeed"].as<int32_t>(12);
+        _config.invertRightMouseViewPan = config["invertRightMouseViewPan"].as<bool>(false);
+        _config.toolbarAutoMenu = config["toolbarAutoMenu"].as<bool>(true);
+        _config.toolbarButtonsCentred = config["toolbarButtonsCentred"].as<bool>(false);
         _config.windowFrameStyle = config["windowFrameStyle"].as<WindowFrameStyle>(WindowFrameStyle::background);
         _config.zoomToCursor = config["zoom_to_cursor"].as<bool>(true);
 
@@ -166,17 +207,21 @@ namespace OpenLoco::Config
         _config.companyAIDisabled = config["companyAIDisabled"].as<bool>(false);
         _config.disableVehicleLoadPenaltyCheat = config["disableVehicleLoadPenaltyCheat"].as<bool>(false);
         _config.displayLockedVehicles = config["displayLockedVehicles"].as<bool>(false);
-        _config.invertRightMouseViewPan = config["invertRightMouseViewPan"].as<bool>(false);
         _config.townGrowthDisabled = config["townGrowthDisabled"].as<bool>(false);
         _config.trainsReverseAtSignals = config["trainsReverseAtSignals"].as<bool>(false);
         _config.disableStationSizeLimit = config["disableStationSizeLimit"].as<bool>(false);
         _config.showAiPlanningAsGhosts = config["showAiPlanningAsGhosts"].as<bool>(false);
+        _config.keepCargoModifyPickup = config["keepCargoModifyPickup"].as<bool>(false);
 
         // Preferred owner
         _config.preferredOwnerName = config["preferredOwnerName"].as<std::string>("");
         _config.usePreferredOwnerName = config["usePreferredOwnerName"].as<bool>(false);
         _config.preferredOwnerFace = config["preferredOwnerFace"].as<ObjectHeader>(kEmptyObjectHeader);
         _config.usePreferredOwnerFace = config["usePreferredOwnerFace"].as<bool>(false);
+
+        // Preferred comapny
+        _config.preferredCompanyName = config["preferredCompanyName"].as<std::string>("");
+        _config.usePreferredCompanyName = config["usePreferredCompanyName"].as<bool>(false);
 
         // Misc settings
         _config.scenarioSelectedTab = config["scenarioSelectedTab"].as<int32_t>(2);
@@ -212,6 +257,7 @@ namespace OpenLoco::Config
         }
         displayNode["window_resolution"] = displayConfig.windowResolution;
         displayNode["fullscreen_resolution"] = displayConfig.fullscreenResolution;
+        displayNode["vsync"] = displayConfig.vsync;
         node["display"] = displayNode;
 
         // Audio
@@ -223,6 +269,12 @@ namespace OpenLoco::Config
             audioNode.remove("device");
         }
         audioNode["mainVolume"] = audioConfig.mainVolume;
+        audioNode["masterVolume"] = audioConfig.masterVolume;
+        audioNode["musicVolume"] = audioConfig.musicVolume;
+        audioNode["effectsVolume"] = audioConfig.effectsVolume;
+        audioNode["vehiclesVolume"] = audioConfig.vehiclesVolume;
+        audioNode["uiVolume"] = audioConfig.uiVolume;
+        audioNode["ambientVolume"] = audioConfig.ambientVolume;
         audioNode["playJukeboxMusic"] = audioConfig.playJukeboxMusic;
         audioNode["play_title_music"] = audioConfig.playTitleMusic;
         audioNode["playNewsSounds"] = audioConfig.playNewsSounds;
@@ -278,6 +330,8 @@ namespace OpenLoco::Config
         node["cashPopupRendering"] = _config.cashPopupRendering;
         node["edgeScrolling"] = _config.edgeScrolling;
         node["edgeScrollingSpeed"] = _config.edgeScrollingSpeed;
+        node["toolbarAutoMenu"] = _config.toolbarAutoMenu;
+        node["toolbarButtonsCentred"] = _config.toolbarButtonsCentred;
         node["windowFrameStyle"] = _config.windowFrameStyle;
         node["zoom_to_cursor"] = _config.zoomToCursor;
 
@@ -298,6 +352,7 @@ namespace OpenLoco::Config
         node["trainsReverseAtSignals"] = _config.trainsReverseAtSignals;
         node["disableStationSizeLimit"] = _config.disableStationSizeLimit;
         node["showAiPlanningAsGhosts"] = _config.showAiPlanningAsGhosts;
+        node["keepCargoModifyPickup"] = _config.keepCargoModifyPickup;
 
         // Preferred owner
         node["preferredOwnerName"] = _config.preferredOwnerName;
@@ -305,21 +360,15 @@ namespace OpenLoco::Config
         node["preferredOwnerFace"] = _config.preferredOwnerFace;
         node["usePreferredOwnerFace"] = _config.usePreferredOwnerFace;
 
+        // Preferred company
+        node["preferredCompanyName"] = _config.preferredCompanyName;
+        node["usePreferredCompanyName"] = _config.usePreferredCompanyName;
+
         // Shortcuts
-        const auto& shortcuts = _config.shortcuts;
-        const auto& shortcutDefs = Input::ShortcutManager::getList();
         auto scNode = node["shortcuts"];
-        for (const auto& def : shortcutDefs)
+        for (const auto& [configName, binding] : _config.shortcuts)
         {
-            auto it = shortcuts.find(def.id);
-            if (it != std::end(shortcuts))
-            {
-                scNode[def.configName] = it->second;
-            }
-            else
-            {
-                scNode[def.configName] = "";
-            }
+            scNode[configName] = binding;
         }
         node["shortcuts"] = scNode;
 
@@ -333,21 +382,5 @@ namespace OpenLoco::Config
         }
 
         std::locale::global(backupLocale);
-    }
-
-    // 0x004BE3F3
-    void resetShortcuts()
-    {
-        const auto& shortcutDefs = Input::ShortcutManager::getList();
-
-        auto& shortcuts = _config.shortcuts;
-        shortcuts.clear();
-
-        for (const auto& def : shortcutDefs)
-        {
-            shortcuts[def.id] = YAML::Node(def.defaultBinding).as<KeyboardShortcut>();
-        }
-
-        write();
     }
 }

@@ -1,5 +1,5 @@
-#include "Entity.h"
-#include "EntityManager.h"
+#include "Entities/Entity.h"
+#include "Entities/EntityManager.h"
 #include "Ui/WindowManager.h"
 #include "ViewportManager.h"
 
@@ -13,7 +13,16 @@ namespace OpenLoco
     // 0x0046FC83
     void EntityBase::moveTo(const World::Pos3& loc)
     {
+        // Pre invalidation.
+        if (position.x != Location::null)
+        {
+            invalidateSprite();
+        }
+
         EntityManager::moveSpatialEntry(*this, loc);
+
+        // Update position
+        position = loc;
 
         // Update sprite boundaries
         if (position.x == Location::null)
@@ -27,6 +36,9 @@ namespace OpenLoco
         spriteRight = vpPos.x + spriteWidth;
         spriteTop = vpPos.y - spriteHeightNegative;
         spriteBottom = vpPos.y + spriteHeightPositive;
+
+        // Post invalidation.
+        invalidateSprite();
     }
 
     // 0x004CBB01

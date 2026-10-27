@@ -1,21 +1,21 @@
-#include "VehicleSpeedControl.h"
+#include "GameCommands/Vehicles/VehicleSpeedControl.h"
 #include "Economy/Expenditures.h"
 #include "Entities/EntityManager.h"
 #include "GameCommands/GameCommands.h"
+#include "GameCommands/Vehicles/VehicleSell.h"
 #include "Types.hpp"
 #include "Ui/WindowManager.h"
-#include "VehicleSell.h"
 #include "Vehicles/Vehicle.h"
 #include "Vehicles/VehicleHead.h"
 
 namespace OpenLoco::GameCommands
 {
     // 0x004BAB63
-    static uint32_t vehicleSpeedControl(const VehicleSpeedControlArgs& args, const uint8_t flags)
+    static uint32_t vehicleSpeedControl(const VehicleSpeedControlArgs& args, const Flags flags)
     {
         setExpenditureType(ExpenditureType::TrainRunningCosts);
 
-        if (!(flags & Flags::apply))
+        if (!hasFlags(flags, Flags::apply))
         {
             return 0;
         }
@@ -23,7 +23,7 @@ namespace OpenLoco::GameCommands
         auto* head = EntityManager::get<Vehicles::VehicleHead>(args.head);
         if (head == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
         head->manualPower = args.speed;
@@ -45,8 +45,8 @@ namespace OpenLoco::GameCommands
         return 0;
     }
 
-    void vehicleSpeedControl(registers& regs)
+    void vehicleSpeedControl(registers& regs, const Flags flags)
     {
-        regs.ebx = vehicleSpeedControl(VehicleSpeedControlArgs(regs), regs.bl);
+        regs.ebx = vehicleSpeedControl(VehicleSpeedControlArgs(regs), flags);
     }
 }

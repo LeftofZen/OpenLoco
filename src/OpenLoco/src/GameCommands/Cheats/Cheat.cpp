@@ -1,12 +1,14 @@
-#include "Cheat.h"
+#include "GameCommands/Cheats/Cheat.h"
 #include "Economy/Currency.h"
 #include "Entities/EntityManager.h"
 #include "GameCommands/GameCommands.h"
 #include "Logging.h"
 #include "Map/RoadElement.h"
+#include "Map/StationElement.h"
 #include "Map/TileManager.h"
 #include "Map/TrackElement.h"
 #include "MessageManager.h"
+#include "Objects/ObjectManager.h"
 #include "Scenario/Scenario.h"
 #include "Types.hpp"
 #include "Ui/WindowManager.h"
@@ -29,35 +31,47 @@ namespace OpenLoco::GameCommands
 {
     namespace Cheats
     {
+        template<typename TElementType>
+        static void acquireTiles(CompanyId targetCompanyId, CompanyId ourCompanyId)
+        {
+            for (auto& element : TileManager::getStore<TElementType>())
+            {
+                if (element.owner() != targetCompanyId)
+                {
+                    continue;
+                }
+
+                if (element.isAiAllocated())
+                {
+                    continue;
+                }
+
+                element.setOwner(ourCompanyId);
+            }
+        }
+
+        template<typename TVehicleType>
+        static void resetVehicleColour(TVehicleType* component, Company* ourCompany)
+        {
+            const auto* vehObject = ObjectManager::get<VehicleObject>(component->objectId);
+
+            auto colourScheme = ourCompany->mainColours;
+            if (ourCompany->customVehicleColoursSet & (1 << vehObject->colourType))
+            {
+                colourScheme = ourCompany->vehicleColours[vehObject->colourType - 1];
+            }
+
+            component->colourScheme = colourScheme;
+        }
+
         static uint32_t acquireAssets(CompanyId targetCompanyId)
         {
             auto ourCompanyId = GameCommands::getUpdatingCompanyId();
 
-            // First phase: change ownership of all tile elements that currently belong to the target company.
-            for (auto& element : TileManager::getElements())
-            {
-                auto* roadElement = element.as<RoadElement>();
-                if (roadElement != nullptr)
-                {
-                    // Check to verify that roadElement is owned by the target company
-                    if (roadElement->owner() == targetCompanyId)
-                    {
-                        roadElement->setOwner(ourCompanyId);
-                    }
-                    continue;
-                }
-
-                auto* trackElement = element.as<TrackElement>();
-                if (trackElement != nullptr)
-                {
-                    // Check to verify that the trackElement is owned by the target company.
-                    if (trackElement->owner() == targetCompanyId)
-                    {
-                        trackElement->setOwner(ourCompanyId);
-                    }
-                    continue;
-                }
-            }
+            // First phase: change ownership of all tile elements that currently belong to the target company
+            acquireTiles<RoadElement>(targetCompanyId, ourCompanyId);
+            acquireTiles<TrackElement>(targetCompanyId, ourCompanyId);
+            acquireTiles<StationElement>(targetCompanyId, ourCompanyId);
 
             // Second phase: change ownership of all stations that currently belong to the target company.
             for (auto& station : StationManager::stations())
@@ -68,9 +82,17 @@ namespace OpenLoco::GameCommands
                 }
 
                 station.owner = ourCompanyId;
+
+                auto* window = Ui::WindowManager::find(Ui::WindowType::station, enumValue(station.id()));
+                if (window != nullptr)
+                {
+                    window->owner = ourCompanyId;
+                    window->invalidate();
+                }
             }
 
             // Third phase: change ownership of all vehicles that currently belong to the target company.
+            auto* ourCompany = CompanyManager::get(ourCompanyId);
             for (auto* vehicle : VehicleManager::VehicleList())
             {
                 if (vehicle->owner != targetCompanyId)
@@ -79,11 +101,35 @@ namespace OpenLoco::GameCommands
                 }
 
                 Vehicles::Vehicle train(*vehicle);
-                train.applyToComponents([ourCompanyId](Vehicles::VehicleBase& component) {
-                    component.owner = ourCompanyId;
+
+                train.applyToComponents([ourCompany](Vehicles::VehicleBase& component) {
+                    component.owner = ourCompany->id();
+
+                    if (component.isVehicleBogie())
+                    {
+                        resetVehicleColour<Vehicles::VehicleBogie>(component.asVehicleBogie(), ourCompany);
+                    }
+                    else if (component.isVehicleBody())
+                    {
+                        resetVehicleColour<Vehicles::VehicleBody>(component.asVehicleBody(), ourCompany);
+                    }
                 });
+
+                auto* window = Ui::WindowManager::find(Ui::WindowType::vehicle, enumValue(vehicle->id));
+                if (window != nullptr)
+                {
+                    window->owner = ourCompanyId;
+                    window->invalidate();
+                }
             }
 
+            // Fourth phase: shut down the AI company
+            auto* targetCompany = CompanyManager::get(targetCompanyId);
+            targetCompany->aiThinkState = AiThinkState::endCompany;
+            targetCompany->aiThinkSubState = 0;
+            targetCompany->aiPathfindTargetPos = World::Pos2{ 0, 0 };
+
+            Gfx::invalidateScreen();
             return 0;
         }
 
@@ -223,9 +269,9 @@ namespace OpenLoco::GameCommands
         }
     }
 
-    static uint32_t cheat(const GameCommands::GenericCheatArgs& args, uint8_t flags)
+    static uint32_t cheat(const GameCommands::GenericCheatArgs& args, Flags flags)
     {
-        if (!(flags & GameCommands::Flags::apply))
+        if (!hasFlags(flags, GameCommands::Flags::apply))
         {
             return 0;
         }
@@ -269,36 +315,36 @@ namespace OpenLoco::GameCommands
         return 0;
     }
 
-    void cheat(registers& regs)
+    void cheat(registers& regs, const Flags flags)
     {
-        regs.ebx = cheat(GameCommands::GenericCheatArgs(regs), regs.bl);
+        regs.ebx = cheat(GameCommands::GenericCheatArgs(regs), flags);
     }
 
     // 0x004BAC53
-    static uint32_t vehicleShuntCheat(EntityId head, uint8_t flags)
+    static uint32_t vehicleShuntCheat(EntityId head, Flags flags)
     {
         auto* veh = EntityManager::get<Vehicles::VehicleHead>(head);
         if (veh == nullptr)
         {
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
             veh->vehicleFlags |= Vehicles::VehicleFlags::shuntCheat;
         }
         return 0;
     }
 
-    void vehicleShuntCheat(registers& regs)
+    void vehicleShuntCheat(registers& regs, const Flags flags)
     {
         VehicleApplyShuntCheatArgs args(regs);
-        regs.ebx = vehicleShuntCheat(args.head, regs.bl);
+        regs.ebx = vehicleShuntCheat(args.head, flags);
     }
 
     // 0x00438A08
-    static uint32_t freeCashCheat(uint8_t flags)
+    static uint32_t freeCashCheat(Flags flags)
     {
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
             auto companyId = GameCommands::getUpdatingCompanyId();
             auto* company = CompanyManager::get(companyId);
@@ -312,8 +358,8 @@ namespace OpenLoco::GameCommands
         return 0;
     }
 
-    void freeCashCheat(registers& regs)
+    void freeCashCheat(registers& regs, const Flags flags)
     {
-        regs.ebx = freeCashCheat(regs.bl);
+        regs.ebx = freeCashCheat(flags);
     }
 }

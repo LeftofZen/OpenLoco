@@ -1,31 +1,84 @@
-#include "GameCommands.h"
-#include "Airports/CreateAirport.h"
-#include "Airports/RemoveAirport.h"
+#include "GameCommands/GameCommands.h"
 #include "Audio/Audio.h"
-#include "Buildings/CreateBuilding.h"
-#include "Buildings/RemoveBuilding.h"
-#include "Cheats/Cheat.h"
-#include "Company/BuildCompanyHeadquarters.h"
-#include "Company/ChangeCompanyColour.h"
-#include "Company/ChangeCompanyFace.h"
-#include "Company/ChangeLoan.h"
-#include "Company/RemoveCompanyHeadquarters.h"
-#include "Company/RenameCompanyName.h"
-#include "Company/RenameCompanyOwner.h"
-#include "Company/UpdateOwnerStatus.h"
-#include "CompanyAi/AiCreateRoadAndStation.h"
-#include "CompanyAi/AiCreateTrackAndStation.h"
-#include "CompanyAi/AiTrackReplacement.h"
 #include "Config.h"
-#include "Docks/CreatePort.h"
-#include "Docks/RemovePort.h"
-#include "General/LoadSaveQuit.h"
-#include "General/RenameStation.h"
-#include "General/SetGameSpeed.h"
-#include "General/TogglePause.h"
-#include "Industries/CreateIndustry.h"
-#include "Industries/RemoveIndustry.h"
-#include "Industries/RenameIndustry.h"
+#include "GameCommands/Airports/CreateAirport.h"
+#include "GameCommands/Airports/RemoveAirport.h"
+#include "GameCommands/Buildings/CreateBuilding.h"
+#include "GameCommands/Buildings/RemoveBuilding.h"
+#include "GameCommands/Cheats/Cheat.h"
+#include "GameCommands/Company/BuildCompanyHeadquarters.h"
+#include "GameCommands/Company/ChangeCompanyColour.h"
+#include "GameCommands/Company/ChangeCompanyFace.h"
+#include "GameCommands/Company/ChangeLoan.h"
+#include "GameCommands/Company/RemoveCompanyHeadquarters.h"
+#include "GameCommands/Company/RenameCompanyName.h"
+#include "GameCommands/Company/RenameCompanyOwner.h"
+#include "GameCommands/Company/UpdateOwnerStatus.h"
+#include "GameCommands/CompanyAi/AiCreateRoadAndStation.h"
+#include "GameCommands/CompanyAi/AiCreateTrackAndStation.h"
+#include "GameCommands/CompanyAi/AiTrackReplacement.h"
+#include "GameCommands/Docks/CreatePort.h"
+#include "GameCommands/Docks/RemovePort.h"
+#include "GameCommands/General/LoadSaveQuit.h"
+#include "GameCommands/General/RenameStation.h"
+#include "GameCommands/General/SetGameSpeed.h"
+#include "GameCommands/General/TogglePause.h"
+#include "GameCommands/Industries/CreateIndustry.h"
+#include "GameCommands/Industries/RemoveIndustry.h"
+#include "GameCommands/Industries/RenameIndustry.h"
+#include "GameCommands/Road/CreateRoad.h"
+#include "GameCommands/Road/CreateRoadMod.h"
+#include "GameCommands/Road/CreateRoadStation.h"
+#include "GameCommands/Road/RemoveRoad.h"
+#include "GameCommands/Road/RemoveRoadMod.h"
+#include "GameCommands/Road/RemoveRoadStation.h"
+#include "GameCommands/Terraform/ChangeLandMaterial.h"
+#include "GameCommands/Terraform/ClearLand.h"
+#include "GameCommands/Terraform/CreateTree.h"
+#include "GameCommands/Terraform/CreateWall.h"
+#include "GameCommands/Terraform/LowerLand.h"
+#include "GameCommands/Terraform/LowerRaiseLandMountain.h"
+#include "GameCommands/Terraform/LowerWater.h"
+#include "GameCommands/Terraform/RaiseLand.h"
+#include "GameCommands/Terraform/RaiseWater.h"
+#include "GameCommands/Terraform/RemoveTree.h"
+#include "GameCommands/Terraform/RemoveWall.h"
+#include "GameCommands/Town/CreateTown.h"
+#include "GameCommands/Town/RemoveTown.h"
+#include "GameCommands/Town/RenameTown.h"
+#include "GameCommands/Track/CreateSignal.h"
+#include "GameCommands/Track/CreateSignalsAuto.h"
+#include "GameCommands/Track/CreateTrack.h"
+#include "GameCommands/Track/CreateTrackMod.h"
+#include "GameCommands/Track/CreateTrainStation.h"
+#include "GameCommands/Track/RemoveSignal.h"
+#include "GameCommands/Track/RemoveSignalsAuto.h"
+#include "GameCommands/Track/RemoveTrack.h"
+#include "GameCommands/Track/RemoveTrackMod.h"
+#include "GameCommands/Track/RemoveTrainStation.h"
+#include "GameCommands/Vehicles/CloneVehicle.h"
+#include "GameCommands/Vehicles/CreateVehicle.h"
+#include "GameCommands/Vehicles/RenameVehicle.h"
+#include "GameCommands/Vehicles/VehicleChangeRunningMode.h"
+#include "GameCommands/Vehicles/VehicleOrderDelete.h"
+#include "GameCommands/Vehicles/VehicleOrderDown.h"
+#include "GameCommands/Vehicles/VehicleOrderInsert.h"
+#include "GameCommands/Vehicles/VehicleOrderReverse.h"
+#include "GameCommands/Vehicles/VehicleOrderSkip.h"
+#include "GameCommands/Vehicles/VehicleOrderUp.h"
+#include "GameCommands/Vehicles/VehiclePassSignal.h"
+#include "GameCommands/Vehicles/VehiclePickup.h"
+#include "GameCommands/Vehicles/VehiclePickupAir.h"
+#include "GameCommands/Vehicles/VehiclePickupWater.h"
+#include "GameCommands/Vehicles/VehiclePlace.h"
+#include "GameCommands/Vehicles/VehiclePlaceAir.h"
+#include "GameCommands/Vehicles/VehiclePlaceWater.h"
+#include "GameCommands/Vehicles/VehicleRearrange.h"
+#include "GameCommands/Vehicles/VehicleRefit.h"
+#include "GameCommands/Vehicles/VehicleRepaint.h"
+#include "GameCommands/Vehicles/VehicleReverse.h"
+#include "GameCommands/Vehicles/VehicleSell.h"
+#include "GameCommands/Vehicles/VehicleSpeedControl.h"
 #include "Localisation/FormatArguments.hpp"
 #include "Localisation/StringIds.h"
 #include "Logging.h"
@@ -39,60 +92,9 @@
 #include "Objects/RoadObject.h"
 #include "Objects/TrackObject.h"
 #include "Random.h"
-#include "Road/CreateRoad.h"
-#include "Road/CreateRoadMod.h"
-#include "Road/CreateRoadStation.h"
-#include "Road/RemoveRoad.h"
-#include "Road/RemoveRoadMod.h"
-#include "Road/RemoveRoadStation.h"
 #include "SceneManager.h"
-#include "Terraform/ChangeLandMaterial.h"
-#include "Terraform/ClearLand.h"
-#include "Terraform/CreateTree.h"
-#include "Terraform/CreateWall.h"
-#include "Terraform/LowerLand.h"
-#include "Terraform/LowerRaiseLandMountain.h"
-#include "Terraform/LowerWater.h"
-#include "Terraform/RaiseLand.h"
-#include "Terraform/RaiseWater.h"
-#include "Terraform/RemoveTree.h"
-#include "Terraform/RemoveWall.h"
-#include "Town/CreateTown.h"
-#include "Town/RemoveTown.h"
-#include "Town/RenameTown.h"
-#include "Track/CreateSignal.h"
-#include "Track/CreateTrack.h"
-#include "Track/CreateTrackMod.h"
-#include "Track/CreateTrainStation.h"
-#include "Track/RemoveSignal.h"
-#include "Track/RemoveTrack.h"
-#include "Track/RemoveTrackMod.h"
-#include "Track/RemoveTrainStation.h"
 #include "Ui/WindowManager.h"
-#include "Vehicles/CloneVehicle.h"
-#include "Vehicles/CreateVehicle.h"
-#include "Vehicles/RenameVehicle.h"
 #include "Vehicles/Vehicle.h"
-#include "Vehicles/VehicleChangeRunningMode.h"
-#include "Vehicles/VehicleOrderDelete.h"
-#include "Vehicles/VehicleOrderDown.h"
-#include "Vehicles/VehicleOrderInsert.h"
-#include "Vehicles/VehicleOrderReverse.h"
-#include "Vehicles/VehicleOrderSkip.h"
-#include "Vehicles/VehicleOrderUp.h"
-#include "Vehicles/VehiclePassSignal.h"
-#include "Vehicles/VehiclePickup.h"
-#include "Vehicles/VehiclePickupAir.h"
-#include "Vehicles/VehiclePickupWater.h"
-#include "Vehicles/VehiclePlace.h"
-#include "Vehicles/VehiclePlaceAir.h"
-#include "Vehicles/VehiclePlaceWater.h"
-#include "Vehicles/VehicleRearrange.h"
-#include "Vehicles/VehicleRefit.h"
-#include "Vehicles/VehicleRepaint.h"
-#include "Vehicles/VehicleReverse.h"
-#include "Vehicles/VehicleSell.h"
-#include "Vehicles/VehicleSpeedControl.h"
 #include "World/Company.h"
 #include "World/CompanyManager.h"
 #include "World/StationManager.h"
@@ -102,21 +104,37 @@ using namespace OpenLoco::Ui;
 
 namespace OpenLoco::GameCommands
 {
-    static uint16_t _gameCommandFlags;
     static uint8_t _gameCommandNestLevel = 0; // 0x00508F08
 
-    static CompanyId _updatingCompanyId;                                                      // 0x009C68EB
-    static const World::TileElement* _errorTileElementPtr = World::TileManager::kInvalidTile; // 0x009C68D0
-    static World::Pos3 _gGameCommandPosition;                                                 // 0x009C68E0
-    static StringId _gGameCommandErrorText;                                                   // 0x009C68E6
-    static StringId _gGameCommandErrorTitle;                                                  // 0x009C68E8
-    static bool _gGameCommandErrorSound = true;                                               // 0x00508F09
-    static ExpenditureType _gGameCommandExpenditureType;                                      // 0x009C68EA
-    static CompanyId _errorCompanyId;                                                         // 0x009C68EE
+    static CompanyId _updatingCompanyId; // 0x009C68EB
+    enum class ErrorElementKind : uint8_t
+    {
+        none,
+        track,
+        road,
+        station,
+    };
+    struct ErrorData
+    {
+        ErrorElementKind kind = ErrorElementKind::none;
+        union
+        {
+            uint8_t trackObjectId = 0;
+            uint8_t roadObjectId;
+            StationId stationId;
+        };
+    };
+    static ErrorData _errorElementData;
+    static World::Pos3 _gGameCommandPosition;            // 0x009C68E0
+    static StringId _gGameCommandErrorText;              // 0x009C68E6
+    static StringId _gGameCommandErrorTitle;             // 0x009C68E8
+    static bool _gGameCommandErrorSound = true;          // 0x00508F09
+    static ExpenditureType _gGameCommandExpenditureType; // 0x009C68EA
+    static CompanyId _errorCompanyId;                    // 0x009C68EE
 
     static LegacyReturnState _legacyReturnState; // 0x01136072
 
-    using GameCommandFunc = void (*)(registers& regs);
+    using GameCommandFunc = void (*)(registers& regs, const Flags flags);
 
     struct GameCommandInfo
     {
@@ -126,8 +144,10 @@ namespace OpenLoco::GameCommands
         bool unpausesGame;         // original array: 0x004F9688
     };
 
+    static constexpr StringId kErrorBelongsToOther = 0xFFFEU;
+
     // clang-format off
-    static constexpr GameCommandInfo kGameCommandDefinitions[85] = {
+    static constexpr GameCommandInfo kGameCommandDefinitions[87] = {
         { GameCommand::vehicleRearrange,             vehicleRearrange,          0x004AF1DF, true  },
         { GameCommand::vehiclePlace,                 vehiclePlace,              0x004B01B6, true  },
         { GameCommand::vehiclePickup,                vehiclePickup,             0x004B0826, true  },
@@ -213,15 +233,17 @@ namespace OpenLoco::GameCommands
         { GameCommand::setGameSpeed,                 setGameSpeed,              0,          true  },
         { GameCommand::vehicleOrderReverse,          vehicleOrderReverse,       0,          false },
         { GameCommand::vehicleRepaint,               vehicleRepaint,            0,          false },
+        { GameCommand::createSignalsAuto,            createSignalsAuto,         0,          true  },
+        { GameCommand::removeSignalsAuto,            removeSignalsAuto,         0,          true  },
     };
     // clang-format on
 
-    static uint32_t loc_4314EA();
-    static uint32_t loc_4313C6(int esi, const registers& regs);
+    static uint32_t loc_4314EA(const Flags flags);
+    static uint32_t loc_4313C6(int esi, const registers& regs, const Flags flags);
 
-    static bool commandRequiresUnpausingGame(GameCommand command, uint16_t flags)
+    static bool commandRequiresUnpausingGame(GameCommand command, Flags flags)
     {
-        if ((flags & (Flags::aiAllocated | Flags::ghost)) != 0)
+        if (hasFlags(flags, Flags::aiAllocated | Flags::ghost))
         {
             return false;
         }
@@ -238,41 +260,38 @@ namespace OpenLoco::GameCommands
     // 0x00431315
     uint32_t doCommand(GameCommand command, const registers& regs)
     {
-        uint16_t flags = regs.bx;
+        const auto flags = static_cast<Flags>(regs.bl);
         uint32_t esi = static_cast<uint32_t>(command);
 
-        _gameCommandFlags = regs.bx;
         if (_gameCommandNestLevel != 0)
         {
-            return loc_4313C6(esi, regs);
+            return loc_4313C6(esi, regs, flags);
         }
 
-        if ((flags & Flags::apply) == 0)
+        if (!hasFlags(flags, Flags::apply))
         {
-            return loc_4313C6(esi, regs);
+            return loc_4313C6(esi, regs, flags);
         }
 
-        auto isGhost = (flags & Flags::ghost) != 0;
+        auto isGhost = hasFlags(flags, Flags::ghost);
         if (!isGhost && Network::isConnected())
         {
             // For network games, we need to delay the command apply processing
             // Just return the result without applying for now
             registers copyRegs = regs;
             copyRegs.esi = static_cast<int32_t>(command);
-            Network::queueGameCommand(_updatingCompanyId, copyRegs);
+            Network::queueGameCommand(_updatingCompanyId, copyRegs, flags);
 
-            copyRegs.bx &= ~Flags::apply;
-            return loc_4313C6(esi, copyRegs);
+            return loc_4313C6(esi, copyRegs, flags & ~Flags::apply);
         }
 
-        return doCommandForReal(command, _updatingCompanyId, regs);
+        return doCommandForReal(command, _updatingCompanyId, regs, flags);
     }
 
-    uint32_t doCommandForReal(GameCommand command, CompanyId company, const registers& regs)
+    uint32_t doCommandForReal(GameCommand command, CompanyId company, const registers& regs, const Flags flags)
     {
         _updatingCompanyId = company;
 
-        uint16_t flags = regs.bx;
         uint32_t esi = static_cast<uint32_t>(command);
 
         if (commandRequiresUnpausingGame(command, flags) && _updatingCompanyId == CompanyManager::getControllingId())
@@ -280,9 +299,7 @@ namespace OpenLoco::GameCommands
             if ((SceneManager::getPauseFlags() & PauseFlags::player) != PauseFlags::none)
             {
                 SceneManager::unsetPauseFlag(PauseFlags::player);
-                WindowManager::invalidate(WindowType::timeToolbar);
-                Audio::unpauseSound();
-                Ui::Windows::PlayerInfoPanel::invalidateFrame();
+                WindowManager::invalidate(WindowType::companyInfoPanel);
             }
 
             if (SceneManager::getGameSpeed() != GameSpeed::Normal)
@@ -294,7 +311,7 @@ namespace OpenLoco::GameCommands
             if (SceneManager::isPaused())
             {
                 _gGameCommandErrorText = StringIds::empty;
-                return GameCommands::FAILURE;
+                return GameCommands::kFailure;
             }
         }
 
@@ -305,15 +322,15 @@ namespace OpenLoco::GameCommands
             // call(0x0046E34A, fnRegs); // some network stuff. Untested
         }
 
-        return loc_4313C6(esi, regs);
+        return loc_4313C6(esi, regs, flags);
     }
 
-    static void callGameCommandFunction(uint32_t command, registers& regs)
+    static void callGameCommandFunction(uint32_t command, registers& regs, const Flags flags)
     {
         auto& gameCommand = kGameCommandDefinitions[command];
         if (gameCommand.implementation != nullptr)
         {
-            gameCommand.implementation(regs);
+            gameCommand.implementation(regs, flags);
         }
         else
         {
@@ -322,20 +339,16 @@ namespace OpenLoco::GameCommands
         }
     }
 
-    static uint32_t loc_4313C6(int esi, const registers& regs)
+    static uint32_t loc_4313C6(int esi, const registers& regs, const Flags flags)
     {
-        uint16_t flags = regs.bx;
         _gGameCommandErrorText = StringIds::null;
         _gameCommandNestLevel++;
 
-        uint16_t flagsBackup = _gameCommandFlags;
         registers fnRegs1 = regs;
-        fnRegs1.bl &= ~Flags::apply;
-        callGameCommandFunction(esi, fnRegs1);
+        callGameCommandFunction(esi, fnRegs1, flags & ~Flags::apply);
         int32_t ebx = fnRegs1.ebx;
-        _gameCommandFlags = flagsBackup;
 
-        if (ebx != static_cast<int32_t>(GameCommands::FAILURE))
+        if (ebx != static_cast<int32_t>(GameCommands::kFailure))
         {
             if (SceneManager::isEditorMode())
             {
@@ -344,23 +357,23 @@ namespace OpenLoco::GameCommands
 
             if (_gameCommandNestLevel == 1)
             {
-                if ((_gameCommandFlags & Flags::allowNegativeCashFlow) == 0
-                    && (_gameCommandFlags & Flags::ghost) == 0
+                if (!hasFlags(flags, Flags::allowNegativeCashFlow)
+                    && !hasFlags(flags, Flags::noPayment)
                     && ebx != 0)
                 {
                     if (!CompanyManager::ensureCompanyFunding(getUpdatingCompanyId(), ebx))
                     {
-                        ebx = GameCommands::FAILURE;
+                        ebx = GameCommands::kFailure;
                     }
                 }
             }
         }
 
-        if (ebx == static_cast<int32_t>(GameCommands::FAILURE))
+        if (ebx == static_cast<int32_t>(GameCommands::kFailure))
         {
-            if (flags & Flags::apply)
+            if (hasFlags(flags, Flags::apply))
             {
-                return loc_4314EA();
+                return loc_4314EA(flags);
             }
             else
             {
@@ -369,21 +382,19 @@ namespace OpenLoco::GameCommands
             }
         }
 
-        if ((flags & 1) == 0)
+        if (!hasFlags(flags, Flags::apply))
         {
             _gameCommandNestLevel--;
             return ebx;
         }
 
-        uint16_t flagsBackup2 = _gameCommandFlags;
         registers fnRegs2 = regs;
-        callGameCommandFunction(esi, fnRegs2);
+        callGameCommandFunction(esi, fnRegs2, flags);
         int32_t ebx2 = fnRegs2.ebx;
-        _gameCommandFlags = flagsBackup2;
 
-        if (ebx2 == static_cast<int32_t>(GameCommands::FAILURE))
+        if (ebx2 == static_cast<int32_t>(GameCommands::kFailure))
         {
-            return loc_4314EA();
+            return loc_4314EA(flags);
         }
 
         if (SceneManager::isEditorMode())
@@ -402,7 +413,7 @@ namespace OpenLoco::GameCommands
             return ebx;
         }
 
-        if ((flagsBackup2 & Flags::noPayment) != 0)
+        if (hasFlags(flags, Flags::noPayment))
         {
             return ebx;
         }
@@ -419,115 +430,89 @@ namespace OpenLoco::GameCommands
         return ebx;
     }
 
-    static uint32_t loc_4314EA()
+    static uint32_t loc_4314EA(const Flags flags)
     {
         _gameCommandNestLevel--;
         if (_gameCommandNestLevel != 0)
         {
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
         if (_updatingCompanyId != CompanyManager::getControllingId())
         {
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
-        if (_gameCommandFlags & Flags::noErrorWindow)
+        if (hasFlags(flags, Flags::noErrorWindow))
         {
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
-        if (_gGameCommandErrorText != 0xFFFE)
+        if (_gGameCommandErrorText != kErrorBelongsToOther)
         {
             auto openError = _gGameCommandErrorSound ? Windows::Error::open : Windows::Error::openQuiet;
             openError(_gGameCommandErrorTitle, _gGameCommandErrorText);
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
         // advanced errors
-        if (_errorTileElementPtr != World::TileManager::kInvalidTile)
+        switch (_errorElementData.kind)
         {
-            using namespace OpenLoco::World;
-
-            auto* tile = _errorTileElementPtr;
-            switch (tile->type())
+            case ErrorElementKind::track:
             {
-                case ElementType::track: // 4
+                const TrackObject* pObject = ObjectManager::get<TrackObject>(_errorElementData.trackObjectId);
+                if (pObject != nullptr)
                 {
-                    auto& trackElement = tile->get<TrackElement>();
-
-                    const TrackObject* pObject = ObjectManager::get<TrackObject>(trackElement.trackObjectId());
-                    if (pObject == nullptr)
-                    {
-                        break;
-                    }
-
                     auto formatter = FormatArguments::common();
                     formatter.push(pObject->name);
                     formatter.push(CompanyManager::get(_errorCompanyId)->name);
                     Windows::Error::openWithCompetitor(_gGameCommandErrorTitle, StringIds::error_reason_stringid_belongs_to, _errorCompanyId);
-                    return GameCommands::FAILURE;
+                    return GameCommands::kFailure;
                 }
-
-                case ElementType::road: // 0x1C
+                break;
+            }
+            case ErrorElementKind::road:
+            {
+                const RoadObject* pObject = ObjectManager::get<RoadObject>(_errorElementData.roadObjectId);
+                if (pObject != nullptr)
                 {
-                    auto& roadElement = tile->get<RoadElement>();
-
-                    const RoadObject* pObject = ObjectManager::get<RoadObject>(roadElement.roadObjectId());
-                    if (pObject == nullptr)
-                    {
-                        break;
-                    }
-
                     auto formatter = FormatArguments::common();
                     formatter.push(pObject->name);
                     formatter.push(CompanyManager::get(_errorCompanyId)->name);
                     Windows::Error::openWithCompetitor(_gGameCommandErrorTitle, StringIds::error_reason_stringid_belongs_to, _errorCompanyId);
-                    return GameCommands::FAILURE;
+                    return GameCommands::kFailure;
                 }
-
-                case ElementType::station: // 8
+                break;
+            }
+            case ErrorElementKind::station:
+            {
+                const Station* pStation = StationManager::get(_errorElementData.stationId);
+                if (pStation != nullptr)
                 {
-                    auto& stationElement = tile->get<StationElement>();
-
-                    const Station* pStation = StationManager::get(stationElement.stationId());
-                    if (pStation == nullptr)
-                    {
-                        break;
-                    }
-
                     auto formatter = FormatArguments::common();
                     formatter.push(pStation->name);
                     formatter.push(pStation->town);
                     formatter.push(CompanyManager::get(_errorCompanyId)->name);
                     Windows::Error::openWithCompetitor(_gGameCommandErrorTitle, StringIds::error_reason_stringid_belongs_to, _errorCompanyId);
-                    return GameCommands::FAILURE;
+                    return GameCommands::kFailure;
                 }
-
-                case ElementType::signal: // 0x0C
-                {
-                    auto formatter = FormatArguments::common();
-                    formatter.push(CompanyManager::get(_errorCompanyId)->name);
-                    Windows::Error::openWithCompetitor(_gGameCommandErrorTitle, StringIds::error_reason_signal_belongs_to, _errorCompanyId);
-                    return GameCommands::FAILURE;
-                }
-
-                default:
-                    break;
+                break;
             }
+            case ErrorElementKind::none:
+                break;
         }
 
-        // fallback
+        // Fallback + ErrorElementKind::none is a valid case which just means the error belongs to a company without an associated element
         auto formatter = FormatArguments::common();
         formatter.push(CompanyManager::get(_errorCompanyId)->name);
         Windows::Error::openWithCompetitor(_gGameCommandErrorTitle, StringIds::error_reason_belongs_to, _errorCompanyId);
-        return GameCommands::FAILURE;
+        return GameCommands::kFailure;
     }
 
     // 0x00431E6A
     // al  : company
     // esi : tile
-    bool sub_431E6A(const CompanyId company, const World::TileElement* const tile /*= nullptr*/)
+    static bool checkCompanyCompatibilityCommon(const CompanyId company)
     {
         if (company == CompanyId::neutral)
         {
@@ -537,9 +522,51 @@ namespace OpenLoco::GameCommands
         {
             return true;
         }
-        _gGameCommandErrorText = 0xFFFEU;
+        _gGameCommandErrorText = kErrorBelongsToOther;
         _errorCompanyId = company;
-        _errorTileElementPtr = tile == nullptr ? World::TileManager::kInvalidTile : tile;
+        return false;
+    }
+
+    bool checkCompanyCompatibility(const CompanyId company)
+    {
+        if (checkCompanyCompatibilityCommon(company))
+        {
+            return true;
+        }
+        _errorElementData.kind = ErrorElementKind::none;
+        return false;
+    }
+
+    bool checkCompanyCompatibility(const CompanyId company, const World::TrackElement& elTrack)
+    {
+        if (checkCompanyCompatibilityCommon(company))
+        {
+            return true;
+        }
+        _errorElementData.kind = ErrorElementKind::track;
+        _errorElementData.trackObjectId = elTrack.trackObjectId();
+        return false;
+    }
+
+    bool checkCompanyCompatibility(const CompanyId company, const World::RoadElement& elRoad)
+    {
+        if (checkCompanyCompatibilityCommon(company))
+        {
+            return true;
+        }
+        _errorElementData.kind = ErrorElementKind::road;
+        _errorElementData.roadObjectId = elRoad.roadObjectId();
+        return false;
+    }
+
+    bool checkCompanyCompatibility(const CompanyId company, const World::StationElement& elStation)
+    {
+        if (checkCompanyCompatibilityCommon(company))
+        {
+            return true;
+        }
+        _errorElementData.kind = ErrorElementKind::station;
+        _errorElementData.stationId = elStation.stationId();
         return false;
     }
 
@@ -613,12 +640,12 @@ namespace OpenLoco::GameCommands
     void playConstructionPlacementSound(World::Pos3 pos)
     {
         const auto frequency = gPrng2().randNext(17955, 26146);
-        Audio::playSound(Audio::SoundId::construct, pos, 0, frequency);
+        Audio::playSound(Audio::SoundId::construct, Audio::ChannelId::effects, pos, 0, frequency);
     }
 
     // TODO: Maybe move this somewhere else used by multiple game commands
-    bool shouldInvalidateTile(uint8_t flags)
+    bool shouldInvalidateTile(Flags flags)
     {
-        return !(flags & Flags::aiAllocated) && Config::get().showAiPlanningAsGhosts;
+        return !hasFlags(flags, Flags::aiAllocated) || Config::get().showAiPlanningAsGhosts;
     }
 }

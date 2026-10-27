@@ -3,7 +3,6 @@
 #include "Graphics/Colour.h"
 #include "Graphics/ImageIds.h"
 #include "Graphics/RenderTarget.h"
-#include "Graphics/SoftwareDrawingEngine.h"
 #include "Graphics/TextRenderer.h"
 #include "Jukebox.h"
 #include "Localisation/FormatArguments.hpp"
@@ -48,15 +47,27 @@ namespace OpenLoco::Ui::Windows::MusicSelection
         status_bar,
     };
 
+    namespace Widx
+    {
+        constexpr WidgetId kFrame{ "frame" };
+        constexpr WidgetId kTitle{ "title" };
+        constexpr WidgetId kClose{ "close" };
+        constexpr WidgetId kPanel{ "panel" };
+        constexpr WidgetId kSortTitle{ "sort_title" };
+        constexpr WidgetId kSortYears{ "sort_years" };
+        constexpr WidgetId kScrollview{ "scrollview" };
+        constexpr WidgetId kStatusBar{ "status_bar" };
+    }
+
     static constexpr auto _widgets = makeWidgets(
-        Widgets::Frame({ 0, 0 }, { kWindowSizeDefault.width, kWindowSizeDefault.height }, WindowColour::primary),
-        Widgets::Caption({ 1, 1 }, { kWindowSizeDefault.width - 2, 13 }, Widgets::Caption::Style::whiteText, WindowColour::primary, StringIds::music_selection_title),
-        Widgets::ImageButton({ kWindowSizeDefault.width - 15, 2 }, { 13, 13 }, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
-        Widgets::Panel({ 0, 15 }, { kWindowSizeDefault.width, kWindowSizeDefault.height - 15 }, WindowColour::secondary),
-        Widgets::TableHeader({ kPadding + 1, 17 }, { kWindowSizeDefault.width - 2 * kPadding - kColumnYearsWidth - 1, 12 }, WindowColour::secondary, Widget::kContentNull, StringIds::tooltip_sort_by_track_title),
-        Widgets::TableHeader({ kWindowSizeDefault.width - kPadding - kColumnYearsWidth, 17 }, { kColumnYearsWidth, 12 }, WindowColour::secondary, Widget::kContentNull, StringIds::tooltip_sort_by_music_years),
-        Widgets::ScrollView({ kPadding, 30 }, { kWindowSizeDefault.width - 2 * kPadding, kWindowSizeDefault.height - kStatusBarClearance - 30 }, WindowColour::secondary, Scrollbars::vertical, StringIds::music_selection_tooltip),
-        Widgets::Label({ kPadding, kWindowSizeDefault.height - 12 }, { kWindowSizeMin.width - kResizeHandleSize - kPadding, 11 }, WindowColour::secondary, ContentAlign::left, StringIds::black_stringid)
+        Widgets::Frame(Widx::kFrame, { 0, 0 }, { kWindowSizeDefault.width, kWindowSizeDefault.height }, WindowColour::primary),
+        Widgets::Caption(Widx::kTitle, { 1, 1 }, { kWindowSizeDefault.width - 2, 13 }, Widgets::Caption::Style::whiteText, WindowColour::primary, StringIds::music_selection_title),
+        Widgets::ImageButton(Widx::kClose, { kWindowSizeDefault.width - 15, 2 }, { 13, 13 }, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
+        Widgets::Panel(Widx::kPanel, { 0, 15 }, { kWindowSizeDefault.width, kWindowSizeDefault.height - 15 }, WindowColour::secondary),
+        Widgets::TableHeader(Widx::kSortTitle, { kPadding + 1, 17 }, { kWindowSizeDefault.width - 2 * kPadding - kColumnYearsWidth - 1, 12 }, WindowColour::secondary, Widget::kContentNull, StringIds::tooltip_sort_by_track_title),
+        Widgets::TableHeader(Widx::kSortYears, { kWindowSizeDefault.width - kPadding - kColumnYearsWidth, 17 }, { kColumnYearsWidth, 12 }, WindowColour::secondary, Widget::kContentNull, StringIds::tooltip_sort_by_music_years),
+        Widgets::ScrollView(Widx::kScrollview, { kPadding, 30 }, { kWindowSizeDefault.width - 2 * kPadding, kWindowSizeDefault.height - kStatusBarClearance - 30 }, WindowColour::secondary, Scrollbars::vertical, StringIds::music_selection_tooltip),
+        Widgets::Label(Widx::kStatusBar, { kPadding, kWindowSizeDefault.height - 12 }, { kWindowSizeMin.width - kResizeHandleSize - kPadding, 11 }, WindowColour::secondary, ContentAlign::left, StringIds::black_stringid)
 
     );
 
@@ -117,12 +128,12 @@ namespace OpenLoco::Ui::Windows::MusicSelection
     }
 
     // 0x004C1602
-    Window* open()
+    Window& open()
     {
         Window* window = WindowManager::bringToFront(WindowType::musicSelection, 0);
         if (window != nullptr)
         {
-            return window;
+            return *window;
         }
 
         window = WindowManager::createWindow(
@@ -131,6 +142,7 @@ namespace OpenLoco::Ui::Windows::MusicSelection
             WindowFlags::resizable,
             getEvents());
 
+        window->setSizeBounds(kWindowSizeMin, kWindowSizeMax);
         window->setWidgets(_widgets);
         window->initScrollWidgets();
 
@@ -147,12 +159,12 @@ namespace OpenLoco::Ui::Windows::MusicSelection
         uint16_t numTracksSelected = std::ranges::count(Config::get().audio.customJukebox, true);
         updateStatusBar(*window, numTracksSelected);
 
-        return window;
+        return *window;
     }
 
     static void onResize(Ui::Window& self)
     {
-        self.setSize(kWindowSizeMin, kWindowSizeMax);
+        self.setSizeBounds(kWindowSizeMin, kWindowSizeMax);
 
         // Resize & reposition widgets
         self.widgets[widx::frame].right = self.width - 1;
@@ -191,7 +203,7 @@ namespace OpenLoco::Ui::Windows::MusicSelection
         auto tr = Gfx::TextRenderer(drawingCtx);
 
         auto shade = Colours::getShade(window.getColour(WindowColour::secondary).c(), 4);
-        drawingCtx.clearSingle(shade);
+        drawingCtx.clear(shade);
 
         const auto& config = Config::get().audio;
 
@@ -250,8 +262,9 @@ namespace OpenLoco::Ui::Windows::MusicSelection
                 auto point = Point(columnYearsOffset, y);
                 auto argsBuf = FormatArgumentsBuffer{};
                 auto args = FormatArguments{ argsBuf };
-                bool hasStart = musicInfo.startYear != Jukebox::kNoStartYear;
-                bool hasEnd = musicInfo.endYear != Jukebox::kNoEndYear;
+                bool neverPlays = (musicInfo.startYear > musicInfo.endYear);
+                bool hasStart = !(musicInfo.startYear == Jukebox::kBeginningOfTime || neverPlays);
+                bool hasEnd = !(musicInfo.endYear == Jukebox::kEndOfTime || neverPlays);
                 if (hasStart && hasEnd)
                 {
                     args.push(StringIds::year_range);
@@ -274,6 +287,7 @@ namespace OpenLoco::Ui::Windows::MusicSelection
                 }
                 else
                 {
+                    // TODO differentiate tracks that play on all years vs tracks that play on no years, if the former ever comes up
                     args.push(StringIds::year_range_no_start_no_end);
                     tr.drawStringLeft(point, window.getColour(WindowColour::secondary), textColour, args);
                 }
@@ -290,18 +304,18 @@ namespace OpenLoco::Ui::Windows::MusicSelection
     }
 
     // 0x004C1757
-    static void onMouseUp(Ui::Window& window, WidgetIndex_t widgetIndex, [[maybe_unused]] const WidgetId id)
+    static void onMouseUp(Ui::Window& window, [[maybe_unused]] WidgetIndex_t widgetIndex, const WidgetId id)
     {
-        switch (widgetIndex)
+        switch (id)
         {
-            case widx::close:
+            case Widx::kClose:
                 WindowManager::close(window.type);
                 break;
 
-            case sort_title:
+            case Widx::kSortTitle:
                 cycleSortMode(window, Jukebox::MusicSortMode::titleAscending, Jukebox::MusicSortMode::titleDescending);
                 break;
-            case sort_years:
+            case Widx::kSortYears:
                 cycleSortMode(window, Jukebox::MusicSortMode::yearsDescending, Jukebox::MusicSortMode::yearsAscending);
                 break;
         }
@@ -311,7 +325,7 @@ namespace OpenLoco::Ui::Windows::MusicSelection
     static void onScrollMouseDown(Ui::Window& window, [[maybe_unused]] int16_t x, int16_t y, [[maybe_unused]] uint8_t scroll_index)
     {
         const uint16_t currentRow = y / kRowHeight;
-        if (currentRow > window.rowCount)
+        if (currentRow >= window.rowCount)
         {
             return;
         }
@@ -340,7 +354,7 @@ namespace OpenLoco::Ui::Windows::MusicSelection
     static void onScrollMouseOver(Ui::Window& window, [[maybe_unused]] int16_t x, int16_t y, [[maybe_unused]] uint8_t scroll_index)
     {
         uint16_t currentRow = y / kRowHeight;
-        if (currentRow > window.rowCount || currentRow == window.rowHover)
+        if (currentRow >= window.rowCount || currentRow == window.rowHover)
         {
             return;
         }
@@ -352,8 +366,8 @@ namespace OpenLoco::Ui::Windows::MusicSelection
     // 0x004C17E3
     static void onUpdate(Window& window)
     {
-        auto optionsWindow = WindowManager::find(WindowType::options);
-        if (optionsWindow == nullptr || optionsWindow->currentTab != Options::kTabOffsetMusic)
+        auto jukeboxWindow = WindowManager::find(WindowType::musicJukebox);
+        if (jukeboxWindow == nullptr)
         {
             WindowManager::close(&window);
             return;

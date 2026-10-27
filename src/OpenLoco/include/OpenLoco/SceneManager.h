@@ -1,0 +1,100 @@
+#pragma once
+#include "Types.hpp"
+#include <OpenLoco/Core/EnumFlags.hpp>
+#include <OpenLoco/Core/FileSystem.hpp>
+#include <cstdint>
+
+namespace OpenLoco::S5
+{
+    enum class LoadFlags : uint32_t;
+}
+
+namespace OpenLoco
+{
+    enum class GameSpeed : uint8_t
+    {
+        Normal = 0,
+        FastForward = 1,
+        ExtraFastForward = 2,
+        MAX = ExtraFastForward,
+    };
+
+    enum class PauseFlags : uint8_t
+    {
+        none = 0U,
+        player = 1 << 0,     // Set when the player uses the pause button/shortcut
+        promptSave = 1 << 1, // Set when PromptSaveWindow is open
+        browsePrompt = 1 << 2,
+        objectSelection = 1 << 3,
+    };
+    OPENLOCO_ENABLE_ENUM_OPERATORS(PauseFlags);
+
+    namespace SceneManager
+    {
+        enum class SceneId : uint8_t
+        {
+            boot,
+            intro,
+            title,
+            gameplay,
+            editor,
+        };
+
+        enum class Flags : uint16_t
+        {
+            none = 0U,
+            title = 1U << 0,
+            editor = 1U << 1,
+            networked = 1U << 2,
+            networkHost = 1U << 3,
+            progressBarActive = 1U << 4,
+            initialised = 1U << 5,
+            driverCheatEnabled = 1U << 6,
+            sandboxMode = 1U << 7,          // new in OpenLoco
+            pauseOverrideEnabled = 1U << 8, // new in OpenLoco
+        };
+        OPENLOCO_ENABLE_ENUM_OPERATORS(Flags);
+
+        // Scene transitions
+        SceneId getCurrentScene();
+        SceneId getPendingScene();
+        bool isSceneTransitionPending();
+        void requestScene(SceneId scene);
+
+        // Requests a scene change that first loads the given file, the load is performed
+        // as part of the scene transition rather than inside the tick that requested it.
+        void requestSceneLoad(SceneId scene, const fs::path& path, S5::LoadFlags flags);
+
+        bool applySceneTransition();
+
+        // Scene dispatch
+        void tick();
+        void tickInterface();
+        void update();
+
+        void resetSceneAge();
+        uint16_t getSceneAge();
+        void setSceneAge(uint16_t newAge);
+        Flags getSceneFlags();
+        void setSceneFlags(Flags value);
+        void addSceneFlags(Flags value);
+        void removeSceneFlags(Flags value);
+        bool isEditorMode();
+        bool isTitleMode();
+        bool isPlayMode();
+        bool isNetworked();
+        bool isNetworkHost();
+        bool isProgressBarActive();
+        bool isSceneInitialised();
+        bool isDriverCheatEnabled();
+        bool isSandboxMode();
+        bool isPauseOverrideEnabled();
+        bool isPaused();
+        PauseFlags getPauseFlags();
+        void setPauseFlag(PauseFlags value);
+        void unsetPauseFlag(PauseFlags value);
+        GameSpeed getGameSpeed();
+        void setGameSpeed(const GameSpeed speed);
+    }
+
+}

@@ -13,7 +13,7 @@
     "yaml-cpp",
     "fmt",
     {
-      "name": "sdl2",
+      "name": "sdl3",
       "default-features": false,
       "features": [
         {
@@ -26,5 +26,19 @@
         }
       ]
     }
-  ]
+  ],
+  "default-features": [
+    "libstdcxx-execution"
+  ],
+  "features": {
+    "libstdcxx-execution": {
+      "description": "TBB backend that libstdc++ requires for <execution>",
+      "dependencies": [
+        {
+          "name": "tbb",
+          "platform": "linux"
+        }
+      ]
+    }
+  }
 }

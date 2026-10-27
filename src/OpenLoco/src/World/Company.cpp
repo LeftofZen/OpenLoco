@@ -1,5 +1,4 @@
-#include "Company.h"
-#include "CompanyManager.h"
+#include "World/Company.h"
 #include "Date.h"
 #include "Economy/Economy.h"
 #include "Entities/EntityManager.h"
@@ -8,7 +7,6 @@
 #include "GameCommands/Vehicles/VehicleChangeRunningMode.h"
 #include "GameState.h"
 #include "Graphics/Gfx.h"
-#include "IndustryManager.h"
 #include "Localisation/FormatArguments.hpp"
 #include "Localisation/StringIds.h"
 #include "Map/BuildingElement.h"
@@ -23,8 +21,6 @@
 #include "Random.h"
 #include "Scenario/ScenarioManager.h"
 #include "SceneManager.h"
-#include "StationManager.h"
-#include "TownManager.h"
 #include "Ui/WindowManager.h"
 #include "Vehicles/Vehicle.h"
 #include "Vehicles/Vehicle2.h"
@@ -33,11 +29,16 @@
 #include "Vehicles/VehicleHead.h"
 #include "Vehicles/VehicleManager.h"
 #include "ViewportManager.h"
+#include "World/CompanyManager.h"
+#include "World/IndustryManager.h"
+#include "World/StationManager.h"
+#include "World/TownManager.h"
+
 #include <OpenLoco/Core/Numerics.hpp>
 #include <OpenLoco/Math/Bound.hpp>
+#include <OpenLoco/Utility/LookupTable.hpp>
 #include <algorithm>
 #include <array>
-#include <map>
 #include <sfl/static_unordered_set.hpp>
 
 namespace OpenLoco
@@ -162,6 +163,7 @@ namespace OpenLoco
             Ui::WindowManager::invalidate(Ui::WindowType::company, enumValue(id()));
         }
 
+        // Do not evaluate challenge progress if the challenge is already over
         constexpr auto requiredFlags = CompanyFlags::challengeBeatenByOpponent | CompanyFlags::challengeCompleted | CompanyFlags::challengeFailed;
         if ((challengeFlags & requiredFlags) != CompanyFlags::none)
         {
@@ -231,7 +233,7 @@ namespace OpenLoco
         return static_cast<CorporateRating>(std::min(9, performanceIndex / 100));
     }
 
-    static std::map<CorporateRating, StringId> _ratingNames = {
+    static constexpr auto kRatingNames = Utility::buildLookupTable<CorporateRating, StringId>({
         { CorporateRating::platelayer, StringIds::corporate_rating_platelayer },
         { CorporateRating::engineer, StringIds::corporate_rating_engineer },
         { CorporateRating::trafficManager, StringIds::corporate_rating_traffic_manager },
@@ -242,12 +244,12 @@ namespace OpenLoco
         { CorporateRating::chairman, StringIds::corporate_rating_chairman },
         { CorporateRating::president, StringIds::corporate_rating_president },
         { CorporateRating::tycoon, StringIds::corporate_rating_tycoon },
-    };
+    });
 
     StringId getCorporateRatingAsStringId(CorporateRating rating)
     {
-        auto it = _ratingNames.find(rating);
-        if (it != _ratingNames.end())
+        auto it = kRatingNames.find(rating);
+        if (it != kRatingNames.end())
         {
             return it->second;
         }
@@ -363,7 +365,7 @@ namespace OpenLoco
 
         std::copy_if(std::begin(tracks), std::end(tracks), std::back_inserter(result), [](uint8_t trackIdx) {
             const auto* trackObj = ObjectManager::get<TrackObject>(trackIdx);
-            return !trackObj->hasFlags(TrackObjectFlags::unk_02);
+            return !trackObj->hasFlags(TrackObjectFlags::isRoad);
         });
 
         sfl::static_unordered_set<uint8_t, Limits::kMaxRoadObjects> roads;
@@ -391,7 +393,7 @@ namespace OpenLoco
                 continue;
             }
 
-            if (roadObj->hasFlags(RoadObjectFlags::unk_03))
+            if (roadObj->hasFlags(RoadObjectFlags::anyRoadTypeCompatible))
             {
                 roads.insert(i | (1 << 7));
             }
@@ -399,7 +401,7 @@ namespace OpenLoco
 
         std::copy_if(std::begin(roads), std::end(roads), std::back_inserter(result), [](uint8_t trackIdx) {
             const auto* trackObj = ObjectManager::get<RoadObject>(trackIdx & ~(1 << 7));
-            return trackObj->hasFlags(RoadObjectFlags::unk_01);
+            return trackObj->hasFlags(RoadObjectFlags::isRail);
         });
 
         return result;
@@ -437,7 +439,7 @@ namespace OpenLoco
                 continue;
             }
 
-            if (roadObj->hasFlags(RoadObjectFlags::unk_03))
+            if (roadObj->hasFlags(RoadObjectFlags::anyRoadTypeCompatible))
             {
                 roads.insert(i | (1U << 7));
             }
@@ -445,7 +447,7 @@ namespace OpenLoco
 
         std::copy_if(std::begin(roads), std::end(roads), std::back_inserter(result), [](uint8_t roadId) {
             const auto* roadObj = ObjectManager::get<RoadObject>(roadId & ~(1U << 7));
-            return !roadObj->hasFlags(RoadObjectFlags::unk_01);
+            return !roadObj->hasFlags(RoadObjectFlags::isRail);
         });
 
         sfl::static_unordered_set<uint8_t, Limits::kMaxTrackObjects> tracks;
@@ -465,7 +467,7 @@ namespace OpenLoco
 
         std::copy_if(std::begin(tracks), std::end(tracks), std::back_inserter(result), [](uint8_t trackIdx) {
             const auto* trackObj = ObjectManager::get<TrackObject>(trackIdx);
-            return trackObj->hasFlags(TrackObjectFlags::unk_02);
+            return trackObj->hasFlags(TrackObjectFlags::isRoad);
         });
 
         return result;
@@ -500,9 +502,9 @@ namespace OpenLoco
                 continue;
             }
 
-            thought.var_88 = std::min(0xFF, thought.var_88 + 1);
-            thought.var_84 = thought.var_80;
-            thought.var_80 = 0;
+            thought.thoughtAge = std::min(0xFF, thought.thoughtAge + 1);
+            thought.previousIncome = thought.income;
+            thought.income = 0;
             currency32_t totalRunCost = 0;
             for (auto i = 0; i < thought.numVehicles; ++i)
             {
@@ -512,7 +514,7 @@ namespace OpenLoco
                     totalRunCost += vehHead->calculateRunningCost();
                 }
             }
-            thought.var_7C = totalRunCost;
+            thought.totalRunningCost = totalRunCost;
         }
     }
 
@@ -888,7 +890,7 @@ namespace OpenLoco
         Ui::WindowManager::invalidate(Ui::WindowType::company, enumValue(id()));
         if (id() == CompanyManager::getControllingId())
         {
-            Ui::WindowManager::invalidate(Ui::WindowType::playerInfoToolbar);
+            Ui::WindowManager::invalidate(Ui::WindowType::companyInfoPanel);
         }
         Ui::WindowManager::invalidate(Ui::WindowType::vehicleList, enumValue(id()));
         Ui::WindowManager::invalidate(Ui::WindowType::stationList, enumValue(id()));
@@ -902,12 +904,12 @@ namespace OpenLoco
         return std::min(performanceIndex / 200, 4);
     }
 
-    bool Company::hashTableContains(const Unk25C0HashTableEntry& entry) const
+    bool Company::hashTableContains(const TrackRoadHashTableEntry& entry) const
     {
         auto index = entry.calculateHash();
-        while (var_25C0[index].var_00 != 0xFFFF)
+        while (trackandRoadHashTable[index].posX != 0xFFFF)
         {
-            auto& rhsEntry = var_25C0[index];
+            auto& rhsEntry = trackandRoadHashTable[index];
             if (rhsEntry.getPosition() == entry.getPosition()
                 && rhsEntry.getDirection() == entry.getDirection()
                 && rhsEntry.getTrackRoadId() == entry.getTrackRoadId())
@@ -921,7 +923,7 @@ namespace OpenLoco
             }
 
             index++;
-            if (index >= std::size(var_25C0))
+            if (index >= std::size(trackandRoadHashTable))
             {
                 index = 0;
             }
@@ -929,28 +931,28 @@ namespace OpenLoco
         return false;
     }
 
-    bool Company::addHashTableEntry(const Unk25C0HashTableEntry& entry)
+    bool Company::addHashTableEntry(const TrackRoadHashTableEntry& entry)
     {
-        if (var_25C0_length >= 2048)
+        if (hashTableLength >= 2048)
         {
             return false; // Hash table is full
         }
         auto index = entry.calculateHash();
 
-        while (var_25C0[index].var_00 != 0xFFFF)
+        while (trackandRoadHashTable[index].posX != 0xFFFF)
         {
-            auto& rhsEntry = var_25C0[index];
-            rhsEntry.var_02 |= 1U << 0; // mark as hash collision
+            auto& rhsEntry = trackandRoadHashTable[index];
+            rhsEntry.posYAndFlags |= 1U << 0; // mark as hash collision
 
             index++;
-            if (index >= std::size(var_25C0))
+            if (index >= std::size(trackandRoadHashTable))
             {
                 index = 0;
             }
         }
 
-        var_25C0[index] = entry;
-        var_25C0_length++;
+        trackandRoadHashTable[index] = entry;
+        hashTableLength++;
         return true;
     }
 
@@ -1067,9 +1069,10 @@ namespace OpenLoco
 
         auto& objectiveProgress = Scenario::getObjectiveProgress();
         auto& objective = Scenario::getObjective();
-        if ((challengeFlags & CompanyFlags::unk2) != CompanyFlags::none)
+        if ((objective.flags & Scenario::ObjectiveFlags::withinTimeLimit) != Scenario::ObjectiveFlags::none)
         {
-            if (objectiveProgress.timeLimitUntilYear < getCurrentYear() && getCurrentMonth() != MonthId::january)
+            // The time limit does not kick in until the 2nd (currentDayOfMonth uses 0 for the 1st)
+            if (objectiveProgress.timeLimitUntilYear < getCurrentYear() && getCurrentDayOfMonth() != 0)
             {
                 return 255;
             }
@@ -1136,15 +1139,15 @@ namespace OpenLoco
         return applyBeTopProgressModifiers(progress, objective, *this);
     }
 
-    Company::Unk25C0HashTableEntry::Unk25C0HashTableEntry(World::Pos3 pos, uint8_t trackRoadId, uint8_t direction)
+    Company::TrackRoadHashTableEntry::TrackRoadHashTableEntry(World::Pos3 pos, uint8_t trackRoadId, uint8_t direction)
     {
-        var_00 = pos.x;
-        var_02 = pos.y;
-        var_04 = pos.z / World::kSmallZStep;
-        var_05 = (trackRoadId & 0x3F) | (direction << 6);
+        posX = pos.x;
+        posYAndFlags = pos.y;
+        posZ = pos.z / World::kSmallZStep;
+        trackRoadIdAndDirection = (trackRoadId & 0x3F) | (direction << 6);
     }
 
-    constexpr uint16_t Company::Unk25C0HashTableEntry::calculateHash() const
+    constexpr uint16_t Company::TrackRoadHashTableEntry::calculateHash() const
     {
         const auto direction = getDirection();
         const auto pos = getPosition();

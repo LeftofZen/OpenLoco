@@ -1,16 +1,16 @@
-#include "VehicleObject.h"
-#include "CargoObject.h"
+#include "Objects/VehicleObject.h"
 #include "Graphics/Colour.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
 #include "Graphics/TextRenderer.h"
 #include "Localisation/FormatArguments.hpp"
 #include "Localisation/Formatting.h"
 #include "Localisation/StringIds.h"
 #include "Logging.h"
-#include "ObjectImageTable.h"
-#include "ObjectManager.h"
-#include "ObjectStringTable.h"
+#include "Objects/CargoObject.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectManager.h"
+#include "Objects/ObjectStringTable.h"
 #include "Ui/WindowManager.h"
 #include "Vehicles/VehicleDraw.h"
 #include <OpenLoco/Core/Numerics.hpp>
@@ -63,7 +63,7 @@ namespace OpenLoco
             args.push(speed);
             tr.drawStringLeft(rowPosition, Colour::black, StringIds::object_selection_max_speed, args);
         }
-        auto buffer = const_cast<char*>(StringManager::getString(StringIds::buffer_1250));
+        auto buffer = StringManager::getBufferString(StringIds::buffer_1250);
         // Clear buffer
         *buffer = '\0';
 

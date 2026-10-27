@@ -1,6 +1,7 @@
-#include "RemoveRoad.h"
+#include "GameCommands/Road/RemoveRoad.h"
 #include "Audio/Audio.h"
 #include "Economy/Economy.h"
+#include "GameCommands/Road/RemoveRoadStation.h"
 #include "Localisation/FormatArguments.hpp"
 #include "Localisation/StringIds.h"
 #include "Map/RoadElement.h"
@@ -12,7 +13,6 @@
 #include "Objects/RoadExtraObject.h"
 #include "Objects/RoadObject.h"
 #include "Random.h"
-#include "RemoveRoadStation.h"
 #include "Scenario/ScenarioOptions.h"
 #include "SceneManager.h"
 #include "World/TownManager.h"
@@ -25,13 +25,13 @@ namespace OpenLoco::GameCommands
     static void playRoadRemovalSound(const World::Pos3 pos)
     {
         const auto frequency = gPrng2().randNext(17955, 26146);
-        Audio::playSound(Audio::SoundId::demolish, pos, 0, frequency);
+        Audio::playSound(Audio::SoundId::demolish, Audio::ChannelId::effects, pos, 0, frequency);
     }
 
     struct OverlapRoads
     {
-        World::RoadElement* _begin = nullptr;
-        World::RoadElement* _end = nullptr;
+        World::TileElementEntry* _begin = nullptr;
+        World::TileElementEntry* _end = nullptr;
 
         OverlapRoads(World::Pos3 pos)
         {
@@ -39,7 +39,7 @@ namespace OpenLoco::GameCommands
             for (auto& el : tile)
             {
                 auto* elRoad = el.as<World::RoadElement>();
-                if (elRoad == nullptr)
+                if (elRoad == nullptr || elRoad->baseZ() != pos.z / World::kSmallZStep)
                 {
                     if (_begin != nullptr)
                     {
@@ -47,27 +47,19 @@ namespace OpenLoco::GameCommands
                     }
                     continue;
                 }
-                if (elRoad->baseZ() != pos.z / World::kSmallZStep)
-                {
-                    if (_begin != nullptr)
-                    {
-                        break;
-                    }
-                    continue;
-                }
-                _end = elRoad + 1;
+                _end = el.next();
                 if (_begin == nullptr)
                 {
-                    _begin = elRoad;
+                    _begin = &el;
                 }
             }
         }
 
-        World::RoadElement* begin() const { return _begin; }
-        World::RoadElement* end() const { return _end; }
+        World::TileElementEntry* begin() const { return _begin; }
+        World::TileElementEntry* end() const { return _end; }
     };
 
-    static World::RoadElement* getRoadElement(const World::Pos3 pos, const RoadRemovalArgs& args, uint8_t sequenceIndex, uint8_t flags)
+    static World::TileElementEntry* getRoadElement(const World::Pos3 pos, const RoadRemovalArgs& args, uint8_t sequenceIndex, Flags flags)
     {
         auto tile = World::TileManager::get(pos);
         const auto baseZ = pos.z / World::kSmallZStep;
@@ -100,41 +92,47 @@ namespace OpenLoco::GameCommands
             {
                 continue;
             }
-            if (elRoad->isGhost() != ((flags & Flags::ghost) != 0))
+            if (elRoad->isGhost() != hasFlags(flags, Flags::ghost))
             {
                 continue;
             }
-            if (elRoad->isAiAllocated() != ((flags & Flags::aiAllocated) != 0))
+            if (elRoad->isAiAllocated() != hasFlags(flags, Flags::aiAllocated))
             {
                 continue;
             }
             // Ghost only as this is checked elsewhere for non-ghost so that
             // neutral company is always allowed
-            if (((flags & Flags::ghost) != 0) && elRoad->owner() != companyId)
+            if (hasFlags(flags, Flags::ghost) && elRoad->owner() != companyId)
             {
                 return nullptr;
             }
 
-            return elRoad;
+            return &element;
         }
 
         return nullptr;
     }
 
     // 0x00477A10
-    static currency32_t roadRemoveCost(const RoadRemovalArgs& args, const World::TrackData::PreviewTrack roadPiece0, const World::Pos3 roadStart, const uint8_t flags)
+    static currency32_t roadRemoveCost(const RoadRemovalArgs& args, const World::TrackData::PreviewTrack roadPiece0, const World::Pos3 roadStart, const Flags flags)
     {
         const auto roadLoc = roadStart + World::Pos3{ Math::Vector::rotate(World::Pos2{ roadPiece0.x, roadPiece0.y }, args.rotation), roadPiece0.z };
 
-        auto* roadElPiece = getRoadElement(roadLoc, args, roadPiece0.index, flags);
+        auto* roadEntry = getRoadElement(roadLoc, args, roadPiece0.index, flags);
+        if (roadEntry == nullptr)
+        {
+            return 0;
+        }
+
+        auto* roadElPiece = roadEntry->as<World::RoadElement>();
         if (roadElPiece == nullptr)
         {
             return 0;
         }
 
+        const auto* roadObj = ObjectManager::get<RoadObject>(roadElPiece->roadObjectId());
         currency32_t totalRemovalCost = 0;
 
-        const auto* roadObj = ObjectManager::get<RoadObject>(roadElPiece->roadObjectId());
         if (roadElPiece->owner() != CompanyId::neutral)
         {
             const auto trackBaseCost = Economy::getInflationAdjustedCost(roadObj->sellCostFactor, roadObj->costIndex, 10);
@@ -143,7 +141,7 @@ namespace OpenLoco::GameCommands
         }
 
         // Check mod removal costs
-        if (!roadObj->hasFlags(RoadObjectFlags::unk_03))
+        if (!roadObj->hasFlags(RoadObjectFlags::anyRoadTypeCompatible))
         {
             for (auto i = 0U; i < 2; i++)
             {
@@ -160,21 +158,29 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x004775A5
-    static uint32_t removeRoad(const RoadRemovalArgs& args, uint8_t flags)
+    static uint32_t removeRoad(const RoadRemovalArgs& args, Flags flags)
     {
         setExpenditureType(ExpenditureType::Construction);
         setPosition(args.pos + World::Pos3{ 16, 16, 0 });
 
         // 0x0047762D
-        auto* roadEl = getRoadElement(args.pos, args, args.sequenceIndex, flags);
-        if (roadEl == nullptr)
+        auto* roadEntry = getRoadElement(args.pos, args, args.sequenceIndex, flags);
+        if (roadEntry == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if (!sub_431E6A(roadEl->owner(), reinterpret_cast<const World::TileElement*>(roadEl)))
+        auto* roadEl = roadEntry->as<World::RoadElement>();
+        if (roadEl == nullptr)
         {
-            return FAILURE;
+            return kFailure;
+        }
+
+        const CompanyId roadOwner = roadEl->owner();
+
+        if (!checkCompanyCompatibility(roadOwner, *roadEl))
+        {
+            return kFailure;
         }
 
         /*
@@ -193,7 +199,7 @@ namespace OpenLoco::GameCommands
                 FormatArguments::common(town->name);
                 setErrorText(StringIds::stringid_local_authority_wont_allow_removal_in_use);
             }
-            return FAILURE;
+            return kFailure;
         }
         */
 
@@ -206,12 +212,13 @@ namespace OpenLoco::GameCommands
             // We only want to remove the road station if the target road element is the only
             // user of the road station.
             const auto overlaps = OverlapRoads(args.pos);
-            const auto hasOtherRoadStationUsers = std::ranges::any_of(overlaps, [roadEl](const World::RoadElement& el) {
-                if (&el == roadEl)
+            const auto hasOtherRoadStationUsers = std::ranges::any_of(overlaps, [roadEl](const World::TileElementEntry& entry) {
+                auto* el = entry.as<World::RoadElement>();
+                if (el == nullptr || el == roadEl)
                 {
                     return false;
                 }
-                return el.hasStationElement();
+                return el->hasStationElement();
             });
 
             if (!hasOtherRoadStationUsers)
@@ -228,9 +235,9 @@ namespace OpenLoco::GameCommands
                     srArgs.roadObjectId = args.objectId;
 
                     auto stationRemovalRes = GameCommands::doCommand(srArgs, flags);
-                    if (stationRemovalRes == FAILURE)
+                    if (stationRemovalRes == kFailure)
                     {
-                        return FAILURE;
+                        return kFailure;
                     }
 
                     totalRemovalCost += stationRemovalRes;
@@ -261,7 +268,13 @@ namespace OpenLoco::GameCommands
             }
 
             // 0x00477934
-            auto* roadElPiece = getRoadElement(roadLoc, args, piece.index, flags);
+            auto* pieceEntry = getRoadElement(roadLoc, args, piece.index, flags);
+            if (pieceEntry == nullptr)
+            {
+                continue;
+            }
+
+            auto* roadElPiece = pieceEntry->as<World::RoadElement>();
             if (roadElPiece == nullptr)
             {
                 continue;
@@ -278,12 +291,12 @@ namespace OpenLoco::GameCommands
                 roadBridgeId = roadElPiece->bridge();
             }
 
-            if (!(flags & Flags::apply))
+            if (!hasFlags(flags, Flags::apply))
             {
                 continue;
             }
 
-            World::TileManager::removeElement(*reinterpret_cast<World::TileElement*>(roadElPiece));
+            World::TileManager::removeElement(*pieceEntry);
             Scenario::getOptions().madeAnyChanges = 1;
             World::TileManager::setLevelCrossingFlags(roadLoc);
         }
@@ -291,8 +304,8 @@ namespace OpenLoco::GameCommands
         // 0x00477A10
         totalRemovalCost += pieceRemovalCost;
 
-        // Seems to have been forgotten in vanilla
-        if (removeRoadBridge)
+        // Add on bridge refund if applicable (Absent from vanilla)
+        if (removeRoadBridge && roadOwner != CompanyId::neutral)
         {
             const auto* bridgeObj = ObjectManager::get<BridgeObject>(roadBridgeId);
             const auto bridgeBaseCost = Economy::getInflationAdjustedCost(bridgeObj->sellCostFactor, bridgeObj->costIndex, 10);
@@ -300,9 +313,9 @@ namespace OpenLoco::GameCommands
         }
 
         // 0x00477B39
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
-            if (!(flags & (Flags::aiAllocated | Flags::ghost)))
+            if (!hasFlags(flags, Flags::aiAllocated | Flags::ghost))
             {
                 if (getUpdatingCompanyId() != CompanyId::neutral)
                 {
@@ -314,8 +327,8 @@ namespace OpenLoco::GameCommands
         return totalRemovalCost;
     }
 
-    void removeRoad(registers& regs)
+    void removeRoad(registers& regs, const Flags flags)
     {
-        regs.ebx = removeRoad(RoadRemovalArgs(regs), regs.bl);
+        regs.ebx = removeRoad(RoadRemovalArgs(regs), flags);
     }
 }

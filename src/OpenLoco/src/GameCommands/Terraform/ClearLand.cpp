@@ -1,4 +1,4 @@
-#include "ClearLand.h"
+#include "GameCommands/Terraform/ClearLand.h"
 #include "Economy/Economy.h"
 #include "Economy/Expenditures.h"
 #include "GameCommands/GameCommands.h"
@@ -21,16 +21,16 @@ using namespace OpenLoco::World;
 namespace OpenLoco::GameCommands
 {
     // 0x00469D76
-    static uint32_t clearTile(World::Pos2 pos, World::TileClearance::RemovedBuildings& removedBuildings, const uint8_t flags)
+    static uint32_t clearTile(World::Pos2 pos, World::TileClearance::RemovedBuildings& removedBuildings, const Flags flags)
     {
         // This shouldn't happen due to using TilePosRangeView
         if (!World::TileManager::validCoords(pos))
         {
             GameCommands::setErrorText(StringIds::off_edge_of_map);
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
-        if (flags & GameCommands::Flags::apply)
+        if (hasFlags(flags, GameCommands::Flags::apply))
         {
             if (!SceneManager::isEditorMode())
             {
@@ -45,8 +45,8 @@ namespace OpenLoco::GameCommands
 
         currency32_t cost{};
         // Bind our local vars to the tile clear function
-        auto clearFunc = [pos, &removedBuildings, flags, &cost](World::TileElement& el) {
-            return TileClearance::clearWithoutDefaultCollision(el, pos, removedBuildings, flags, cost);
+        auto clearFunc = [pos, &removedBuildings, flags, &cost](World::TileElementEntry& entry) {
+            return TileClearance::clearWithoutDefaultCollision(entry, pos, removedBuildings, flags, cost);
         };
 
         auto tileHeight = World::TileManager::getHeight(pos);
@@ -56,12 +56,12 @@ namespace OpenLoco::GameCommands
         }
         else
         {
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
     }
 
     // 0x00469CCB
-    static uint32_t clearLand(const ClearLandArgs& args, const uint8_t flags)
+    static uint32_t clearLand(const ClearLandArgs& args, const Flags flags)
     {
         const auto tileLoop = World::getClampedRange(args.pointA, args.pointB);
         uint32_t totalCost = 0;
@@ -74,9 +74,9 @@ namespace OpenLoco::GameCommands
         for (const auto& tilePos : tileLoop)
         {
             uint32_t tileRes = clearTile(World::toWorldSpace(tilePos), removedBuildings, flags);
-            if (tileRes == GameCommands::FAILURE)
+            if (tileRes == GameCommands::kFailure)
             {
-                return GameCommands::FAILURE;
+                return GameCommands::kFailure;
             }
             else
             {
@@ -92,9 +92,9 @@ namespace OpenLoco::GameCommands
         return totalCost;
     }
 
-    void clearLand(registers& regs)
+    void clearLand(registers& regs, const Flags flags)
     {
         const ClearLandArgs args(regs);
-        regs.ebx = clearLand(args, regs.bl);
+        regs.ebx = clearLand(args, flags);
     }
 }

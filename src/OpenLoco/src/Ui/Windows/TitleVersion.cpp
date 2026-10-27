@@ -1,5 +1,4 @@
 #include "Graphics/Colour.h"
-#include "Graphics/SoftwareDrawingEngine.h"
 #include "Graphics/TextRenderer.h"
 #include "Ui.h"
 #include "Ui/Widget.h"
@@ -26,12 +25,12 @@ namespace OpenLoco::Ui::Windows::TitleVersion
     }
 
     // 0x00439236
-    static void draw(Ui::Window& window, Gfx::DrawingContext& drawingCtx)
+    static void draw([[maybe_unused]] Ui::Window& window, Gfx::DrawingContext& drawingCtx)
     {
         auto tr = Gfx::TextRenderer(drawingCtx);
 
         auto versionInfo = Version::getVersionInfo();
-        auto point = Point(window.x, window.y);
+        auto point = Point(0, 0);
         tr.drawString(point, AdvancedColour(Colour::white).outline(), versionInfo.c_str());
 
         auto platformInfo = Version::getPlatformInfo();

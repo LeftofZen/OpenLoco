@@ -1,10 +1,10 @@
-#include "ScaffoldingObject.h"
+#include "Objects/ScaffoldingObject.h"
 #include "Graphics/Colour.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
-#include "ObjectImageTable.h"
-#include "ObjectManager.h"
-#include "ObjectStringTable.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectManager.h"
+#include "Objects/ObjectStringTable.h"
 
 #include <cassert>
 
@@ -15,9 +15,9 @@ namespace OpenLoco
     {
         auto colourImage = Gfx::recolour(image, Colour::yellow);
 
-        drawingCtx.drawImage(x, y + 23, colourImage + Scaffolding::ImageIds::type21x1SegmentBack);
-        drawingCtx.drawImage(x, y + 23, colourImage + Scaffolding::ImageIds::type21x1SegmentFront);
-        drawingCtx.drawImage(x, y + 23, colourImage + Scaffolding::ImageIds::type21x1RoofSE);
+        drawingCtx.drawImage(ZoomLevel::full, x, y + 23, colourImage + Scaffolding::ImageIds::type21x1SegmentBack);
+        drawingCtx.drawImage(ZoomLevel::full, x, y + 23, colourImage + Scaffolding::ImageIds::type21x1SegmentFront);
+        drawingCtx.drawImage(ZoomLevel::full, x, y + 23 - segmentHeights[2], colourImage + Scaffolding::ImageIds::type21x1RoofSE);
     }
 
     // 0x0042DED8

@@ -1,4 +1,4 @@
-#include "CreateVehicle.h"
+#include "GameCommands/Vehicles/CreateVehicle.h"
 #include "Audio/Audio.h"
 #include "Config.h"
 #include "Date.h"
@@ -484,6 +484,8 @@ namespace OpenLoco::GameCommands
         newVeh2->sound.drivingSoundId = SoundObjectId::null;
         newVeh2->sound.objectId = 0xFFFFU;
         newVeh2->sound.soundFlags = Vehicles::SoundFlags::none;
+        newVeh2->sound.audioHandle = Audio::AudioHandle::null;
+        newVeh2->sound.activeSoundId = SoundObjectId::null;
         newVeh2->curMonthRevenue = 0;
         newVeh2->profit[0] = 0;
         newVeh2->profit[1] = 0;
@@ -517,6 +519,8 @@ namespace OpenLoco::GameCommands
         newTail->sound.drivingSoundId = SoundObjectId::null;
         newTail->sound.objectId = 0xFFFFU;
         newTail->sound.soundFlags = Vehicles::SoundFlags::none;
+        newTail->sound.audioHandle = Audio::AudioHandle::null;
+        newTail->sound.activeSoundId = SoundObjectId::null;
         newTail->trainDanglingTimeout = 0;
         lastVeh->setNextCar(newTail->id);
         newTail->nextCarId = EntityId::null;
@@ -610,29 +614,29 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x004AE74E
-    static uint32_t createNewVehicle(const uint8_t flags, const uint16_t vehicleTypeId)
+    static uint32_t createNewVehicle(const Flags flags, const uint16_t vehicleTypeId)
     {
         getLegacyReturnState().lastCreatedVehicleId = EntityId::null;
 
         setPosition({ Location::null, 0, 0 });
         if (!EntityManager::checkNumFreeEntities(kMaxNumVehicleComponentsInCar + kNumVehicleComponentsInBase))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         if (!isEmptyVehicleSlotAvailable())
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
             auto vehObject = ObjectManager::get<VehicleObject>(vehicleTypeId);
 
             auto head = createBaseVehicle(vehObject->mode, vehObject->type, vehObject->trackType);
             if (!head)
             {
-                return FAILURE;
+                return kFailure;
             }
 
             auto _head = *head;
@@ -664,7 +668,7 @@ namespace OpenLoco::GameCommands
                 EntityManager::freeEntity(veh1);
                 EntityManager::freeEntity(veh2);
                 EntityManager::freeEntity(tail);
-                return FAILURE;
+                return kFailure;
             }
         }
         // 0x4AE733
@@ -674,32 +678,32 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x004AE5FF
-    static uint32_t addCarToVehicle(const uint8_t flags, const uint16_t vehicleTypeId, const EntityId headId)
+    static uint32_t addCarToVehicle(const Flags flags, const uint16_t vehicleTypeId, const EntityId headId)
     {
         Vehicle train(headId);
         setPosition(train.veh2->position);
 
-        if (!sub_431E6A(train.head->owner))
+        if (!checkCompanyCompatibility(train.head->owner))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         if (!train.head->canBeModified())
         {
-            return FAILURE;
+            return kFailure;
         }
 
         if (!train.head->isVehicleTypeCompatible(vehicleTypeId))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         if (!EntityManager::checkNumFreeEntities(kMaxNumVehicleComponentsInCar))
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
             std::optional<TrainPlacementData> placement = std::nullopt;
             if (train.head->tileX != -1)
@@ -719,7 +723,7 @@ namespace OpenLoco::GameCommands
 
                 if (!placement.has_value())
                 {
-                    return FAILURE;
+                    return kFailure;
                 }
 
                 VehicleHead* veh0backup = placement->head;
@@ -729,7 +733,7 @@ namespace OpenLoco::GameCommands
                 {
                     VehicleManager::placeDownVehicle(placement->head, placement->x, placement->y, placement->tileBaseZ, placement->trackAndDirection, placement->subPosition);
                 }
-                return FAILURE;
+                return kFailure;
             }
         }
         // 0x4AE733
@@ -739,7 +743,7 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x004AE5E4
-    static uint32_t createVehicle(const uint8_t flags, const uint16_t vehicleTypeId, const EntityId headId)
+    static uint32_t createVehicle(const Flags flags, const uint16_t vehicleTypeId, const EntityId headId)
     {
         setExpenditureType(ExpenditureType::VehiclePurchases);
 
@@ -749,7 +753,7 @@ namespace OpenLoco::GameCommands
         if (vehicleIsLocked && !Config::get().buildLockedVehicles)
         {
             setErrorText(StringIds::vehicle_is_locked);
-            return FAILURE;
+            return kFailure;
         }
 
         if (headId == EntityId::null)
@@ -762,8 +766,8 @@ namespace OpenLoco::GameCommands
         }
     }
 
-    void createVehicle(registers& regs)
+    void createVehicle(registers& regs, const Flags flags)
     {
-        regs.ebx = createVehicle(regs.bl, regs.dx, EntityId(regs.di));
+        regs.ebx = createVehicle(flags, regs.dx, EntityId(regs.di));
     }
 }

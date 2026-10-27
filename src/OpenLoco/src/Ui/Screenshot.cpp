@@ -1,4 +1,4 @@
-#include "Screenshot.h"
+#include "Ui/Screenshot.h"
 #include "Entities/EntityManager.h"
 #include "Environment.h"
 #include "GameState.h"
@@ -9,10 +9,11 @@
 #include "Localisation/StringIds.h"
 #include "Map/TileManager.h"
 #include "Ui.h"
-#include "WindowManager.h"
+#include "Ui/WindowManager.h"
 #include <OpenLoco/Core/Exception.hpp>
 #include <OpenLoco/Diagnostics/Logging.h>
 #include <OpenLoco/Platform/Platform.h>
+#include <algorithm>
 #include <cstdint>
 #include <fstream>
 #include <png.h>
@@ -191,15 +192,15 @@ namespace OpenLoco::Ui
         return prepareSaveScreenshot(rt);
     }
 
-    static Ui::Viewport createGiantViewport(const uint16_t resolutionWidth, const uint16_t resolutionHeight, const uint8_t zoomLevel)
+    static Ui::Viewport createGiantViewport(const uint16_t resolutionWidth, const uint16_t resolutionHeight, const ZoomLevel zoomLevel)
     {
         Ui::Viewport viewport{};
         viewport.width = resolutionWidth;
         viewport.height = resolutionHeight;
         viewport.x = 0;
         viewport.y = 0;
-        viewport.viewWidth = viewport.width << zoomLevel;
-        viewport.viewHeight = viewport.height << zoomLevel;
+        viewport.viewWidth = zoomLevel.applyTo<int32_t>(viewport.width);
+        viewport.viewHeight = zoomLevel.applyTo<int32_t>(viewport.height);
         viewport.zoom = zoomLevel;
         viewport.pad_11 = 0;
         viewport.flags = ViewportFlags::none;
@@ -218,10 +219,11 @@ namespace OpenLoco::Ui
     static std::string saveGiantScreenshot()
     {
         const auto& main = WindowManager::getMainWindow();
-        const auto zoomLevel = main->viewports[0]->zoom;
 
-        const uint16_t resolutionWidth = ((World::TileManager::getMapWidth() * 2) >> zoomLevel) + 8;
-        const uint16_t resolutionHeight = ((World::TileManager::getMapHeight() * 1) >> zoomLevel) + 8;
+        const auto zoomLevel = ZoomLevel{ std::max<int8_t>(static_cast<int8_t>(main->viewports[0]->zoom), ZoomLevel::full) };
+
+        const uint16_t resolutionWidth = zoomLevel.applyInversedTo(World::TileManager::getMapWidth() * 2) + 8;
+        const uint16_t resolutionHeight = zoomLevel.applyInversedTo(World::TileManager::getMapHeight() * 1) + 8;
 
         Ui::Viewport viewport = createGiantViewport(resolutionWidth, resolutionHeight, zoomLevel);
 
@@ -240,7 +242,6 @@ namespace OpenLoco::Ui
         rt.width = resolutionWidth;
         rt.height = resolutionHeight;
         rt.pitch = 0;
-        rt.zoomLevel = 0;
 
         auto& drawingEngine = Gfx::getDrawingEngine();
         auto& drawingCtx = drawingEngine.getDrawingContext();

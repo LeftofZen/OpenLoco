@@ -1,9 +1,10 @@
 #include "Logging.h"
 #include "LogSink.h"
+#include "LogTerminal.h"
+#include <LogLevel.h>
 #include <algorithm>
-#include <cstdio>
-#include <fmt/color.h>
-#include <stdarg.h>
+#include <memory>
+#include <string_view>
 #include <vector>
 
 namespace OpenLoco::Diagnostics::Logging
@@ -12,14 +13,14 @@ namespace OpenLoco::Diagnostics::Logging
 
     namespace Detail
     {
+
         void print(Level level, std::string_view message)
         {
+            static LogTerminal _logTerminal;
+
             if (_sinks.empty())
             {
-                // Its possible that the logging interface is used from static initializers and
-                // may not have any sinks installed at this point, we redirect the output to
-                // stdout/stderr in this case.
-                fmt::print(level == Level::error ? stderr : stdout, "{}", message);
+                _logTerminal.print(level, message);
                 return;
             }
 

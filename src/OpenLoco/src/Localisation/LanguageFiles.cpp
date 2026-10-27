@@ -1,15 +1,16 @@
-#include "LanguageFiles.h"
+#include "Localisation/LanguageFiles.h"
 #include "Config.h"
-#include "Conversion.h"
 #include "Environment.h"
+#include "Localisation/Conversion.h"
 #include "Localisation/Formatting.h"
+#include "Localisation/StringManager.h"
+#include "Localisation/Unicode.h"
 #include "Logging.h"
-#include "StringIds.h"
-#include "StringManager.h"
 #include "Ui.h"
-#include "Unicode.h"
+
 #include <OpenLoco/Core/Exception.hpp>
 #include <OpenLoco/Platform/Platform.h>
+#include <OpenLoco/Utility/LookupTable.hpp>
 #include <cassert>
 #include <iostream>
 #include <stdexcept>
@@ -21,7 +22,7 @@ namespace OpenLoco::Localisation
 {
     static std::vector<std::unique_ptr<char[]>> _stringsOwner;
 
-    static const std::map<std::string, uint8_t, std::less<>> kBasicCommands = {
+    static constexpr auto kBasicCommands = Utility::buildLookupTable<std::string_view, uint8_t>({
         { "INT16_1DP", ControlCodes::int16_decimals },
         { "INT32_2DP", ControlCodes::int32_decimals },
         { "INT16", ControlCodes::int16_grouped },
@@ -38,9 +39,9 @@ namespace OpenLoco::Localisation
         { "STRING", ControlCodes::string_ptr },
         { "POP16", ControlCodes::pop16 },
         { "POWER", ControlCodes::power },
-    };
+    });
 
-    static const std::map<std::string, uint8_t, std::less<>> kTextColourNames = {
+    static constexpr auto kTextColourNames = Utility::buildLookupTable<std::string_view, uint8_t>({
         { "BLACK", ControlCodes::Colour::black },
         { "WINDOW_1", ControlCodes::windowColour1 },
         { "WINDOW_2", ControlCodes::windowColour2 },
@@ -51,7 +52,7 @@ namespace OpenLoco::Localisation
         { "TOPAZ", ControlCodes::Colour::topaz },
         { "RED", ControlCodes::Colour::red },
         { "GREEN", ControlCodes::Colour::green },
-    };
+    });
 
     static std::unique_ptr<char[]> readString(const char* value, size_t size)
     {
@@ -135,7 +136,7 @@ namespace OpenLoco::Localisation
                     {
                         *out++ = (char)ControlCodes::inlineSpriteStr;
                         int32_t spriteId = std::atoi(commands[1].data());
-                        *((uint32_t*)out) = spriteId;
+                        memcpy(out, &spriteId, 4);
                         out += 4;
                     }
                 }
@@ -228,23 +229,6 @@ namespace OpenLoco::Localisation
         return str;
     }
 
-    static bool stringIsBuffer(int id)
-    {
-        switch (id)
-        {
-            case StringIds::buffer_337:
-            case StringIds::buffer_338:
-            case StringIds::buffer_1250:
-            case StringIds::preferred_currency_buffer:
-            case StringIds::buffer_1719:
-            case StringIds::buffer_2039:
-            case StringIds::buffer_2040:
-                return true;
-            default:
-                return false;
-        }
-    }
-
     static bool loadLanguageStringTable(fs::path languageFile)
     {
         try
@@ -255,11 +239,6 @@ namespace OpenLoco::Localisation
             for (YAML::const_iterator it = node.begin(); it != node.end(); ++it)
             {
                 int id = it->first.as<int>();
-                if (stringIsBuffer(id))
-                {
-                    continue;
-                }
-
                 std::string new_string = it->second.as<std::string>();
                 _stringsOwner.emplace_back(readString(new_string.data(), new_string.length()));
                 char* processedString = _stringsOwner.back().get();

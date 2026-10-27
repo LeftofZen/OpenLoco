@@ -1,59 +1,59 @@
-#include "ObjectManager.h"
-#include "AirportObject.h"
-#include "BridgeObject.h"
-#include "BuildingObject.h"
-#include "CargoObject.h"
-#include "CliffEdgeObject.h"
-#include "ClimateObject.h"
-#include "CompetitorObject.h"
-#include "CurrencyObject.h"
+#include "Objects/ObjectManager.h"
 #include "Date.h"
-#include "DockObject.h"
 #include "Environment.h"
 #include "GameState.h"
 #include "Graphics/Colour.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
 #include "Graphics/TextRenderer.h"
-#include "HillShapesObject.h"
-#include "IndustryObject.h"
 #include "Input.h"
-#include "InterfaceSkinObject.h"
-#include "LandObject.h"
-#include "LevelCrossingObject.h"
 #include "Localisation/FormatArguments.hpp"
 #include "Localisation/Formatting.h"
 #include "Localisation/StringIds.h"
 #include "Logging.h"
 #include "MessageManager.h"
-#include "ObjectImageTable.h"
-#include "ObjectIndex.h"
-#include "ObjectStringTable.h"
-#include "RegionObject.h"
-#include "RoadExtraObject.h"
-#include "RoadObject.h"
-#include "RoadStationObject.h"
+#include "Objects/AirportObject.h"
+#include "Objects/BridgeObject.h"
+#include "Objects/BuildingObject.h"
+#include "Objects/CargoObject.h"
+#include "Objects/CliffEdgeObject.h"
+#include "Objects/ClimateObject.h"
+#include "Objects/CompetitorObject.h"
+#include "Objects/CurrencyObject.h"
+#include "Objects/DockObject.h"
+#include "Objects/HillShapesObject.h"
+#include "Objects/IndustryObject.h"
+#include "Objects/InterfaceSkinObject.h"
+#include "Objects/LandObject.h"
+#include "Objects/LevelCrossingObject.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectIndex.h"
+#include "Objects/ObjectStringTable.h"
+#include "Objects/RegionObject.h"
+#include "Objects/RoadExtraObject.h"
+#include "Objects/RoadObject.h"
+#include "Objects/RoadStationObject.h"
+#include "Objects/ScaffoldingObject.h"
+#include "Objects/ScenarioTextObject.h"
+#include "Objects/SnowObject.h"
+#include "Objects/SoundObject.h"
+#include "Objects/SteamObject.h"
+#include "Objects/StreetLightObject.h"
+#include "Objects/TownNamesObject.h"
+#include "Objects/TrackExtraObject.h"
+#include "Objects/TrackObject.h"
+#include "Objects/TrainSignalObject.h"
+#include "Objects/TrainStationObject.h"
+#include "Objects/TreeObject.h"
+#include "Objects/TunnelObject.h"
+#include "Objects/VehicleObject.h"
+#include "Objects/WallObject.h"
+#include "Objects/WaterObject.h"
 #include "S5/SawyerStream.h"
-#include "ScaffoldingObject.h"
-#include "ScenarioTextObject.h"
-#include "SnowObject.h"
-#include "SoundObject.h"
-#include "SteamObject.h"
-#include "StreetLightObject.h"
-#include "TownNamesObject.h"
-#include "TrackExtraObject.h"
-#include "TrackObject.h"
-#include "TrainSignalObject.h"
-#include "TrainStationObject.h"
-#include "TreeObject.h"
-#include "TunnelObject.h"
 #include "Ui.h"
 #include "Ui/ProgressBar.h"
 #include "Ui/WindowManager.h"
-#include "VehicleObject.h"
 #include "Vehicles/VehicleManager.h"
-#include "WallObject.h"
-#include "WaterObject.h"
 #include "World/CompanyManager.h"
 #include <OpenLoco/Core/Exception.hpp>
 #include <OpenLoco/Core/FileSystem.hpp>
@@ -186,7 +186,7 @@ namespace OpenLoco::ObjectManager
             for (LoadedObjectId i = 0; i < maxObjectsForType; i++)
             {
                 auto obj = typedObjectList.objects[i];
-                if (obj != nullptr && obj != reinterpret_cast<Object*>(-1))
+                if (obj != nullptr)
                 {
                     const auto& objHeader = typedObjectList.objectEntryExtendeds[i];
 
@@ -216,7 +216,7 @@ namespace OpenLoco::ObjectManager
         for (LoadedObjectId i = 0; i < maxObjectsForType; i++)
         {
             auto obj = typedObjectList.objects[i];
-            if (obj == nullptr || obj != reinterpret_cast<Object*>(-1))
+            if (obj == nullptr)
             {
                 continue;
             }
@@ -361,7 +361,7 @@ namespace OpenLoco::ObjectManager
         Core::Timer reloadTimer;
         size_t loadedObjects{};
 
-        setTotalNumImages(0x201A); // TODO: Why this value?
+        setTotalNumImages(Gfx::G1ExpectedCount::kDisc + Gfx::G1ExpectedCount::kTemporaryObjects);
 
         forEachLoadedObject([&loadedObjects](const LoadedObjectHandle& handle) {
             auto* obj = getAny(handle);
@@ -475,7 +475,7 @@ namespace OpenLoco::ObjectManager
         {
             free(preLoadObj.object);
             // Object failed validation
-            Logging::error("Object {} in index failed validation! (This should not be possible)", header.getName());
+            Logging::error("Object {} failed validation!", header.getName());
             return std::nullopt;
         }
 
@@ -555,7 +555,7 @@ namespace OpenLoco::ObjectManager
             return false;
         }
 
-        if (getTotalNumImages() >= Gfx::G1ExpectedCount::kObjects + Gfx::G1ExpectedCount::kDisc)
+        if (getTotalNumImages() >= Gfx::G1ExpectedCount::kObjects + Gfx::G1ExpectedCount::kTemporaryObjects + Gfx::G1ExpectedCount::kDisc)
         {
             free(preLoadObj->object);
             // Too many objects loaded and no free image space
@@ -595,7 +595,7 @@ namespace OpenLoco::ObjectManager
         }
         unload(*handle);
         free(_objectRepository[enumValue(handle->type)].objects[handle->id]);
-        _objectRepository[enumValue(handle->type)].objects[handle->id] = reinterpret_cast<Object*>(-1);
+        _objectRepository[enumValue(handle->type)].objects[handle->id] = nullptr;
     }
 
     // 0x00471BCE
@@ -658,7 +658,7 @@ namespace OpenLoco::ObjectManager
         size_t index = 0;
         for (; index < getMaxObjects(type); ++index)
         {
-            if (getRepositoryItem(type).objects[index] == reinterpret_cast<Object*>(-1))
+            if (getRepositoryItem(type).objects[index] == nullptr)
             {
                 break;
             }
@@ -782,7 +782,7 @@ namespace OpenLoco::ObjectManager
             return false;
         }
 
-        if (getTotalNumImages() >= Gfx::G1ExpectedCount::kObjects + Gfx::G1ExpectedCount::kDisc)
+        if (getTotalNumImages() >= Gfx::G1ExpectedCount::kObjects + Gfx::G1ExpectedCount::kTemporaryObjects + Gfx::G1ExpectedCount::kDisc)
         {
             // Free objectData?
             return false;
@@ -959,26 +959,26 @@ namespace OpenLoco::ObjectManager
     // 0x0047966E
     void updateRoadObjectIdFlags()
     {
-        uint32_t roadObjectIdIsNotTram = 0;
-        uint32_t roadObjectIdIsFlag7 = 0;
+        uint32_t roadObjectIdIsAnyRoadTypeCompatible = 0;
+        uint32_t roadObjectIdIsUsableByAllCompanies = 0;
 
         for (size_t index = 0; index < ObjectManager::getMaxObjects(ObjectType::road); ++index)
         {
             auto roadObject = ObjectManager::get<RoadObject>(index);
             if (roadObject != nullptr)
             {
-                if (roadObject->hasFlags(RoadObjectFlags::unk_03))
+                if (roadObject->hasFlags(RoadObjectFlags::anyRoadTypeCompatible))
                 {
-                    roadObjectIdIsNotTram |= (1u << index);
+                    roadObjectIdIsAnyRoadTypeCompatible |= (1u << index);
                 }
-                if (roadObject->hasFlags(RoadObjectFlags::unk_07))
+                if (roadObject->hasFlags(RoadObjectFlags::allowUseByAllCompanies))
                 {
-                    roadObjectIdIsFlag7 |= (1u << index);
+                    roadObjectIdIsUsableByAllCompanies |= (1u << index);
                 }
             }
         }
-        getGameState().roadObjectIdIsNotTram = roadObjectIdIsNotTram;
-        getGameState().roadObjectIdIsFlag7 = roadObjectIdIsFlag7;
+        getGameState().roadObjectIdIsAnyRoadTypeCompatible = roadObjectIdIsAnyRoadTypeCompatible;
+        getGameState().roadObjectIdIsUsableByAllCompanies = roadObjectIdIsUsableByAllCompanies;
     }
 
     // 0x004796A9
@@ -1117,7 +1117,7 @@ namespace OpenLoco::ObjectManager
     }
 
     // 0x00469F90
-    static void resetDefaultLandObject()
+    static void resetDefaultLandObjectId()
     {
         for (auto i = 0U; i < getMaxObjects(ObjectType::land); i++)
         {
@@ -1126,7 +1126,7 @@ namespace OpenLoco::ObjectManager
             {
                 if (landObj->distributionPattern == 0)
                 {
-                    getGameState().lastLandOption = i;
+                    getGameState().defaultLandObjectId = i;
                     return;
                 }
             }
@@ -1136,11 +1136,11 @@ namespace OpenLoco::ObjectManager
             auto* landObj = get<LandObject>(i);
             if (landObj != nullptr)
             {
-                getGameState().lastLandOption = i;
+                getGameState().defaultLandObjectId = i;
                 return;
             }
         }
-        getGameState().lastLandOption = 0xFFU;
+        getGameState().defaultLandObjectId = 0xFFU;
     }
 
     // 0x0047D9F2
@@ -1161,11 +1161,11 @@ namespace OpenLoco::ObjectManager
         updateLandObjectFlags();
         updateTrafficHandedness();
         updateWaterPalette();
-        resetDefaultLandObject();
+        resetDefaultLandObjectId();
     }
 
     // 0x0047AC05
-    void updateLastTrackTypeOption()
+    void resetDefaultTrackTypeObjectId()
     {
         static_assert(ObjectManager::getMaxObjects(ObjectType::road) <= 128); // protect against possible int8_t overflow in the future
         TownSize largestTownSize = TownSize::hamlet;
@@ -1176,7 +1176,7 @@ namespace OpenLoco::ObjectManager
             auto roadObject = ObjectManager::get<RoadObject>(index);
             if (roadObject != nullptr)
             {
-                if (roadObject->hasFlags(RoadObjectFlags::unk_03) && !roadObject->hasFlags(RoadObjectFlags::isOneWay))
+                if (roadObject->hasFlags(RoadObjectFlags::anyRoadTypeCompatible) && !roadObject->hasFlags(RoadObjectFlags::isOneWay))
                 {
                     if (largestTownSize <= roadObject->targetTownSize)
                     {
@@ -1186,6 +1186,6 @@ namespace OpenLoco::ObjectManager
                 }
             }
         }
-        getGameState().lastTrackTypeOption = lastIndex;
+        getGameState().defaultTrackTypeObjectId = lastIndex;
     }
 }

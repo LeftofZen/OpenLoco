@@ -1,4 +1,4 @@
-#include "RemoveTrackMod.h"
+#include "GameCommands/Track/RemoveTrackMod.h"
 #include "Economy/Expenditures.h"
 #include "Map/TileManager.h"
 #include "Map/Track/TrackData.h"
@@ -10,7 +10,7 @@
 namespace OpenLoco::GameCommands
 {
     // 0x004A668A
-    static currency32_t removeTrackMod(const TrackModsRemovalArgs& args, uint8_t flags)
+    static currency32_t removeTrackMod(const TrackModsRemovalArgs& args, Flags flags)
     {
         setExpenditureType(ExpenditureType::Construction);
         setPosition(args.pos + World::Pos3(16, 16, 0));
@@ -57,12 +57,12 @@ namespace OpenLoco::GameCommands
 
         if (elTrack == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if (!sub_431E6A(elTrack->owner(), reinterpret_cast<const World::TileElement*>(elTrack)))
+        if (!checkCompanyCompatibility(elTrack->owner(), *elTrack))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         const auto& piece = World::TrackData::getTrackPiece(elTrack->trackId())[elTrack->sequenceIndex()];
@@ -78,8 +78,8 @@ namespace OpenLoco::GameCommands
         return cost;
     }
 
-    void removeTrackMod(registers& regs)
+    void removeTrackMod(registers& regs, const Flags flags)
     {
-        regs.ebx = removeTrackMod(TrackModsRemovalArgs(regs), regs.bl);
+        regs.ebx = removeTrackMod(TrackModsRemovalArgs(regs), flags);
     }
 }

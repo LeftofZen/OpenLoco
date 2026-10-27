@@ -1,4 +1,4 @@
-#include "RemoveRoadMod.h"
+#include "GameCommands/Road/RemoveRoadMod.h"
 #include "Economy/Expenditures.h"
 #include "Map/RoadElement.h"
 #include "Map/TileManager.h"
@@ -10,7 +10,7 @@
 namespace OpenLoco::GameCommands
 {
     // 0x0047A42F
-    static currency32_t removeRoadMod(const RoadModsRemovalArgs& args, uint8_t flags)
+    static currency32_t removeRoadMod(const RoadModsRemovalArgs& args, Flags flags)
     {
         setExpenditureType(ExpenditureType::Construction);
         setPosition(args.pos + World::Pos3(16, 16, 0));
@@ -57,12 +57,12 @@ namespace OpenLoco::GameCommands
 
         if (elRoad == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if (!sub_431E6A(elRoad->owner(), reinterpret_cast<const World::TileElement*>(elRoad)))
+        if (!checkCompanyCompatibility(elRoad->owner(), *elRoad))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         const auto& piece = World::TrackData::getRoadPiece(elRoad->roadId())[elRoad->sequenceIndex()];
@@ -78,8 +78,8 @@ namespace OpenLoco::GameCommands
         return cost;
     }
 
-    void removeRoadMod(registers& regs)
+    void removeRoadMod(registers& regs, const Flags flags)
     {
-        regs.ebx = removeRoadMod(RoadModsRemovalArgs(regs), regs.bl);
+        regs.ebx = removeRoadMod(RoadModsRemovalArgs(regs), flags);
     }
 }

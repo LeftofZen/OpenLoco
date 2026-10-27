@@ -1,4 +1,4 @@
-#include "RemoveBuilding.h"
+#include "GameCommands/Buildings/RemoveBuilding.h"
 #include "Economy/Economy.h"
 #include "GameCommands/GameCommands.h"
 #include "Localisation/FormatArguments.hpp"
@@ -35,7 +35,7 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x0042D74E
-    static uint32_t removeBuilding(World::Pos3& pos, uint8_t flags)
+    static uint32_t removeBuilding(World::Pos3& pos, Flags flags)
     {
         GameCommands::setExpenditureType(ExpenditureType::Construction);
         GameCommands::setPosition(pos);
@@ -58,13 +58,13 @@ namespace OpenLoco::GameCommands
             const auto* buildingObj = elBuilding->getObject();
             if (!SceneManager::isEditorMode())
             {
-                if ((flags & (GameCommands::Flags::ghost | GameCommands::Flags::flag_7)) == 0)
+                if (!hasFlags(flags, GameCommands::Flags::ghost | GameCommands::Flags::flag_7))
                 {
                     bool isPlayerCompany = CompanyManager::isPlayerCompany(GameCommands::getUpdatingCompanyId());
                     if (!(SceneManager::isSandboxMode() && isPlayerCompany) && buildingObj->hasFlags(BuildingObjectFlags::indestructible))
                     {
                         GameCommands::setErrorText(StringIds::demolition_not_allowed);
-                        return GameCommands::FAILURE;
+                        return GameCommands::kFailure;
                     }
 
                     if (!buildingObj->hasFlags(BuildingObjectFlags::miscBuilding))
@@ -77,7 +77,7 @@ namespace OpenLoco::GameCommands
                             auto formatArgs = FormatArguments::common();
                             formatArgs.push(town->name);
                             GameCommands::setErrorText(StringIds::local_authority_refuses_permission);
-                            return GameCommands::FAILURE;
+                            return GameCommands::kFailure;
                         }
                     }
                 }
@@ -101,9 +101,9 @@ namespace OpenLoco::GameCommands
                         continue;
                     }
 
-                    if (flags & GameCommands::Flags::apply)
+                    if (hasFlags(flags, GameCommands::Flags::apply))
                     {
-                        World::TileManager::removeBuildingElement(subElBuilding->get<World::BuildingElement>(), subTilePos);
+                        World::TileManager::removeBuildingElement(element, subTilePos);
                         auto& options = Scenario::getOptions();
                         options.madeAnyChanges = 1;
                     }
@@ -111,12 +111,12 @@ namespace OpenLoco::GameCommands
             }
             return Economy::getInflationAdjustedCost(buildingObj->clearCostFactor, buildingObj->clearCostIndex, 8);
         }
-        return GameCommands::FAILURE;
+        return GameCommands::kFailure;
     }
 
-    void removeBuilding(registers& regs)
+    void removeBuilding(registers& regs, const Flags flags)
     {
         BuildingRemovalArgs args(regs);
-        regs.ebx = removeBuilding(args.pos, regs.bl);
+        regs.ebx = removeBuilding(args.pos, flags);
     }
 }

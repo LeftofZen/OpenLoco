@@ -1,8 +1,8 @@
-#include "VehicleSell.h"
+#include "GameCommands/Vehicles/VehicleSell.h"
 #include "Entities/EntityManager.h"
 #include "GameCommands/GameCommands.h"
-#include "VehiclePickupAir.h"
-#include "VehiclePickupWater.h"
+#include "GameCommands/Vehicles/VehiclePickupAir.h"
+#include "GameCommands/Vehicles/VehiclePickupWater.h"
 #include "Vehicles/Vehicle.h"
 #include "Vehicles/VehicleBody.h"
 #include "Vehicles/VehicleBogie.h"
@@ -14,7 +14,7 @@ using namespace OpenLoco::Vehicles;
 
 namespace OpenLoco::GameCommands
 {
-    static currency32_t sellVehicle(EntityId id, uint8_t flags)
+    static currency32_t sellVehicle(EntityId id, Flags flags)
     {
         setExpenditureType(ExpenditureType::VehicleDisposals);
 
@@ -22,13 +22,13 @@ namespace OpenLoco::GameCommands
         auto* vehBase = EntityManager::get<VehicleBase>(id);
         if (vehBase == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
         auto* head = EntityManager::get<VehicleHead>(vehBase->getHead());
         if (head == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
         Vehicle train(*head);
         if (head == vehBase)
@@ -43,12 +43,12 @@ namespace OpenLoco::GameCommands
             auto* bogie = vehBase->asVehicleBogie();
             if (bogie == nullptr)
             {
-                return FAILURE;
+                return kFailure;
             }
             refundCost = bogie->refundCost;
         }
 
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
             if (head == vehBase)
             {
@@ -111,14 +111,14 @@ namespace OpenLoco::GameCommands
         }
         else
         {
-            if (!sub_431E6A(vehBase->owner))
+            if (!checkCompanyCompatibility(vehBase->owner))
             {
-                return FAILURE;
+                return kFailure;
             }
             if (!head->canBeModified())
             {
                 // Error message set by canBeModified
-                return FAILURE;
+                return kFailure;
             }
             setPosition(head->position);
         }
@@ -126,8 +126,8 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x004AED34
-    void sellVehicle(registers& regs)
+    void sellVehicle(registers& regs, const Flags flags)
     {
-        regs.ebx = sellVehicle(EntityId(regs.dx), regs.bl);
+        regs.ebx = sellVehicle(EntityId(regs.dx), flags);
     }
 }

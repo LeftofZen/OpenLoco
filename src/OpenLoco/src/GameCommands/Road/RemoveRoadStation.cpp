@@ -1,4 +1,4 @@
-#include "RemoveRoadStation.h"
+#include "GameCommands/Road/RemoveRoadStation.h"
 #include "Economy/Economy.h"
 #include "Map/RoadElement.h"
 #include "Map/StationElement.h"
@@ -52,8 +52,8 @@ namespace OpenLoco::GameCommands
 
     struct RoadElements
     {
-        World::RoadElement* begin;
-        World::TileElementBase* end;
+        World::TileElementEntry* begin;
+        World::TileElementEntry* end;
     };
 
     static RoadElements getRoadElementsRange(const World::Pos3& roadLoc)
@@ -79,17 +79,17 @@ namespace OpenLoco::GameCommands
                 }
                 continue;
             }
-            range.end = elRoad->next();
+            range.end = el.next();
             if (range.begin == nullptr)
             {
-                range.begin = elRoad;
+                range.begin = &el;
             }
         }
         return range;
     }
 
     // 0x0048D2AC
-    static currency32_t removeRoadStation(const RoadStationRemovalArgs& args, const uint8_t flags)
+    static currency32_t removeRoadStation(const RoadStationRemovalArgs& args, const Flags flags)
     {
         setExpenditureType(ExpenditureType::Construction);
         setPosition(args.pos + World::Pos3(16, 16, 0));
@@ -99,13 +99,13 @@ namespace OpenLoco::GameCommands
         auto* initialElRoad = getElRoad(args.pos, args.rotation, args.roadObjectId, args.roadId, args.index);
         if (initialElRoad == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
         // No station element on this road?
         if (!initialElRoad->hasStationElement())
         {
-            return FAILURE;
+            return kFailure;
         }
 
         // Find the station element for an ownership check
@@ -114,19 +114,19 @@ namespace OpenLoco::GameCommands
             const auto roadRange = getRoadElementsRange(args.pos);
             if (roadRange.begin == nullptr || roadRange.end == nullptr)
             {
-                return FAILURE;
+                return kFailure;
             }
-            World::StationElement* stationEl = roadRange.end->as<World::StationElement>();
+            auto* stationEl = roadRange.end->as<World::StationElement>();
 
             if (stationEl == nullptr)
             {
-                return FAILURE;
+                return kFailure;
             }
 
             // NB: vanilla would query owner from station struct, not the station element
-            if (!sub_431E6A(stationEl->owner(), reinterpret_cast<const World::TileElement*>(stationEl)))
+            if (!checkCompanyCompatibility(stationEl->owner(), *stationEl))
             {
-                return FAILURE;
+                return kFailure;
             }
         }
 
@@ -144,12 +144,13 @@ namespace OpenLoco::GameCommands
             const auto roadRange = getRoadElementsRange(args.pos);
             if (roadRange.begin == nullptr || roadRange.end == nullptr)
             {
-                return FAILURE;
+                return kFailure;
             }
-            World::StationElement* stationEl = roadRange.end->as<World::StationElement>();
+            auto* stationEntry = roadRange.end;
+            auto* stationEl = stationEntry->as<World::StationElement>();
             if (stationEl == nullptr)
             {
-                return FAILURE;
+                return kFailure;
             }
 
             if (stationEl->isGhost())
@@ -166,19 +167,23 @@ namespace OpenLoco::GameCommands
                 totalCost += (removeCostBase * World::TrackData::getRoadMiscData(args.roadId).costFactor) / 256;
             }
 
-            if ((flags & Flags::apply) != 0)
+            if (hasFlags(flags, Flags::apply))
             {
-                for (auto* elRoad = roadRange.begin; elRoad != roadRange.end; ++elRoad)
+                for (auto* roadEntry = roadRange.begin; roadEntry != roadRange.end; ++roadEntry)
                 {
-                    elRoad->setHasStationElement(false);
-                    elRoad->setClearZ(elRoad->clearZ() - stationObj->height);
+                    auto* elRoad = roadEntry->as<World::RoadElement>();
+                    if (elRoad != nullptr)
+                    {
+                        elRoad->setHasStationElement(false);
+                        elRoad->setClearZ(elRoad->clearZ() - stationObj->height);
+                    }
                 }
                 Ui::ViewportManager::invalidate(World::Pos2(roadLoc), stationEl->baseHeight(), stationEl->clearHeight(), ZoomLevel::eighth);
-                World::TileManager::removeElement(*reinterpret_cast<World::TileElement*>(stationEl));
+                World::TileManager::removeElement(*stationEntry);
             }
         }
 
-        if (updateStationTileRegistration && (flags & Flags::apply) != 0)
+        if (updateStationTileRegistration && hasFlags(flags, Flags::apply))
         {
             auto* station = StationManager::get(foundStationId);
             removeTileFromStation(foundStationId, roadStart, args.rotation);
@@ -193,8 +198,8 @@ namespace OpenLoco::GameCommands
         return totalCost;
     }
 
-    void removeRoadStation(registers& regs)
+    void removeRoadStation(registers& regs, const Flags flags)
     {
-        regs.ebx = removeRoadStation(RoadStationRemovalArgs(regs), regs.bl);
+        regs.ebx = removeRoadStation(RoadStationRemovalArgs(regs), flags);
     }
 }

@@ -7,6 +7,8 @@ set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 set (PROJECT openloco)
 
+set(VCPKG_GIT_TAG d015e31e90838a4c9dfa3eed45979bc70d9357fc)
+
 # Store the top level source directory in a variable to be passed down to targets.
 set(OPENLOCO_PROJECT_PATH ${CMAKE_SOURCE_DIR})
 
@@ -45,7 +47,8 @@ if (OPENLOCO_USE_VCPKG)
         endif ()
         FetchContent_Declare(vcpkg
             GIT_REPOSITORY https://github.com/microsoft/vcpkg.git
-            GIT_TAG 89dc8be6dbcf18482a5a1bf86a2f4615c939b0fb)
+            GIT_TAG ${VCPKG_GIT_TAG}
+        )
         FetchContent_MakeAvailable(vcpkg)
 
         set(CMAKE_TOOLCHAIN_FILE "${vcpkg_SOURCE_DIR}/scripts/buildsystems/vcpkg.cmake"
@@ -53,7 +56,7 @@ if (OPENLOCO_USE_VCPKG)
     endif()
 endif ()
 
-project(${PROJECT} LANGUAGES CXX VERSION 25.12)
+project(${PROJECT} LANGUAGES CXX VERSION 26.09)
 
 # Enable IPO for all Release targets by default
 include(CheckIPOSupported)
@@ -65,6 +68,14 @@ if(ipo_supported)
     message(STATUS "IPO/LTO enabled for all Release targets.")
 else()
     message(WARNING "IPO/LTO not supported: ${ipo_error}")
+endif()
+
+# libstdc++ doesn't have standalone <execution> support so if using libstdc++ we need to
+# link against TBB
+include(CheckCXXSymbolExists)
+check_cxx_symbol_exists(__GLIBCXX__  version HAS_LIBSTDCPP)
+if (HAS_LIBSTDCPP)
+    message(STATUS "libstdc++ detected will require linking with TBB")
 endif()
 
 if (NOT CMAKE_CXX_STANDARD)
@@ -86,6 +97,11 @@ option(STRICT "Build with warnings as errors" YES)
 option(OPENLOCO_BUILD_TESTS "Build tests" YES)
 option(OPENLOCO_HEADER_CHECK "Verify all public interfaces are standalone" NO)
 
+if (APPLE)
+    # Enable the use of e.g. std::execution::par
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexperimental-library")
+endif ()
+
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH}")
 
 # Display source files nicely in IDEs
@@ -103,8 +119,8 @@ if (${OPENLOCO_BUILD_TESTS})
 endif()
 
 FetchContent_Declare(openloco_objects
-            URL      https://github.com/OpenLoco/OpenGraphics/releases/download/v0.1.6/objects.zip
-            URL_HASH SHA256=4cea1ab77131650b5475b489445ce65c275b3a23b921456afda4d9c5c83e580c)
+            URL      https://github.com/OpenLoco/OpenGraphics/releases/download/v0.1.12/objects.zip
+            URL_HASH SHA256=9e6596aaa52b2296cfc779bbe3aab01d0fb37ef61fcb23cd0e5ff4d2b9e846ca)
 FetchContent_MakeAvailable(openloco_objects)
 
 add_subdirectory(src)
@@ -113,50 +129,23 @@ if (NOT APPLE)
     if (${CMAKE_VERSION} VERSION_GREATER 3.26)
         # Uses the copy_directory_if_different to avoid copying objects/language every time (3.26 feature)
         add_custom_target(OpenLocoAssets ALL
-            COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data" "$<TARGET_FILE_DIR:OpenLoco>/data"
-            COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${openloco_objects_SOURCE_DIR}" "$<TARGET_FILE_DIR:OpenLoco>/data/objects"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data" "$<TARGET_FILE_DIR:App>/data"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${openloco_objects_SOURCE_DIR}" "$<TARGET_FILE_DIR:App>/data/objects"
             COMMENT "Copying over data and objects folder"
         )
     else()
         add_custom_target(OpenLocoAssets ALL
-            COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/data" "$<TARGET_FILE_DIR:OpenLoco>/data"
-            COMMAND ${CMAKE_COMMAND} -E copy_directory "${openloco_objects_SOURCE_DIR}" "$<TARGET_FILE_DIR:OpenLoco>/data/objects"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/data" "$<TARGET_FILE_DIR:App>/data"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${openloco_objects_SOURCE_DIR}" "$<TARGET_FILE_DIR:App>/data/objects"
             COMMENT "Copying over data and objects folder"
         )
     endif()
-    add_dependencies(OpenLoco OpenLocoAssets)
+    add_dependencies(App OpenLocoAssets)
     set_target_properties(OpenLocoAssets PROPERTIES PROJECT_LABEL "Assets")
 endif()
 
-set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT OpenLoco)
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT App)
 
-install(TARGETS OpenLoco
+install(TARGETS App
     RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-    BUNDLE DESTINATION "${CMAKE_INSTALL_BINDIR}")
-
-if (UNIX AND NOT APPLE)
-    install(FILES "CHANGELOG.md" DESTINATION "${CMAKE_INSTALL_DOCDIR}")
-    install(FILES "CONTRIBUTORS.md" DESTINATION "${CMAKE_INSTALL_DOCDIR}")
-    install(FILES "LICENSE" DESTINATION "${CMAKE_INSTALL_DOCDIR}")
-    install(FILES "README.md" DESTINATION "${CMAKE_INSTALL_DOCDIR}")
-
-    install(FILES "distribution/linux/openloco.desktop" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
-    install(FILES "src/Resources/src/logo/icon_x16.png" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/16x16/apps" RENAME "openloco.png")
-    install(FILES "src/Resources/src/logo/icon_x32.png" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/32x32/apps" RENAME "openloco.png")
-    install(FILES "src/Resources/src/logo/icon_x64.png" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/64x64/apps" RENAME "openloco.png")
-    install(FILES "src/Resources/src/logo/icon_x128.png" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/128x128/apps" RENAME "openloco.png")
-    install(FILES "src/Resources/src/logo/icon_x256.png" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/256x256/apps" RENAME "openloco.png")
-    install(FILES "src/Resources/src/logo/icon_x512.png" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/512x512/apps" RENAME "openloco.png")
-    install(FILES "src/Resources/src/logo/icon_steam.svg" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps" RENAME "openloco.svg")
-endif()
-
-if (NOT APPLE)
-    install(DIRECTORY "data/" DESTINATION "${CMAKE_INSTALL_BINDIR}/data")
-    install(DIRECTORY "${openloco_objects_SOURCE_DIR}" DESTINATION "${CMAKE_INSTALL_BINDIR}/data/objects")
-endif()
-
-# Apple bundle is declared in OpenLoco subproject CMakeLists
-# TODO: rework
-if (APPLE)
-    install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" DESTINATION "${CMAKE_INSTALL_BINDIR}")
-endif()
+    BUNDLE DESTINATION ".")

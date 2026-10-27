@@ -1,7 +1,160 @@
-25.12+ (???)
+26.09+ (???)
 ------------------------------------------------------------------------
+- Change: [#4033] Objects marked with source OpenLoco (OpenGraphics) are no longer exported in scenario or save files.
+- Change: [#4041] Vehicle colours are now reset to the target company's when using the company takeover cheat.
+- Change: [#4041] Invisible 'planned' AI company track is no longer inherited when using the company takeover cheat.
+- Change: [#4041] The original AI company is now shut down after using the company takeover cheat.
+- Fix: [#2879] Crash when starting the game with an empty openloco.yaml file.
+- Fix: [#4027] Crash when starting the game with malformed YAML schema.
+- Fix: [#4037] Cannot delete road stations acquired with the 'acquire all company assets' cheat.
+- Fix: [#4061] Creating industries does not select a random colour (vanilla bug).
+- Fix: [#4063] AI fails to create road at some rotations (vanilla bug).
+- Fix: [#4063] Road path finding uses incorrect values for road length (vanilla bug).
+- Fix: [#4063] Incorrect vehicle speed calculation (vanilla bug).
+- Fix: [#4063] Town expansion does not raise/lower certain land corners (vanilla bug).
+
+26.09 (2026-09-18)
+------------------------------------------------------------------------
+- Feature: [#3942] Added a tooltip to show the drag dimensions when using area selection tools.
+- Feature: [#3978] Improved automatic detection of Locomotion installs on Linux.
+- Feature: [#4023] Add OpenGraphics North American Expansion vehicles! And vanilla replacements for various bus', American horn sound, American region, overhead wires, train station 3! And updated OG_PCARUS2, OG_ALOCENT, OG_DASH7 OG_SD70MAC, OG_E8.
+- Change: [#3867] Repeated presses of the build tracks and build roads keyboard shortcuts now cycles track/road types.
+- Change: [#3967] English localisations now use typographically correct curved single quotes.
+- Change: [#3973] Game already running error message now says "OpenLoco" instead of "Chris Sawyer's Locomotion".
+- Change: [#3974] The vehicle list can now be filtered by vehicles that transport cargo, rather than just 'wait for' orders.
+- Change: [#3995] On POSIX/Linux/BSD, OpenLoco will now look in /usr/share/openloco for its application data.
+- Fix: [#2753] Unable to remove walls and trees at heights above 127.
+- Fix: [#2992] Track and Road additions may incorrectly draw on some curves.
+- Fix: [#3112] Scenario challenge is not failed when exceeding its time limit.
+- Fix: [#3332] Incorrect curve and slope options appear for one frame when right-clicking on track or road.
+- Fix: [#3676] Roads added using object selection window could not be used by vehicles.
+- Fix: [#3943] Unable to place or remove signals on multi tile track elements.
+- Fix: [#3955] Terraform window can break dimensions of construction window.
+- Fix: [#3987] Unable to remove multi tile stations if one of the stations is for trams.
+- Fix: [#3991] Average speed of journey is counted even if the vehicle was picked up and moved.
+- Fix: [#4006] Crash when generating mouse over tooltip of a building on a corrupted save.
+
+26.08 (2026-08-13)
+------------------------------------------------------------------------
+- Feature: [#139, #3775] Added signal placement and removal at fixed step distance along a track block.
+- Feature: [#3872] Added an option to align the top toolbar buttons horizontally centred (off by default).
+- Feature: [#3932] Add OpenGraphics replacement for train station 2 and adjust balance of some of the vehicles.
+- Change: [#3815] The keyboard shortcuts window is now separated into groups, and can now be resized.
+- Change: [#3863] The toolbar buttons can now be set to open on click instead of hover.
+- Change: [#3903] Updated the macOS app icon to match the new Liquid Glass style.
+- Fix: [#2082] Scrollbars can be overdrawn when certain windows are resized but their scrollview is not.
+- Fix: [#2983] Can no longer scroll to adjust terraform tool size widgets.
+- Fix: [#3534] The minimum landscape height can be set to 0 in the landscape generator, while 1 is expected.
+- Fix: [#3566] The 'Only generate landscape when game starts' option remains in effect when switching to PNG heightmaps.
+- Fix: [#3597] News messages don't update viewport/image position correctly between messages.
+- Fix: [#3676] Fix bug where last land variation sprite went unused (original bug).
+- Fix: [#3795] Window layout changes prevent tutorials from playing correctly.
+- Fix: [#3855] UI invalidation issue when using switch company cheat.
+- Fix: [#3856] News ticker uses double the line height.
+- Fix: [#3858] Save file details can overflow the file browser window at minimum height.
+- Fix: [#3860] Viewport panning is broken during tutorial playback.
+- Fix: [#3861] The news sound setting is not read properly from the config file.
+- Fix: [#3888] Bridges can be drawn over tall buildings, industries and stations (original bug).
+- Fix: [#3890] On Linux/POSIX, setting the game path does not work correctly if it contains spaces.
+- Fix: [#3899] The custom jukebox playlist is not initialised properly for new config files.
+- Fix: [#3906] Random landscapes have their land types applied incorrectly due to incorrect 'near water' and 'around cliffs' conditions.
+
+26.07.1 (2026-07-27)
+------------------------------------------------------------------------
+- Fix: [#3524] Jittery window height in the 'gridded' tabs of the industry list, town list, and terraform windows.
+- Fix: [#3841] Extreme lag when a map reaches the maximum number of audio sources (e.g. many vehicles in view).
+- Fix: [#3842] Native browse prompt not working on Windows, preventing selecting the Locomotion path on first start.
+- Fix: [#3846] Can click beyond last item in station and company list windows, opening invalid windows.
+
+26.07 (2026-07-26)
+------------------------------------------------------------------------
+- Feature: [#3569] Add a "home" button to the browse prompt window.
+- Feature: [#3760] Add amount of cargo awaiting processing and transport to the industry window.
+- Feature: [#3768] Add tab to town window to show delivered cargo last month.
+- Feature: [#3805] Keyboard shortcuts can now combine multiple modifiers, including left and right Ctrl and Alt.
+- Feature: [#3813] Add OpenGraphics replacements for town names, trams, tracks, roads and a large number of trains.
+- Feature: [#3836] Add new double and quadruple viewport zoom levels.
+- Change: [#3740] Options that interfere with tutorial operation are temporarily disabled options during playback.
+- Change: [#3777] Jukebox can now be toggled and opened from the options window, grouped together with the title screen music toggle.
+- Fix: [#2956] Roads drawn over cliffs can have a visible gap (original bug).
+- Fix: [#3525] The grid cell borders in the terraform window overlap subtly with their contents.
+- Fix: [#3573] Town population graphs values draw overflow if the line is outside the viewable part of the window.
+- Fix: [#3776] Unchecking "Play Music" from the top toolbar does not invalidate Jukebox window.
+- Fix: [#3790] Some windows (e.g. town population) don't have a window resize handle in the bottom-right corner.
+- Fix: [#3802] Fix some spelling mistakes in the en-GB and en-US translations.
+- Fix: [#3828] The vehicle list is not refreshed when applying a cargo filter.
+
+26.05 (2026-05-30)
+------------------------------------------------------------------------
+- Feature: [#3720] A preferred company name can now be set, separate from the preferred owner name.
+- Change: [#3517] Letters with unsupported diacritics/accents are temporarily replaced with regular letters to keep e.g. Czech, Slovak readable.
+- Change: [#3710] The Build Vehicle window is now wider by default, moving the sorting options to a dedicated dropdown.
+- Change: [#3734] The Station Construction tab now lists accepted and produced cargo in full, with labels along the icons.
+- Change: [#3735] The Station window now shows a tooltip for accepted cargo types when pointing at their icons.
+- Fix: [#3651] Industry and town lists are not cleared immediately when generating a new landscape in the editor.
+- Fix: [#3727] Removing a vehicle/station/industry/town while the respective list window is open can crash the game.
+- Fix: [#3730] Checkbox widget labels are not limited to their designated width.
+
+26.04 (2026-04-29)
+------------------------------------------------------------------------
+- Feature: [#1438] Add basic blueprint feature for copy, paste and rotate railroad track.
+- Feature: [#3591] Cheat to keep cargo when picking up a vehicle or modifying a vehicle's components.
+- Feature: [#3639] The Locomotion title screen music can now be listened to during scenario play.
+- Change: [#3594] More sorting options when building vehicles.
+- Change: [#3702, #3703, #3704, #3705] Improved performance for vehicle, industry, town, station, and company lists.
+- Change: [#3707] The music jukebox has been moved from the options window to its own, with an optional keyboard shortcut.
+- Fix: [#2248, #3681] Newly placed signals can incorrectly update track network.
+- Fix: [#3029] Even when audio is muted, the game continues to advance the jukebox playlist.
+- Fix: [#3173] Having multiple (station) vehicle lists open at once may cause duplicates and/or flashing listings.
+- Fix: [#3183] Sound and music being unpaused when the game is still paused in certain situations.
+- Fix: [#3334] Auto order of cars with centrePosition flag incorrectly calculated.
+- Fix: [#3467] 'Menu' key is not localised in the keyboard shortcuts list.
+- Fix: [#3634] Invalidation issue when show AI planning is turned off.
+- Fix: [#3638] Loan can go negative.
+- Fix: [#3655] Incorrect scaffolding preview image in object selection window.
+- Fix: [#3694] Crash when starting bus/truck immediately behind another bus/truck (original bug).
+- Fix: [#3721] Potential crash when dragging a vehicle component in a vehicle window.
+
+26.03.1 (2026-04-01)
+------------------------------------------------------------------------
+- Fix: [#3684] Rotating the camera can make entities such as vehicles disappear if they don't move.
+
+26.03 (2026-03-31)
+------------------------------------------------------------------------
+- Feature: [#3678] Audio volume can now be set separately by channel.
+- Change: [#2882, #3671] Migrate to SDL3.
+- Change: [#3678] Vehicle sounds now use reverb when entering or leaving a tunnel.
+- Fix: [#3312] Dragging around vehicles leaves pixels on-screen from the preview.
+- Fix: [#3657] All news settings default to disabled instead of newspaper style.
+- Fix: [#3659] Using relative paths as Locomotion path causes certain data not to load.
+
+26.02 (2026-02-28)
+------------------------------------------------------------------------
+- Fix: [#2205] Crash when hovering over stations with the order tab open.
+- Fix: [#3626] The vsync setting is not saved correctly.
+- Fix: [#3627] Race condition on secondary palette map causing constant alternating colors on vehicles and other things.
+- Fix: [#3629] MacOS builds are missing open graphics objects.
+- Fix: [#3652] Can click beyond last item in town and industry list windows, opening invalid windows.
+
+26.01 (2026-01-30)
+------------------------------------------------------------------------
+- Feature: [#2825] Drawing the viewport canvas now uses parallel processing where possible.
+- Feature: [#3588] Optionally limit the frame rate to the display's vsync.
 - Change: [#3577] PNG heightmaps of any size are now supported and use interpolation when the image size differs from the map size.
+- Change: [#3596] Confirmation prompts can now be confirmed with return/enter keys.
+- Change: [#3607] Moving a component within a vehicle (or between vehicles) now asks for confirmation if the vehicle contains any cargo.
+- Change: [#3617] Cloning a vehicle is now always classified as a vehicle purchase.
+- Fix: [#2863] The top toolbar widgets don't visually 'activate' when the mouse pointer is hovering over them.
+- Fix: [#2875] Select Company widget placed and displayed incorrectly in the Cargo Delivered tab.
+- Fix: [#3028] Odd stepper behaviour when adjusting cargo scenario objective target.
+- Fix: [#3268] Removing bridges built by towns gives you a refund.
 - Fix: [#3577] Crash loading PNGs with unexpected color formats or channel configurations as heightmaps.
+- Fix: [#3581] Remove sprite drawing limit that caused visual artifacts on high resolution displays and complex maps.
+- Fix: [#3584] First station of a vehicle's route not removed from vehicle orders when that station is deallocated.
+- Fix: [#3603] Error popup for trying to pick up a broken down or crashed vehicle shows missing string.
+- Fix: [#3605] Some widgets don't appear pressed when clicked.
+- Fix: [#3609] Vehicle details window for ships and planes shows length info outside the window.
+- Fix: [#3610] AI companies unable to cheat expenditures.
 
 25.12 (2025-12-20)
 ------------------------------------------------------------------------
@@ -36,7 +189,7 @@
 - Change: [#2914, #3179, #3369] Object Selection window is now modal when in play mode.
 - Change: [#3323] Refitting a vehicle or removing components from it now asks for confirmation if the vehicle contains any cargo.
 - Fix: [#2797] Single player scenario scores reset when adding a new scenario.
-- Fix: [#3032] Toggling "Play Music" from the top toolbar does not refresh the status in the options window.
+- Fix: [#3032] Toggling "Play Music" from the top toolbar does not refresh the status in the options window (original bug).
 - Fix: [#3200] Certain formatting control codes can be typed in text boxes.
 - Fix: [#3281] Modifying the news options does not trigger a config file write, potentially losing the changes.
 - Fix: [#3314] Players can remove roads owned by other companies.
@@ -65,6 +218,7 @@
 25.08 (2025-08-26)
 ------------------------------------------------------------------------
 - Change: [#1682, #3216] Scroll widgets now support much larger sizes.
+- Change: [#3052] Add refund for removing bridges.
 - Change: [#3104] Landscape generation confirmation prompts now prevent you from clicking other windows until a choice is made.
 - Change: [#3193] The minimum size of the map window was changed to accommodate all elements.
 - Fix: [#3019] Mouse getting stuck on edges of monitor when right mouse dragging scroll views.
@@ -272,7 +426,7 @@
 
 24.03 (2024-03-30)
 ------------------------------------------------------------------------
-- Feature: [#126] Station size limitations can now be disabled (though still max 80 tiles per station).
+- Feature: [#358] Station size limitations can now be disabled (though still max 80 tiles per station).
 - Feature: [#1941] Landscapes can now be generated directly from 384x384 PNG images.
 - Feature: [#2331] Allow setting a preferred owner face to be used for new games.
 - Change: [#2324] Loading and saving landscapes now defaults to the OpenLoco user folder.

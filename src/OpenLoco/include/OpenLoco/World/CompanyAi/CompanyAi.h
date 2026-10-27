@@ -1,0 +1,161 @@
+#pragma once
+
+#include <OpenLoco/Core/EnumFlags.hpp>
+#include <OpenLoco/Economy/Currency.h>
+#include <OpenLoco/Engine/World.hpp>
+#include <OpenLoco/Types.hpp>
+
+namespace OpenLoco
+{
+    enum class AiThinkState : uint8_t
+    {
+        unk0,
+        unk1,
+        unk2,
+        unk3,
+        // Converts AI allocated assets to real owned assets and purchases vehicles
+        //
+        // Will progress through the following sub states:
+        //  0 Convert AI allocated stations (including ports/airports)
+        //  1 Convert AI allocated road/track
+        //  2 Purchase vehicles
+        //  3 Prepare vehicles for placement
+        // On completion will set to state 0 for further thinking
+        convertAiAllocated,
+        unk5, // Unused
+        // Undo's partial actions from other states removing partial vehicle purchases,
+        // tracks/roads and ai allocated assets from company.
+        //
+        // Will progress through the following sub states:
+        //  0 Sell vehicles
+        //  1 Sell stations (excluding ports/airports), road, track
+        //  2 Sell stray ai allocated road/track iterates whole map
+        //  3 Sell ai allocated stations (including ports/airports)
+        //  4 Clear the thought
+        // Can start from any of the sub states above
+        // Failure state, thought will be cleared after completion of state
+        undoPartialAction,
+        // Sells off all land based assets of the thought
+        //
+        // Will progress through the following sub states:
+        //  0 Sell vehicles
+        //  1 Sell stations (excluding ports/airports), road, track
+        //  2 Clear the thought
+        // Failure state, thought will be cleared after completion of state
+        sellOffLandAssets,
+        unk8,
+        unk9, // Unused
+        endCompany,
+    };
+
+    enum class AiPlaceVehicleState : uint8_t
+    {
+        begin,
+        resetList,
+        place,
+        restart,
+    };
+
+    enum class AiThoughtType : uint8_t
+    {
+        unk0,
+        unk1,
+        unk2,
+        unk3,
+        unk4,
+        unk5,
+        unk6,
+        unk7,
+        unk8,
+        unk9,
+        unk10,
+        unk11,
+        unk12,
+        unk13,
+        unk14,
+        unk15,
+        unk16,
+        unk17,
+        unk18,
+        unk19,
+
+        null = 0xFF
+    };
+    constexpr auto kAiThoughtTypeCount = 20U;
+
+    enum class AiThoughtStationFlags : uint8_t
+    {
+        none = 0U,
+
+        aiAllocated = 1U << 0,
+        operational = 1U << 1,
+    };
+    OPENLOCO_ENABLE_ENUM_OPERATORS(AiThoughtStationFlags);
+
+    enum class AiPurchaseFlags : uint8_t
+    {
+        none = 0,
+        unk0 = 1U << 0,
+        unk1 = 1U << 1,
+        unk2 = 1U << 2,
+        requiresMods = 1U << 3, // can be track or road mods
+        unk4 = 1U << 4,
+    };
+    OPENLOCO_ENABLE_ENUM_OPERATORS(AiPurchaseFlags);
+
+    constexpr auto kMaxAiThoughts = 60U;
+    constexpr auto kAiThoughtIdNull = 0xFFU;
+
+    struct AiThought
+    {
+        struct Station
+        {
+            StationId id;                // 0x0
+            AiThoughtStationFlags flags; // 0x2
+            uint8_t rotation;            // 0x3
+            World::Pos2 pos;             // 0x4
+            uint8_t baseZ;               // 0x8
+            uint8_t nextStationIndex;    // 0x9
+            uint8_t prevStationIndex;    // 0xA
+            uint8_t connectionFlagsA;    // 0xB
+            uint8_t connectionFlagsB;    // 0xC
+
+            constexpr bool hasFlags(AiThoughtStationFlags thoughtFlags) const { return (this->flags & thoughtFlags) != AiThoughtStationFlags::none; }
+        };
+        AiThoughtType type;            // 0x00 0x4A8
+        uint8_t destinationA;          // 0x01 0x4A9 either a TownId or IndustryId
+        uint8_t destinationB;          // 0x02 0x4AA either a TownId or IndustryId
+        uint8_t numStations;           // 0x03 0x4AB size of stations
+        uint8_t stationLength;         // 0x04 0x4AC station length
+        Station stations[4];           // 0x06 0x4AE Will lists stations created that vehicles will route to
+        uint8_t trackObjId;            // 0x3E 0x4E6 track or road (with high bit set)
+        uint8_t rackRailType;          // 0x3F 0x4E7 Is 0xFFU for no rack rail
+        uint16_t mods;                 // 0x40 0x4E8 track or road
+        uint8_t cargoType;             // 0x42 0x4EA
+        uint8_t numVehiclesTarget;     // 0x4EB
+        uint8_t numVehicles;           // 0x44 0x4EC size of vehicles
+        uint8_t numVehicleObjTypes;    // 0x4ED size of vehicleObjTypes
+        uint16_t vehicleObjTypes[16];  // 0x4EF array of uint16_t object id
+        EntityId vehicles[8];          // 0x66 0x50E see also numVehicles for current size
+        currency32_t totalCost;        // 0x51E
+        currency32_t totalRunningCost; // 0x524
+        currency32_t income;           // 0x528
+        currency32_t previousIncome;   // 0x52C
+        uint8_t thoughtAge;            // 0x530
+        uint8_t stationObjId;          // 0x89 0x531 Could be either Airport/Dock/TrainStation/RoadStation
+        uint8_t signalObjId;           // 0x8A 0x532 Can be 0xFFU for n
+        AiPurchaseFlags purchaseFlags; // 0x8B 0x533
+
+        constexpr bool hasPurchaseFlags(AiPurchaseFlags flags) const { return (purchaseFlags & flags) != AiPurchaseFlags::none; }
+
+        // Converts the TownId or IndustryId of destinationA into the center position of the destination.
+        World::Pos2 getDestinationPositionA() const;
+        // Converts the TownId or IndustryId of destinationB into the center position of the destination.
+        World::Pos2 getDestinationPositionB() const;
+    };
+
+    void aiThink(CompanyId id);
+
+    void setAiObservation(CompanyId id);
+    void removeEntityFromThought(AiThought& thought, EntityId id);
+}

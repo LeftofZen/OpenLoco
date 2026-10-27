@@ -1,4 +1,4 @@
-#include "VehicleReverse.h"
+#include "GameCommands/Vehicles/VehicleReverse.h"
 #include "Economy/Expenditures.h"
 #include "Entities/EntityManager.h"
 #include "GameCommands/GameCommands.h"
@@ -9,33 +9,33 @@
 namespace OpenLoco::GameCommands
 {
     // 0x004ADAA8
-    static uint32_t vehicleReverse(EntityId headId, const uint8_t flags)
+    static uint32_t vehicleReverse(EntityId headId, const Flags flags)
     {
         setExpenditureType(ExpenditureType::TrainRunningCosts);
 
         auto* head = EntityManager::get<Vehicles::VehicleHead>(headId);
         if (head == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if (!sub_431E6A(head->owner))
+        if (!checkCompanyCompatibility(head->owner))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         if (!head->canBeModified())
         {
-            return FAILURE;
+            return kFailure;
         }
 
         if (head->tileX == -1)
         {
             setErrorText(StringIds::empty);
-            return FAILURE;
+            return kFailure;
         }
 
-        if (!(flags & Flags::apply))
+        if (!hasFlags(flags, Flags::apply))
         {
             return 0;
         }
@@ -49,9 +49,9 @@ namespace OpenLoco::GameCommands
         return 0;
     }
 
-    void vehicleReverse(registers& regs)
+    void vehicleReverse(registers& regs, const Flags flags)
     {
         VehicleReverseArgs args(regs);
-        regs.ebx = vehicleReverse(args.head, regs.bl);
+        regs.ebx = vehicleReverse(args.head, flags);
     }
 }

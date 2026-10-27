@@ -1,0 +1,44 @@
+#pragma once
+
+#include <OpenLoco/Engine/Limits.h>
+#include <OpenLoco/Types.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <string_view>
+#include <utility>
+
+#ifdef small
+#error "small is defined, likely by windows.h"
+#endif
+
+namespace OpenLoco
+{
+    namespace StringIds
+    {
+        constexpr StringId null = 0xFFFF;
+    }
+}
+
+namespace OpenLoco::StringManager
+{
+    constexpr uint8_t kUserStringSize = 32;
+    constexpr uint16_t kUserStringsStart = 0x8000;
+    constexpr uint16_t kUserStringsEnd = kUserStringsStart + Limits::kMaxUserStrings;
+
+    constexpr uint16_t kBufferStringsStart = kUserStringsEnd;
+    constexpr uint16_t kBufferStringsEnd = kBufferStringsStart + 7;
+
+    constexpr uint16_t kMaxTownNames = 345;
+    constexpr uint16_t kTownNamesStart = 0x9EE7;
+    constexpr uint16_t kTownNamesEnd = kTownNamesStart + kMaxTownNames;
+
+    void reset();
+    const char* swapString(StringId id, const char* src);
+    const char* getString(StringId id);
+    char* getBufferString(StringId id);
+
+    StringId userStringAllocate(char* str, bool mustBeUnique);
+    const char* getUserString(StringId id);
+    void emptyUserString(StringId stringId);
+    bool isUserString(StringId id);
+}

@@ -6,7 +6,6 @@
 #include "Graphics/Gfx.h"
 #include "Graphics/ImageIds.h"
 #include "Graphics/RenderTarget.h"
-#include "Graphics/SoftwareDrawingEngine.h"
 #include "Graphics/TextRenderer.h"
 #include "Input.h"
 #include "Localisation/FormatArguments.hpp"
@@ -71,22 +70,39 @@ namespace OpenLoco::Ui::Windows::Station
             content_begin,
         };
 
+        namespace Widx
+        {
+            constexpr WidgetId kFrame{ "frame" };
+            constexpr WidgetId kCaption{ "caption" };
+            constexpr WidgetId kCloseButton{ "close_button" };
+            constexpr WidgetId kPanel{ "panel" };
+            constexpr WidgetId kTabStation{ "tab_station" };
+            constexpr WidgetId kTabCargo{ "tab_cargo" };
+            constexpr WidgetId kTabCargoRatings{ "tab_cargo_ratings" };
+            constexpr WidgetId kTabVehiclesTrains{ "tab_vehicles_trains" };
+            constexpr WidgetId kTabVehiclesBuses{ "tab_vehicles_buses" };
+            constexpr WidgetId kTabVehiclesTrucks{ "tab_vehicles_trucks" };
+            constexpr WidgetId kTabVehiclesTrams{ "tab_vehicles_trams" };
+            constexpr WidgetId kTabVehiclesAircraft{ "tab_vehicles_aircraft" };
+            constexpr WidgetId kTabVehiclesShips{ "tab_vehicles_ships" };
+        }
+
         static constexpr auto makeCommonWidgets(int32_t frameWidth, int32_t frameHeight)
         {
             return makeWidgets(
-                Widgets::Frame({ 0, 0 }, { frameWidth, frameHeight }, WindowColour::primary),
-                Widgets::Caption({ 1, 1 }, { frameWidth - 2, 13 }, Widgets::Caption::Style::blackText, WindowColour::primary, StringIds::title_station),
-                Widgets::ImageButton({ frameWidth - 15, 2 }, { 13, 13 }, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
-                Widgets::Panel({ 0, 41 }, { frameWidth, 95 }, WindowColour::secondary),
-                Widgets::Tab({ 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_station),
-                Widgets::Tab({ 34, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_station_cargo),
-                Widgets::Tab({ 65, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_station_cargo_ratings),
-                Widgets::Tab({ 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_trains),
-                Widgets::Tab({ 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_buses),
-                Widgets::Tab({ 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_trucks),
-                Widgets::Tab({ 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_trams),
-                Widgets::Tab({ 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_aircraft),
-                Widgets::Tab({ 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_ships));
+                Widgets::Frame(Widx::kFrame, { 0, 0 }, { frameWidth, frameHeight }, WindowColour::primary),
+                Widgets::Caption(Widx::kCaption, { 1, 1 }, { frameWidth - 2, 13 }, Widgets::Caption::Style::blackText, WindowColour::primary, StringIds::title_station),
+                Widgets::ImageButton(Widx::kCloseButton, { frameWidth - 15, 2 }, { 13, 13 }, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
+                Widgets::Panel(Widx::kPanel, { 0, 41 }, { frameWidth, 95 }, WindowColour::secondary),
+                Widgets::Tab(Widx::kTabStation, { 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_station),
+                Widgets::Tab(Widx::kTabCargo, { 34, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_station_cargo),
+                Widgets::Tab(Widx::kTabCargoRatings, { 65, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_station_cargo_ratings),
+                Widgets::Tab(Widx::kTabVehiclesTrains, { 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_trains),
+                Widgets::Tab(Widx::kTabVehiclesBuses, { 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_buses),
+                Widgets::Tab(Widx::kTabVehiclesTrucks, { 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_trucks),
+                Widgets::Tab(Widx::kTabVehiclesTrams, { 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_trams),
+                Widgets::Tab(Widx::kTabVehiclesAircraft, { 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_aircraft),
+                Widgets::Tab(Widx::kTabVehiclesShips, { 3, 15 }, { 31, 27 }, WindowColour::secondary, ImageIds::tab, StringIds::tooltip_ships));
         }
 
         static bool isVehicleTypeAvailable(Window& self, VehicleType vehicleType)
@@ -121,12 +137,19 @@ namespace OpenLoco::Ui::Windows::Station
             centre_on_viewport,
         };
 
+        namespace Widx
+        {
+            constexpr WidgetId kViewport{ "viewport" };
+            constexpr WidgetId kStatusBar{ "status_bar" };
+            constexpr WidgetId kCentreOnViewport{ "centre_on_viewport" };
+        }
+
         static constexpr auto widgets = makeWidgets(
             // commonWidgets(kWindowSize.width, kWindowSize.height),
             Common::makeCommonWidgets(223, 136),
-            Widgets::Viewport({ 3, 44 }, { 195, 80 }, WindowColour::secondary, Widget::kContentUnk),
-            Widgets::Label({ 3, 115 }, { 195, 21 }, WindowColour::secondary, ContentAlign::left, StringIds::black_stringid),
-            Widgets::ImageButton({ 0, 0 }, { 24, 24 }, WindowColour::secondary, ImageIds::centre_viewport, StringIds::move_main_view_to_show_this)
+            Widgets::Viewport(Widx::kViewport, { 3, 44 }, { 195, 80 }, WindowColour::secondary, Widget::kContentUnk),
+            Widgets::Label(Widx::kStatusBar, { 3, 115 }, { 195, 21 }, WindowColour::secondary, ContentAlign::left, StringIds::black_stringid),
+            Widgets::ImageButton(Widx::kCentreOnViewport, { 0, 0 }, { 24, 24 }, WindowColour::secondary, ImageIds::centre_viewport, StringIds::move_main_view_to_show_this)
 
         );
 
@@ -144,8 +167,8 @@ namespace OpenLoco::Ui::Windows::Station
 
             // Set station status
             auto station = StationManager::get(StationId(self.number));
-            const char* buffer = StringManager::getString(StringIds::buffer_1250);
-            station->getStatusString((char*)buffer);
+            char* buffer = StringManager::getBufferString(StringIds::buffer_1250);
+            station->getStatusString(buffer);
             FormatArguments args{ self.widgets[widx::status_bar].textArgs };
             args.push(StringIds::buffer_1250);
 
@@ -167,10 +190,10 @@ namespace OpenLoco::Ui::Windows::Station
         // 0x0048E4D4
         static void onMouseUp(Window& self, WidgetIndex_t widgetIndex, const WidgetId id)
         {
-            switch (widgetIndex)
+            switch (id)
             {
                 // 0x0049932D
-                case widx::centre_on_viewport:
+                case Widx::kCentreOnViewport:
                     self.viewportCentreMain();
                     return;
             }
@@ -185,7 +208,7 @@ namespace OpenLoco::Ui::Windows::Station
         {
             Common::enableRenameByCaption(&self);
 
-            self.setSize(kWindowSize, Common::kMaxWindowSize);
+            self.setSizeBounds(kWindowSize, Common::kMaxWindowSize);
 
             if (self.viewports[0] != nullptr)
             {
@@ -197,8 +220,8 @@ namespace OpenLoco::Ui::Windows::Station
                 {
                     viewport->width = newWidth;
                     viewport->height = newHeight;
-                    viewport->viewWidth = newWidth << viewport->zoom;
-                    viewport->viewHeight = newHeight << viewport->zoom;
+                    viewport->viewWidth = viewport->zoom.applyTo(newWidth);
+                    viewport->viewHeight = viewport->zoom.applyTo(newHeight);
                     self.savedView.clear();
                 }
             }
@@ -258,7 +281,7 @@ namespace OpenLoco::Ui::Windows::Station
             {
                 auto widget = &self.widgets[widx::viewport];
                 auto tile = World::Pos3({ station->x, station->y, station->z });
-                auto origin = Ui::Point(widget->left + self.x + 1, widget->top + self.y + 1);
+                auto origin = Ui::Point(widget->left + 1, widget->top + 1);
                 auto size = Ui::Size(widget->width() - 2, widget->height() - 2);
                 ViewportManager::create(&self, 0, origin, size, self.savedView.zoomLevel, tile);
                 self.invalidate();
@@ -291,7 +314,8 @@ namespace OpenLoco::Ui::Windows::Station
 
     namespace VehiclesStopping
     {
-        static void refreshVehicleList(Window* self);
+        static void populateVehicleList(Window& self);
+        static void sortVehicleList(Window& self);
     }
 
     // 0x0048F210
@@ -314,13 +338,11 @@ namespace OpenLoco::Ui::Windows::Station
             const WindowFlags newFlags = WindowFlags::resizable | WindowFlags::lighterFrame;
             window = WindowManager::createWindow(WindowType::station, Station::kWindowSize, newFlags, Station::getEvents());
             window->number = enumValue(stationId);
+
             auto station = StationManager::get(stationId);
             window->owner = station->owner;
-            window->minWidth = Common::kMinWindowSize.width;
-            window->minHeight = Common::kMinWindowSize.height;
-            window->maxWidth = Common::kMaxWindowSize.width;
-            window->maxHeight = Common::kMaxWindowSize.height;
 
+            window->setSizeBounds(Common::kMinWindowSize, Common::kMaxWindowSize);
             window->savedView.clear();
 
             auto skin = ObjectManager::get<InterfaceSkinObject>();
@@ -332,7 +354,7 @@ namespace OpenLoco::Ui::Windows::Station
         window->invalidate();
 
         // We'll need the vehicle list to determine what vehicle tabs to show
-        VehiclesStopping::refreshVehicleList(window);
+        VehiclesStopping::populateVehicleList(*window);
 
         window->setWidgets(Station::widgets);
         window->holdableWidgets = 0;
@@ -359,11 +381,18 @@ namespace OpenLoco::Ui::Windows::Station
             station_catchment,
         };
 
+        namespace Widx
+        {
+            constexpr WidgetId kScrollview{ "scrollview" };
+            constexpr WidgetId kStatusBar{ "status_bar" };
+            constexpr WidgetId kStationCatchment{ "station_catchment" };
+        }
+
         static constexpr auto widgets = makeWidgets(
             Common::makeCommonWidgets(223, 136),
-            Widgets::ScrollView({ 3, 44 }, { 217, 80 }, WindowColour::secondary, 2),
-            Widgets::Label({ 3, 125 }, { 195, 10 }, WindowColour::secondary, ContentAlign::center),
-            Widgets::ImageButton({ 198, 44 }, { 24, 24 }, WindowColour::secondary, ImageIds::show_station_catchment, StringIds::station_catchment)
+            Widgets::ScrollView(Widx::kScrollview, { 3, 44 }, { 217, 80 }, WindowColour::secondary, 2),
+            Widgets::Label(Widx::kStatusBar, { 3, 125 }, { 195, 10 }, WindowColour::secondary, ContentAlign::left, StringIds::accepted_cargo_separator, StringIds::small_black_string),
+            Widgets::ImageButton(Widx::kStationCatchment, { 198, 44 }, { 24, 24 }, WindowColour::secondary, ImageIds::show_station_catchment, StringIds::station_catchment)
 
         );
 
@@ -399,8 +428,9 @@ namespace OpenLoco::Ui::Windows::Station
             self.draw(drawingCtx);
             Common::drawTabs(self, drawingCtx);
 
-            auto buffer = const_cast<char*>(StringManager::getString(StringIds::buffer_1250));
-            buffer = StringManager::formatString(buffer, StringIds::accepted_cargo_separator);
+            const char* acceptedLabel = StringManager::getString(StringIds::accepted_cargo_separator);
+            auto labelWidth = tr.getStringWidth(acceptedLabel);
+            auto origin = self.widgets[widx::status_bar].position() + Point{ labelWidth + 2, -1 };
 
             auto station = StationManager::get(StationId(self.number));
             uint8_t cargoTypeCount = 0;
@@ -408,40 +438,32 @@ namespace OpenLoco::Ui::Windows::Station
             for (uint32_t cargoId = 0; cargoId < kMaxCargoStats; cargoId++)
             {
                 auto& stats = station->cargoStats[cargoId];
-
                 if (!stats.isAccepted())
                 {
                     continue;
                 }
 
-                *buffer++ = ' ';
-                *buffer++ = ControlCodes::inlineSpriteStr;
-                *(reinterpret_cast<uint32_t*>(buffer)) = ObjectManager::get<CargoObject>(cargoId)->unitInlineSprite;
-                buffer += 4;
+                auto* cargoObj = ObjectManager::get<CargoObject>(cargoId);
+                drawingCtx.drawImage(ZoomLevel::full, origin, cargoObj->unitInlineSprite);
+                origin.x += 12;
 
                 cargoTypeCount++;
             }
 
             if (cargoTypeCount == 0)
             {
-                buffer = StringManager::formatString(buffer, StringIds::cargo_nothing_accepted);
+                FormatArguments args{};
+                args.push(StringIds::cargo_nothing_accepted);
+                tr.drawStringLeft(origin + Point{ 0, 1 }, Colour::black, StringIds::black_stringid, args);
             }
-
-            *buffer++ = '\0';
-
-            const auto& widget = self.widgets[widx::status_bar];
-            const auto width = widget.width();
-            auto point = Point(self.x + widget.left - 1, self.y + widget.top - 1);
-
-            tr.drawStringLeftClipped(point, width, Colour::black, StringIds::buffer_1250);
         }
 
         // 0x0048EB0B
         static void onMouseUp(Window& self, WidgetIndex_t widgetIndex, const WidgetId id)
         {
-            switch (widgetIndex)
+            switch (id)
             {
-                case widx::station_catchment:
+                case Widx::kStationCatchment:
                 {
                     StationId windowNumber = StationId(self.number);
                     if (windowNumber == _lastSelectedStation)
@@ -462,7 +484,7 @@ namespace OpenLoco::Ui::Windows::Station
         {
             Common::enableRenameByCaption(&self);
 
-            self.setSize(Common::kMinWindowSize, Common::kMaxWindowSize);
+            self.setSizeBounds(Common::kMinWindowSize, Common::kMaxWindowSize);
         }
 
         // 0x0048EB64
@@ -484,10 +506,52 @@ namespace OpenLoco::Ui::Windows::Station
         }
 
         // 0x0048EB4F
-        static std::optional<FormatArguments> tooltip([[maybe_unused]] Ui::Window& window, [[maybe_unused]] WidgetIndex_t widgetIndex, [[maybe_unused]] const WidgetId id)
+        static std::optional<FormatArguments> tooltip(Window& self, [[maybe_unused]] WidgetIndex_t widgetIndex, const WidgetId id)
         {
             FormatArguments args{};
-            args.push(StringIds::tooltip_scroll_cargo_list);
+
+            if (id == Widx::kScrollview)
+            {
+                args.push(StringIds::tooltip_scroll_cargo_list);
+            }
+            else if (id == Widx::kStatusBar)
+            {
+                // First, find out how wide the 'Accepted:' label is
+                const char* acceptedLabel = StringManager::getString(StringIds::accepted_cargo_separator);
+                const auto font = Gfx::Font::medium_bold;
+                const int16_t labelWidth = Gfx::TextRenderer::getStringWidthNewLined(font, acceptedLabel);
+
+                // Now find out where we're pointing relative to the label
+                const auto mousePos = Input::getMouseLocation();
+                const auto startPos = self.position() + self.widgets[widx::status_bar].position() + Point{ 2, -1 };
+                const auto relPos = mousePos - startPos;
+
+                // Find out which cargo icon we must be pointing at, if any
+                const auto cargoPointedAt = (relPos.x - labelWidth) / 12;
+                auto* station = StationManager::get(StationId(self.number));
+                auto cargoIndex = 0;
+                for (uint32_t cargoId = 0; cargoId < kMaxCargoStats; cargoId++)
+                {
+                    auto& stats = station->cargoStats[cargoId];
+                    if (!stats.isAccepted())
+                    {
+                        continue;
+                    }
+
+                    if (cargoIndex != cargoPointedAt)
+                    {
+                        cargoIndex++;
+                        continue;
+                    }
+
+                    auto* cargoObj = ObjectManager::get<CargoObject>(cargoId);
+                    args.push(cargoObj->name);
+                    return args;
+                }
+
+                return std::nullopt;
+            }
+
             return args;
         }
 
@@ -496,7 +560,7 @@ namespace OpenLoco::Ui::Windows::Station
         {
             auto tr = Gfx::TextRenderer(drawingCtx);
 
-            drawingCtx.clearSingle(Colours::getShade(self.getColour(WindowColour::secondary).c(), 4));
+            drawingCtx.clear(Colours::getShade(self.getColour(WindowColour::secondary).c(), 4));
 
             const auto station = StationManager::get(StationId(self.number));
             int16_t y = 1;
@@ -523,7 +587,7 @@ namespace OpenLoco::Ui::Windows::Station
                     for (; units > 0; units--)
                     {
                         {
-                            drawingCtx.drawImage(xPos, y, cargoObj->unitInlineSprite);
+                            drawingCtx.drawImage(ZoomLevel::full, xPos, y, cargoObj->unitInlineSprite);
                             xPos += 10;
                         }
                     }
@@ -626,10 +690,16 @@ namespace OpenLoco::Ui::Windows::Station
             status_bar,
         };
 
+        namespace Widx
+        {
+            constexpr WidgetId kScrollview{ "scrollview" };
+            constexpr WidgetId kStatusBar{ "status_bar" };
+        }
+
         static constexpr auto widgets = makeWidgets(
             Common::makeCommonWidgets(249, 136),
-            Widgets::ScrollView({ 3, 44 }, { 244, 80 }, WindowColour::secondary, 2),
-            Widgets::Label({ 3, 125 }, { 221, 11 }, WindowColour::secondary, ContentAlign::center)
+            Widgets::ScrollView(Widx::kScrollview, { 3, 44 }, { 244, 80 }, WindowColour::secondary, 2),
+            Widgets::Label(Widx::kStatusBar, { 3, 125 }, { 221, 11 }, WindowColour::secondary, ContentAlign::center)
 
         );
 
@@ -660,7 +730,7 @@ namespace OpenLoco::Ui::Windows::Station
         {
             Common::enableRenameByCaption(&self);
 
-            self.setSize(kWindowSize, kMaxWindowSize);
+            self.setSizeBounds(kWindowSize, kMaxWindowSize);
         }
 
         // 0x0048EE4A
@@ -702,7 +772,7 @@ namespace OpenLoco::Ui::Windows::Station
         {
             auto tr = Gfx::TextRenderer(drawingCtx);
 
-            drawingCtx.clearSingle(Colours::getShade(self.getColour(WindowColour::secondary).c(), 4));
+            drawingCtx.clear(Colours::getShade(self.getColour(WindowColour::secondary).c(), 4));
 
             const auto station = StationManager::get(StationId(self.number));
             auto point = Point(0, 0);
@@ -787,10 +857,16 @@ namespace OpenLoco::Ui::Windows::Station
             status_bar,
         };
 
+        namespace Widx
+        {
+            constexpr WidgetId kScrollview{ "scrollview" };
+            constexpr WidgetId kStatusBar{ "status_bar" };
+        }
+
         static constexpr auto widgets = makeWidgets(
             Common::makeCommonWidgets(223, 136),
-            Widgets::ScrollView({ 3, 44 }, { 544, 138 }, WindowColour::secondary, Scrollbars::vertical),
-            Widgets::Label({ 3, kWindowSize.height - 13 }, { kWindowSize.width, 10 }, WindowColour::secondary, ContentAlign::left, StringIds::black_stringid)
+            Widgets::ScrollView(Widx::kScrollview, { 3, 44 }, { 544, 138 }, WindowColour::secondary, Scrollbars::vertical),
+            Widgets::Label(Widx::kStatusBar, { 3, kWindowSize.height - 13 }, { kWindowSize.width, 10 }, WindowColour::secondary, ContentAlign::left, StringIds::black_stringid)
 
         );
 
@@ -814,32 +890,35 @@ namespace OpenLoco::Ui::Windows::Station
             return false;
         }
 
-        static VehicleType getCurrentVehicleType(Window* self)
+        static VehicleType getCurrentVehicleType(Window& self)
         {
-            return static_cast<VehicleType>(self->currentTab - (Common::widx::tab_vehicles_trains - Common::widx::tab_station));
+            return static_cast<VehicleType>(self.currentTab - (Common::widx::tab_vehicles_trains - Common::widx::tab_station));
         }
 
-        static void refreshVehicleList(Window* self)
+        static void populateVehicleList(Window& self)
         {
-            auto currentVehicleType = getCurrentVehicleType(self);
-            self->rowCount = 0;
+            self.rowCount = 0;
 
+            // Populate vehicle list with relevant entity ids
+            auto currentVehicleType = getCurrentVehicleType(self);
             for (auto* vehicle : VehicleManager::VehicleList())
             {
-                if (!vehicleStopsAtActiveStation(vehicle, StationId(self->number)))
+                if (!vehicleStopsAtActiveStation(vehicle, StationId(self.number)))
                 {
                     continue;
                 }
 
-                Common::setVehicleTypeAvailable(*self, vehicle->vehicleType);
+                Common::setVehicleTypeAvailable(self, vehicle->vehicleType);
 
                 if (vehicle->vehicleType != currentVehicleType)
                 {
                     continue;
                 }
 
-                vehicle->vehicleFlags &= ~Vehicles::VehicleFlags::sorted;
+                self.rowInfo[self.rowCount++] = enumValue(vehicle->head);
             }
+
+            sortVehicleList(self);
         }
 
         static bool orderByName(const VehicleHead& lhs, const VehicleHead& rhs)
@@ -861,89 +940,29 @@ namespace OpenLoco::Ui::Windows::Station
             return Utility::strlogicalcmp(lhsString, rhsString) < 0;
         }
 
-        static void updateVehicleList(Window* self)
+        static void sortVehicleList(Window& self)
         {
-            auto currentVehicleType = getCurrentVehicleType(self);
-            EntityId insertId = EntityId::null;
+            auto list = std::span<EntityId>(reinterpret_cast<EntityId*>(self.rowInfo), self.rowCount);
 
-            for (auto* vehicle : VehicleManager::VehicleList())
-            {
-                if (vehicle->vehicleType != currentVehicleType)
-                {
-                    continue;
-                }
+            std::sort(list.begin(), list.end(), [self](EntityId lhs, EntityId rhs) {
+                auto* lhsVehicle = EntityManager::get<VehicleHead>(lhs);
+                auto* rhsVehicle = EntityManager::get<VehicleHead>(rhs);
+                return orderByName(*lhsVehicle, *rhsVehicle);
+            });
 
-                if (vehicle->hasVehicleFlags(Vehicles::VehicleFlags::sorted))
-                {
-                    continue;
-                }
-
-                if (!vehicleStopsAtActiveStation(vehicle, StationId(self->number)))
-                {
-                    continue;
-                }
-
-                if (insertId == EntityId::null)
-                {
-                    insertId = vehicle->id;
-                    continue;
-                }
-
-                auto* insertVehicle = EntityManager::get<VehicleHead>(insertId);
-                if (insertVehicle == nullptr)
-                {
-                    continue;
-                }
-                if (orderByName(*vehicle, *insertVehicle))
-                {
-                    insertId = vehicle->id;
-                    continue;
-                }
-            }
-
-            if (insertId != EntityId::null)
-            {
-                auto vehicle = EntityManager::get<VehicleHead>(insertId);
-                if (vehicle == nullptr)
-                {
-                    self->var_83C = self->rowCount;
-                    refreshVehicleList(self);
-                    return;
-                }
-                vehicle->vehicleFlags |= Vehicles::VehicleFlags::sorted;
-
-                if (vehicle->id != EntityId(self->rowInfo[self->rowCount]))
-                {
-                    self->rowInfo[self->rowCount] = enumValue(vehicle->id);
-                }
-
-                self->rowCount++;
-
-                if (self->rowCount > self->var_83C)
-                {
-                    self->var_83C = self->rowCount;
-                }
-            }
-            else
-            {
-                if (self->var_83C != self->rowCount)
-                {
-                    self->var_83C = self->rowCount;
-                }
-
-                refreshVehicleList(self);
-            }
+            self.invalidate();
         }
 
         void removeTrainFromList(Window& self, EntityId head)
         {
-            for (auto i = 0; i < self.var_83C; ++i)
+            auto list = std::span<EntityId>(reinterpret_cast<EntityId*>(self.rowInfo), self.rowCount);
+
+            auto newEnd = std::remove_if(list.begin(), list.end(), [head](EntityId el) { return el == head; });
+            auto numRemoved = std::distance(newEnd, list.end());
+
+            if (numRemoved > 0)
             {
-                auto& entry = self.rowInfo[i];
-                if (entry == enumValue(head))
-                {
-                    entry = enumValue(EntityId::null);
-                }
+                self.rowCount -= numRemoved;
             }
         }
 
@@ -960,7 +979,7 @@ namespace OpenLoco::Ui::Windows::Station
                 StringIds::stringid_ships,
             };
 
-            auto currentVehicleType = getCurrentVehicleType(&self);
+            auto currentVehicleType = getCurrentVehicleType(self);
             self.widgets[Common::widx::caption].text = kTypeToCaption[enumValue(currentVehicleType)];
 
             // Basic frame widget dimensions
@@ -985,8 +1004,8 @@ namespace OpenLoco::Ui::Windows::Station
                 // Set status bar
                 FormatArguments args{ widget.textArgs };
                 auto& footerStringPair = kTypeToFooterStringIds[enumValue(currentVehicleType)];
-                args.push(self.var_83C == 1 ? footerStringPair.first : footerStringPair.second);
-                args.push(self.var_83C);
+                args.push(self.rowCount == 1 ? footerStringPair.first : footerStringPair.second);
+                args.push(self.rowCount);
             }
         }
 
@@ -1003,10 +1022,10 @@ namespace OpenLoco::Ui::Windows::Station
             auto tr = Gfx::TextRenderer(drawingCtx);
 
             auto shade = Colours::getShade(self.getColour(WindowColour::secondary).c(), 1);
-            drawingCtx.clearSingle(shade);
+            drawingCtx.clear(shade);
 
             auto yPos = 0;
-            for (auto i = 0; i < self.var_83C; i++)
+            for (auto i = 0; i < self.rowCount; i++)
             {
                 const auto vehicleId = EntityId(self.rowInfo[i]);
 
@@ -1024,6 +1043,7 @@ namespace OpenLoco::Ui::Windows::Station
                 auto head = EntityManager::get<VehicleHead>(vehicleId);
                 if (head == nullptr)
                 {
+                    removeTrainFromList(self, vehicleId);
                     continue;
                 }
 
@@ -1078,40 +1098,23 @@ namespace OpenLoco::Ui::Windows::Station
             self.frameNo++;
             self.callPrepareDraw();
 
-            updateVehicleList(&self);
-            updateVehicleList(&self);
-            updateVehicleList(&self);
-
-            self.invalidate();
-        }
-
-        static void event_08(Window& self)
-        {
-            self.flags |= WindowFlags::notScrollView;
-        }
-
-        static void event_09(Window& self)
-        {
-            if (self.hasFlags(WindowFlags::notScrollView))
-            {
-                self.rowHover = -1;
-            }
+            sortVehicleList(self);
         }
 
         static void getScrollSize(Window& self, [[maybe_unused]] uint32_t scrollIndex, [[maybe_unused]] int32_t& scrollWidth, int32_t& scrollHeight)
         {
-            scrollHeight = self.var_83C * self.rowHeight;
+            scrollHeight = self.rowCount * self.rowHeight;
         }
 
-        static CursorId cursor(Window& self, WidgetIndex_t widgetIdx, [[maybe_unused]] const WidgetId id, [[maybe_unused]] int16_t xPos, int16_t yPos, CursorId fallback)
+        static CursorId cursor(Window& self, [[maybe_unused]] WidgetIndex_t widgetIdx, const WidgetId id, [[maybe_unused]] int16_t xPos, int16_t yPos, CursorId fallback)
         {
-            if (widgetIdx != widx::scrollview)
+            if (id != Widx::kScrollview)
             {
                 return fallback;
             }
 
             uint16_t currentIndex = yPos / self.rowHeight;
-            if (currentIndex < self.var_83C && self.rowInfo[currentIndex] != -1)
+            if (currentIndex < self.rowCount && self.rowInfo[currentIndex] != -1)
             {
                 return CursorId::handPointer;
             }
@@ -1124,7 +1127,7 @@ namespace OpenLoco::Ui::Windows::Station
             self.flags &= ~WindowFlags::notScrollView;
 
             uint16_t currentRow = y / self.rowHeight;
-            if (currentRow < self.var_83C)
+            if (currentRow < self.rowCount)
             {
                 self.rowHover = self.rowInfo[currentRow];
             }
@@ -1137,7 +1140,7 @@ namespace OpenLoco::Ui::Windows::Station
         static void onScrollMouseDown(Window& self, [[maybe_unused]] int16_t x, int16_t y, [[maybe_unused]] uint8_t scroll_index)
         {
             uint16_t currentRow = y / self.rowHeight;
-            if (currentRow >= self.var_83C)
+            if (currentRow >= self.rowCount)
             {
                 return;
             }
@@ -1168,15 +1171,15 @@ namespace OpenLoco::Ui::Windows::Station
         {
             Common::enableRenameByCaption(&self);
 
-            self.setSize(kWindowSize, kMaxWindowSize);
+            self.setSizeBounds(kWindowSize, kMaxWindowSize);
         }
 
         static constexpr WindowEventList kEvents = {
             .onMouseUp = Common::onMouseUp,
             .onResize = onResize,
             .onUpdate = onUpdate,
-            .event_08 = event_08,
-            .event_09 = event_09,
+            .onHandleInputBegin = listWindowOnHandleInputBegin,
+            .onHandleInputEnd = listWindowOnHandleInputEnd,
             .getScrollSize = getScrollSize,
             .scrollMouseDown = onScrollMouseDown,
             .scrollMouseOver = onScrollMouseOver,
@@ -1269,27 +1272,27 @@ namespace OpenLoco::Ui::Windows::Station
         };
         // clang-format on
 
-        static void onMouseUp(Window& self, WidgetIndex_t widgetIndex, [[maybe_unused]] const WidgetId id)
+        static void onMouseUp(Window& self, WidgetIndex_t widgetIndex, const WidgetId id)
         {
-            switch (widgetIndex)
+            switch (id)
             {
-                case widx::caption:
+                case Widx::kCaption:
                     renameStationPrompt(&self, widgetIndex);
                     break;
 
-                case widx::close_button:
+                case Widx::kCloseButton:
                     WindowManager::close(&self);
                     break;
 
-                case widx::tab_station:
-                case widx::tab_cargo:
-                case widx::tab_cargo_ratings:
-                case widx::tab_vehicles_trains:
-                case widx::tab_vehicles_buses:
-                case widx::tab_vehicles_trucks:
-                case widx::tab_vehicles_trams:
-                case widx::tab_vehicles_aircraft:
-                case widx::tab_vehicles_ships:
+                case Widx::kTabStation:
+                case Widx::kTabCargo:
+                case Widx::kTabCargoRatings:
+                case Widx::kTabVehiclesTrains:
+                case Widx::kTabVehiclesBuses:
+                case Widx::kTabVehiclesTrucks:
+                case Widx::kTabVehiclesTrams:
+                case Widx::kTabVehiclesAircraft:
+                case Widx::kTabVehiclesShips:
                     switchTab(self, widgetIndex);
                     break;
             }
@@ -1340,9 +1343,9 @@ namespace OpenLoco::Ui::Windows::Station
         }
 
         // 0x0048E5DF
-        static void textInput(Window& self, WidgetIndex_t callingWidget, [[maybe_unused]] const WidgetId id, const char* input)
+        static void textInput(Window& self, [[maybe_unused]] WidgetIndex_t callingWidget, const WidgetId id, const char* input)
         {
-            if (callingWidget != Common::widx::caption)
+            if (id != Common::Widx::kCaption)
             {
                 return;
             }
@@ -1409,7 +1412,7 @@ namespace OpenLoco::Ui::Windows::Station
 
             self.currentTab = widgetIndex - widx::tab_station;
             self.frameNo = 0;
-            self.flags &= ~(WindowFlags::beingResized);
+            self.flags &= ~(WindowFlags::maximised);
             self.var_85C = -1;
 
             self.viewportRemove(0);
@@ -1424,9 +1427,7 @@ namespace OpenLoco::Ui::Windows::Station
             self.rowHeight = tabInfo.rowHeight;
 
             // We'll need the vehicle list to determine what vehicle tabs to show
-            VehiclesStopping::refreshVehicleList(&self);
-            self.rowCount = 0;
-            self.var_83C = 0;
+            VehiclesStopping::populateVehicleList(self);
             self.rowHover = -1;
 
             self.invalidate();
@@ -1479,8 +1480,8 @@ namespace OpenLoco::Ui::Windows::Station
                 Widget::drawTab(self, drawingCtx, imageId, widx::tab_cargo_ratings);
 
                 auto widget = self.widgets[widx::tab_cargo_ratings];
-                auto yOffset = widget.top + self.y + 14;
-                auto xOffset = widget.left + self.x + 4;
+                auto yOffset = widget.top + 14;
+                auto xOffset = widget.left + 4;
                 auto totalRatingBars = 0;
 
                 for (const auto& cargoStats : station->cargoStats)

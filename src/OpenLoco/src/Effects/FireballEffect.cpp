@@ -1,10 +1,10 @@
-#include "FireballEffect.h"
+#include "Effects/FireballEffect.h"
 #include "Entities/EntityManager.h"
 
 namespace OpenLoco
 {
     // 0x004407F3
-    void Fireball::update()
+    void Fireball::tick()
     {
         invalidateSprite();
         frame += 0x40;

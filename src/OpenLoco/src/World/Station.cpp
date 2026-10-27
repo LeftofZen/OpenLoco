@@ -1,12 +1,9 @@
-#include "Station.h"
-#include "CompanyManager.h"
+#include "World/Station.h"
 #include "Graphics/Gfx.h"
 #include "Graphics/ImageIds.h"
 #include "Graphics/RenderTarget.h"
 #include "Graphics/SoftwareDrawingContext.h"
-#include "Graphics/SoftwareDrawingEngine.h"
 #include "Graphics/TextRenderer.h"
-#include "IndustryManager.h"
 #include "Localisation/FormatArguments.hpp"
 #include "Localisation/Formatting.h"
 #include "Localisation/StringIds.h"
@@ -30,10 +27,12 @@
 #include "Objects/TrackObject.h"
 #include "Objects/TrainStationObject.h"
 #include "Random.h"
-#include "StationManager.h"
-#include "TownManager.h"
 #include "Ui/WindowManager.h"
 #include "ViewportManager.h"
+#include "World/CompanyManager.h"
+#include "World/IndustryManager.h"
+#include "World/StationManager.h"
+#include "World/TownManager.h"
 #include <OpenLoco/Math/Bound.hpp>
 #include <algorithm>
 #include <cassert>
@@ -47,7 +46,7 @@ namespace OpenLoco
 {
     constexpr uint8_t kMinCargoRating = 0;
     constexpr uint8_t kMaxCargoRating = 200;
-    constexpr uint8_t catchmentSize = 4;
+    constexpr uint8_t kCatchmentSize = 4;
 
     struct CargoMap
     {
@@ -204,7 +203,7 @@ namespace OpenLoco
     };
 
     // 0x0048B23E
-    void Station::update()
+    void Station::tick()
     {
         updateCargoAcceptance();
     }
@@ -276,7 +275,7 @@ namespace OpenLoco
             for (uint16_t i = 0; i < station->stationTileSize; i++)
             {
                 auto pos = station->stationTiles[i];
-                auto stationElement = getStationElement(pos);
+                auto* stationElement = getStationElement(pos);
 
                 if (stationElement == nullptr)
                 {
@@ -382,7 +381,7 @@ namespace OpenLoco
                                     const auto cargoId = obj->producedCargoType[i];
                                     if (cargoId != 0xFF && (cargoSearchState.filter() & (1 << cargoId)))
                                     {
-                                        cargoSearchState.addScore(cargoId, obj->var_A6[i]);
+                                        cargoSearchState.addScore(cargoId, obj->producedCargoQty[i]);
 
                                         if (obj->producedQuantity[i] != 0)
                                         {
@@ -393,9 +392,9 @@ namespace OpenLoco
 
                                 for (int i = 0; i < 2; i++)
                                 {
-                                    if (obj->requiredCargoType[i] != 0xFF && (cargoSearchState.filter() & (1 << obj->requiredCargoType[i])))
+                                    if (obj->consumedCargoType[i] != 0xFF && (cargoSearchState.filter() & (1 << obj->consumedCargoType[i])))
                                     {
-                                        cargoSearchState.addScore(obj->requiredCargoType[i], obj->var_A8[i]);
+                                        cargoSearchState.addScore(obj->consumedCargoType[i], obj->consumedCargoQty[i]);
                                     }
                                 }
 
@@ -562,7 +561,7 @@ namespace OpenLoco
             auto pos = station->stationTiles[i];
             pos.z = World::heightFloor(pos.z);
 
-            auto stationElement = getStationElement(pos);
+            auto* stationElement = getStationElement(pos);
 
             if (stationElement == nullptr)
             {
@@ -577,10 +576,10 @@ namespace OpenLoco
 
                     auto [minPos, maxPos] = airportObject->getAirportExtents(World::toTileSpace(pos), stationElement->rotation());
 
-                    minPos.x -= catchmentSize;
-                    minPos.y -= catchmentSize;
-                    maxPos.x += catchmentSize;
-                    maxPos.y += catchmentSize;
+                    minPos.x -= kCatchmentSize;
+                    minPos.y -= kCatchmentSize;
+                    maxPos.x += kCatchmentSize;
+                    maxPos.y += kCatchmentSize;
 
                     setStationCatchmentRegion(minPos, maxPos, catchmentFlag);
                 }
@@ -590,11 +589,11 @@ namespace OpenLoco
                     auto minPos = World::toTileSpace(pos);
                     auto maxPos = minPos;
 
-                    minPos.x -= catchmentSize;
-                    minPos.y -= catchmentSize;
+                    minPos.x -= kCatchmentSize;
+                    minPos.y -= kCatchmentSize;
                     // Docks are always size 2x2
-                    maxPos.x += catchmentSize + 1;
-                    maxPos.y += catchmentSize + 1;
+                    maxPos.x += kCatchmentSize + 1;
+                    maxPos.y += kCatchmentSize + 1;
 
                     setStationCatchmentRegion(minPos, maxPos, catchmentFlag);
                 }
@@ -604,10 +603,10 @@ namespace OpenLoco
                     auto minPos = World::toTileSpace(pos);
                     auto maxPos = minPos;
 
-                    minPos.x -= catchmentSize;
-                    minPos.y -= catchmentSize;
-                    maxPos.x += catchmentSize;
-                    maxPos.y += catchmentSize;
+                    minPos.x -= kCatchmentSize;
+                    minPos.y -= kCatchmentSize;
+                    maxPos.x += kCatchmentSize;
+                    maxPos.y += kCatchmentSize;
 
                     setStationCatchmentRegion(minPos, maxPos, catchmentFlag);
                 }
@@ -862,7 +861,19 @@ namespace OpenLoco
         uint16_t width;
         uint16_t height;
     };
-    static constexpr std::array<StationBorder, 4> kZoomToStationBorder = {
+    static constexpr std::array<StationBorder, ZoomLevel::count> kZoomToStationBorder = {
+        StationBorder{
+            ImageIds::curved_border_left_medium,
+            ImageIds::curved_border_right_medium,
+            3,
+            11,
+        },
+        StationBorder{
+            ImageIds::curved_border_left_medium,
+            ImageIds::curved_border_right_medium,
+            3,
+            11,
+        },
         StationBorder{
             ImageIds::curved_border_left_medium,
             ImageIds::curved_border_right_medium,
@@ -889,7 +900,9 @@ namespace OpenLoco
         },
     };
 
-    static constexpr std::array<Gfx::Font, 4> kZoomToStationFonts = {
+    static constexpr std::array<Gfx::Font, ZoomLevel::count> kZoomToStationFonts = {
+        Gfx::Font::medium_bold,
+        Gfx::Font::medium_bold,
         Gfx::Font::medium_bold,
         Gfx::Font::medium_bold,
         Gfx::Font::small,
@@ -897,15 +910,15 @@ namespace OpenLoco
     };
 
     // 0x0048DF4D, 0x0048E13B
-    void drawStationName(Gfx::DrawingContext& drawingCtx, const Station& station, uint8_t zoom, bool isHovered)
+    void drawStationName(Gfx::DrawingContext& drawingCtx, const Station& station, ZoomLevel zoom, bool isHovered)
     {
-        const Gfx::RenderTarget& unZoomedRt = drawingCtx.currentRenderTarget();
-        if (!station.labelFrame.contains(unZoomedRt.getDrawableRect(), zoom))
+        const Gfx::RenderTarget& rt = drawingCtx.currentRenderTarget();
+        if (!station.labelFrame.contains(rt.getUiRect(), zoom))
         {
             return;
         }
 
-        auto& borderImages = kZoomToStationBorder[zoom];
+        auto& borderImages = kZoomToStationBorder[zoom.index()];
 
         const auto companyColour = [&station]() {
             if (station.owner == CompanyId::null)
@@ -919,17 +932,17 @@ namespace OpenLoco
         }();
         const auto colour = Colours::getTranslucent(companyColour, isHovered ? 0 : 1);
 
-        Ui::Point topLeft = { station.labelFrame.left[zoom],
-                              station.labelFrame.top[zoom] };
-        Ui::Point bottomRight = { station.labelFrame.right[zoom],
-                                  station.labelFrame.bottom[zoom] };
+        Ui::Point topLeft = { station.labelFrame.left[zoom.index()],
+                              station.labelFrame.top[zoom.index()] };
+        Ui::Point bottomRight = { station.labelFrame.right[zoom.index()],
+                                  station.labelFrame.bottom[zoom.index()] };
 
-        drawingCtx.drawImage(topLeft, ImageId(borderImages.left).withTranslucency(ExtColour::unk34));
-        drawingCtx.drawImage(topLeft, ImageId(borderImages.left).withTranslucency(colour));
+        drawingCtx.drawImage(ZoomLevel::full, topLeft, ImageId(borderImages.left).withTranslucency(ExtColour::unk34));
+        drawingCtx.drawImage(ZoomLevel::full, topLeft, ImageId(borderImages.left).withTranslucency(colour));
 
-        Ui::Point topRight = { static_cast<int16_t>(bottomRight.x - borderImages.width) + 1, topLeft.y };
-        drawingCtx.drawImage(topRight, ImageId(borderImages.right).withTranslucency(ExtColour::unk34));
-        drawingCtx.drawImage(topRight, ImageId(borderImages.right).withTranslucency(colour));
+        Ui::Point topRight = { bottomRight.x - borderImages.width + 1, topLeft.y };
+        drawingCtx.drawImage(ZoomLevel::full, topRight, ImageId(borderImages.right).withTranslucency(ExtColour::unk34));
+        drawingCtx.drawImage(ZoomLevel::full, topRight, ImageId(borderImages.right).withTranslucency(colour));
 
         drawingCtx.drawRect(topLeft.x + borderImages.width + 1, topLeft.y, bottomRight.x - topLeft.x - 2 * borderImages.width, bottomRight.y - topLeft.y + 1, enumValue(ExtColour::unk34), Gfx::RectFlags::transparent);
         drawingCtx.drawRect(topLeft.x + borderImages.width + 1, topLeft.y, bottomRight.x - topLeft.x - 2 * borderImages.width, bottomRight.y - topLeft.y + 1, enumValue(colour), Gfx::RectFlags::transparent);
@@ -945,7 +958,7 @@ namespace OpenLoco
         StringManager::formatString(str, getTransportIconsFromStationFlags(station.flags));
 
         auto tr = Gfx::TextRenderer(drawingCtx);
-        tr.setCurrentFont(kZoomToStationFonts[zoom]);
+        tr.setCurrentFont(kZoomToStationFonts[zoom.index()]);
         auto point = topLeft + Point(borderImages.width, 0);
         tr.drawString(point, Colour::black, buffer);
     }
@@ -965,32 +978,30 @@ namespace OpenLoco
         const auto remainingLength = strEnd - buffer;
         StringManager::formatString(strEnd, remainingLength, getTransportIconsFromStationFlags(flags));
 
-        for (auto zoom = 0U; zoom < 4; ++zoom)
+        for (auto level = ZoomLevel::min; level <= ZoomLevel::max; ++level)
         {
             Ui::Viewport virtualVp{};
-            virtualVp.zoom = zoom;
+            virtualVp.zoom = ZoomLevel{ level };
+            const auto index = virtualVp.zoom.index();
 
             const auto labelCenter = World::Pos3{ x, y, z };
             const auto vpPos = World::gameToScreen(labelCenter, WindowManager::getCurrentRotation());
 
-            const auto font = kZoomToStationFonts[zoom];
-            const auto width = Gfx::TextRenderer::getStringWidth(font, buffer) + kZoomToStationBorder[zoom].width * 2;
-            const auto height = kZoomToStationBorder[zoom].height;
+            const auto font = kZoomToStationFonts[index];
+            const auto width = Gfx::TextRenderer::getStringWidth(font, buffer) + kZoomToStationBorder[index].width * 2;
+            const auto height = kZoomToStationBorder[index].height;
 
-            const auto [zoomWidth, zoomHeight] = ScreenToViewport::scaleTransform(Ui::Point(width, height), virtualVp);
+            const auto [zoomWidth, zoomHeight] = WindowToViewport::scaleTransform(Ui::Point(width, height), virtualVp);
 
             const auto left = vpPos.x - zoomWidth / 2;
-            const auto right = left + zoomWidth;
             const auto top = vpPos.y - zoomHeight / 2 - 32;
-            const auto bottom = top + zoomHeight;
 
-            const auto [uiLeft, uiTop] = ViewportToScreen::scaleTransform(Ui::Point(left, top), virtualVp);
-            const auto [uiRight, uiBottom] = ViewportToScreen::scaleTransform(Ui::Point(right, bottom), virtualVp);
+            const auto [uiLeft, uiTop] = ViewportToWindow::scaleTransform(Ui::Point(left, top), virtualVp);
 
-            labelFrame.left[zoom] = uiLeft;
-            labelFrame.right[zoom] = uiRight;
-            labelFrame.top[zoom] = uiTop;
-            labelFrame.bottom[zoom] = uiBottom;
+            labelFrame.left[index] = uiLeft;
+            labelFrame.right[index] = uiLeft + width;
+            labelFrame.top[index] = uiTop;
+            labelFrame.bottom[index] = uiTop + height;
         }
     }
 
@@ -1058,10 +1069,10 @@ namespace OpenLoco
     {
         auto minPos = World::toTileSpace(pos);
         auto maxPos = minPos;
-        maxPos.x += catchmentSize;
-        maxPos.y += catchmentSize;
-        minPos.x -= catchmentSize;
-        minPos.y -= catchmentSize;
+        maxPos.x += kCatchmentSize;
+        maxPos.y += kCatchmentSize;
+        minPos.x -= kCatchmentSize;
+        minPos.y -= kCatchmentSize;
 
         setStationCatchmentRegion(minPos, maxPos, flag);
     }
@@ -1077,8 +1088,8 @@ namespace OpenLoco
         for (auto i = 0U; i < station->stationTileSize; ++i)
         {
             auto& tile = station->stationTiles[i];
-            auto* elStation = getStationElement(tile);
-            if (elStation == nullptr)
+            auto* stationElement = getStationElement(tile);
+            if (stationElement == nullptr)
             {
                 continue;
             }
@@ -1112,7 +1123,26 @@ namespace OpenLoco
         for (auto i = 0U; i < station->stationTileSize; ++i)
         {
             auto& pos = station->stationTiles[i];
-            StationElement* elStation = getStationElement(pos);
+            TileElementEntry* stationEntry = nullptr;
+            StationElement* elStation = nullptr;
+            {
+                auto tile = TileManager::get(pos.x, pos.y);
+                const auto baseZ = pos.z / 4;
+                for (auto& element : tile)
+                {
+                    auto* candidate = element.as<StationElement>();
+                    if (candidate == nullptr || candidate->baseZ() != baseZ)
+                    {
+                        continue;
+                    }
+                    if (!candidate->isAiAllocated())
+                    {
+                        stationEntry = &element;
+                        elStation = candidate;
+                    }
+                    break;
+                }
+            }
             if (elStation == nullptr || elStation->isGhost())
             {
                 continue;
@@ -1121,13 +1151,13 @@ namespace OpenLoco
             {
                 case StationType::trainStation:
                 {
-                    auto* elTrack = elStation->prev()->as<TrackElement>();
+                    auto* elTrack = stationEntry->prev()->as<TrackElement>();
                     if (elTrack == nullptr)
                     {
                         break;
                     }
                     auto* trackObj = ObjectManager::get<TrackObject>(elTrack->trackObjectId());
-                    station->flags |= trackObj->hasFlags(TrackObjectFlags::unk_02)
+                    station->flags |= trackObj->hasFlags(TrackObjectFlags::isRoad)
                         ? StationFlags::transportModeRoad
                         : StationFlags::transportModeRail;
                     acceptedCargoTypes = ~0U;
@@ -1139,7 +1169,7 @@ namespace OpenLoco
                     auto tile = TileManager::get(pos);
                     for (auto& el2 : tile)
                     {
-                        if (&el2 == reinterpret_cast<TileElement*>(&elStation))
+                        if (&el2 == stationEntry)
                         {
                             break;
                         }
@@ -1157,7 +1187,7 @@ namespace OpenLoco
                             continue;
                         }
                         auto* roadObj = ObjectManager::get<RoadObject>(elRoad->roadObjectId());
-                        station->flags |= roadObj->hasFlags(RoadObjectFlags::unk_01)
+                        station->flags |= roadObj->hasFlags(RoadObjectFlags::isRail)
                             ? StationFlags::transportModeRail
                             : StationFlags::transportModeRoad;
                     }
@@ -1266,9 +1296,9 @@ namespace OpenLoco
         }
 
         // Remove tile by moving the remaining tiles over the one to remove
-        // NB: erasing is handled by StationManager::zeroUnused; not calling std::erase due to type mismatches
         std::rotate(foundTilePos, foundTilePos + 1, std::end(station->stationTiles));
         station->stationTileSize--;
+        station->stationTiles[std::size(station->stationTiles) - 1] = World::Pos3{};
     }
 
     // 0x0048F482
@@ -1300,10 +1330,10 @@ namespace OpenLoco
 
         auto [minPos, maxPos] = airportObject->getAirportExtents(World::toTileSpace(pos), rotation);
 
-        minPos.x -= catchmentSize;
-        minPos.y -= catchmentSize;
-        maxPos.x += catchmentSize;
-        maxPos.y += catchmentSize;
+        minPos.x -= kCatchmentSize;
+        minPos.y -= kCatchmentSize;
+        maxPos.x += kCatchmentSize;
+        maxPos.y += kCatchmentSize;
 
         setStationCatchmentRegion(minPos, maxPos, flag);
     }
@@ -1313,10 +1343,10 @@ namespace OpenLoco
     {
         auto minPos = World::toTileSpace(pos);
         auto maxPos = minPos + TilePos2{ 1, 1 };
-        maxPos.x += catchmentSize;
-        maxPos.y += catchmentSize;
-        minPos.x -= catchmentSize;
-        minPos.y -= catchmentSize;
+        maxPos.x += kCatchmentSize;
+        maxPos.y += kCatchmentSize;
+        minPos.x -= kCatchmentSize;
+        minPos.y -= kCatchmentSize;
 
         setStationCatchmentRegion(minPos, maxPos, flag);
     }
@@ -1394,9 +1424,9 @@ namespace OpenLoco
     // 0x0048DBC2
     // Iterates over all station elements of a track piece apply function `func` to each station element
     template<typename Func>
-    static void forEachStationElement(const World::Pos3 pos, const uint8_t rotation, World::StationElement* firstElStation, Func&& func)
+    static void forEachStationElement(const World::Pos3 pos, const uint8_t rotation, World::TileElementEntry* firstStationEntry, Func&& func)
     {
-        auto* firstElTrack = firstElStation->prev()->as<TrackElement>();
+        auto* firstElTrack = firstStationEntry->prev()->as<TrackElement>();
         assert(firstElTrack != nullptr);
         if (firstElTrack == nullptr)
         {
@@ -1426,7 +1456,7 @@ namespace OpenLoco
                 {
                     continue;
                 }
-                auto* elTrack = elStation->prev()->as<TrackElement>();
+                auto* elTrack = el.prev()->as<TrackElement>();
                 if (elTrack == nullptr)
                 {
                     continue;
@@ -1439,7 +1469,7 @@ namespace OpenLoco
                 {
                     continue;
                 }
-                func(elStation, trackLoc, hasPassedSurface);
+                func(el, trackLoc, hasPassedSurface);
             }
         }
     }
@@ -1462,7 +1492,7 @@ namespace OpenLoco
             {
                 continue;
             }
-            auto* nextElStation = elTrack->next()->as<StationElement>();
+            auto* nextElStation = el.next()->as<StationElement>();
             if (nextElStation == nullptr)
             {
                 continue;
@@ -1511,7 +1541,7 @@ namespace OpenLoco
             auto pos = station.stationTiles[i];
             const uint8_t rotation = pos.z & 0x3;
             pos.z = Numerics::floor2(pos.z, 4);
-            auto* elStation = [&pos]() -> World::StationElement* {
+            auto* stationEntry = [&pos]() -> World::TileElementEntry* {
                 auto tile = TileManager::get(pos);
                 for (auto& el : tile)
                 {
@@ -1528,7 +1558,7 @@ namespace OpenLoco
                     {
                         break;
                     }
-                    auto* elTrack = elStation->prev()->as<TrackElement>();
+                    auto* elTrack = el.prev()->as<TrackElement>();
                     if (elTrack == nullptr)
                     {
                         continue;
@@ -1537,10 +1567,15 @@ namespace OpenLoco
                     {
                         continue;
                     }
-                    return elStation;
+                    return &el;
                 }
                 return nullptr;
             }();
+            if (stationEntry == nullptr)
+            {
+                continue;
+            }
+            auto* elStation = stationEntry->as<StationElement>();
             if (elStation == nullptr)
             {
                 continue;
@@ -1552,17 +1587,23 @@ namespace OpenLoco
             auto* stationObj = ObjectManager::get<TrainStationObject>(elStation->objectId());
 
             // Also resets the station sequence index to 0
-            auto isStationElementCovered = [&isCovered](World::StationElement* elStation, const World::Pos3 pos, bool hasPassedSurface) {
+            auto isStationElementCovered = [&isCovered](World::TileElementEntry& stEntry, const World::Pos3 pos, bool hasPassedSurface) {
+                auto* elStation = stEntry.as<StationElement>();
+                if (elStation == nullptr)
+                {
+                    return;
+                }
+
                 elStation->setSequenceIndex(0);
 
-                isCovered |= [hasPassedSurface, elStation]() {
+                isCovered |= [hasPassedSurface, &stEntry, elStation]() {
                     if (!hasPassedSurface)
                     {
                         return true;
                     }
                     else
                     {
-                        auto* elTrack = elStation->prev()->as<TrackElement>();
+                        auto* elTrack = stEntry.prev()->as<TrackElement>();
                         if (elTrack == nullptr)
                         {
                             return false;
@@ -1575,11 +1616,11 @@ namespace OpenLoco
                                 return true;
                             }
                         }
-                        if (elStation->isLast())
+                        if (stEntry.isLast())
                         {
                             return false;
                         }
-                        auto* el = elStation->next();
+                        auto* el = stEntry.next();
                         do
                         {
                             if (el->baseZ() != elStation->baseZ())
@@ -1597,7 +1638,7 @@ namespace OpenLoco
                 Ui::ViewportManager::invalidate(pos, elStation->baseHeight(), elStation->clearHeight());
             };
 
-            forEachStationElement(pos, rotation, elStation, isStationElementCovered);
+            forEachStationElement(pos, rotation, stationEntry, isStationElementCovered);
             if (isCovered || stationObj->var_0B == 0)
             {
                 continue;
@@ -1605,7 +1646,7 @@ namespace OpenLoco
 
             if (stationObj->var_0B != 1)
             {
-                auto* elTrack = elStation->prev()->as<TrackElement>();
+                auto* elTrack = stationEntry->prev()->as<TrackElement>();
                 if (elTrack == nullptr)
                 {
                     continue;
@@ -1632,11 +1673,15 @@ namespace OpenLoco
                     continue;
                 }
 
-                auto setStationSequenceIndex = [](World::StationElement* elStation, const World::Pos3 pos, bool) {
-                    elStation->setSequenceIndex(1);
-                    Ui::ViewportManager::invalidate(pos, elStation->baseHeight(), elStation->clearHeight());
+                auto setStationSequenceIndex = [](World::TileElementEntry& stEntry, const World::Pos3 pos, bool) {
+                    auto* elStation = stEntry.as<StationElement>();
+                    if (elStation != nullptr)
+                    {
+                        elStation->setSequenceIndex(1);
+                        Ui::ViewportManager::invalidate(pos, elStation->baseHeight(), elStation->clearHeight());
+                    }
                 };
-                forEachStationElement(pos, rotation, elStation, setStationSequenceIndex);
+                forEachStationElement(pos, rotation, stationEntry, setStationSequenceIndex);
             }
         }
     }

@@ -1,4 +1,4 @@
-#include "RemoveSignal.h"
+#include "GameCommands/Track/RemoveSignal.h"
 #include "Economy/Economy.h"
 #include "Map/SignalElement.h"
 #include "Map/TileManager.h"
@@ -11,7 +11,13 @@
 
 namespace OpenLoco::GameCommands
 {
-    static World::TrackElement* getElTrackAt(const SignalRemovalArgs& args, const World::Pos3 pos, const uint8_t sequenceIndex)
+    struct TrackLookup
+    {
+        World::TileElementEntry* entry;
+        World::TrackElement* element;
+    };
+
+    static TrackLookup getElTrackAt(const SignalRemovalArgs& args, const World::Pos3 pos, const uint8_t sequenceIndex)
     {
         auto tile = World::TileManager::get(pos);
         for (auto& el : tile)
@@ -41,16 +47,16 @@ namespace OpenLoco::GameCommands
             {
                 continue;
             }
-            return elTrack;
+            return { &el, elTrack };
         }
-        return nullptr;
+        return { nullptr, nullptr };
     };
 
     static currency32_t signalRemoveCost(const SignalRemovalArgs& args, const World::TrackData::PreviewTrack trackPiece0, const World::Pos3 trackStart)
     {
         const auto trackLoc = trackStart + World::Pos3{ Math::Vector::rotate(World::Pos2{ trackPiece0.x, trackPiece0.y }, args.rotation), trackPiece0.z };
-        auto* pieceElTrack = getElTrackAt(args, trackLoc, trackPiece0.index);
-        if (pieceElTrack == nullptr)
+        auto [trackEntry, pieceElTrack] = getElTrackAt(args, trackLoc, trackPiece0.index);
+        if (trackEntry == nullptr)
         {
             return 0;
         }
@@ -60,10 +66,10 @@ namespace OpenLoco::GameCommands
             return 0;
         }
 
-        auto* elSignal = pieceElTrack->next()->as<World::SignalElement>();
+        auto* elSignal = trackEntry->next()->as<World::SignalElement>();
         if (elSignal == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
         currency32_t totalCost = 0;
@@ -81,21 +87,21 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x004891E4
-    static currency32_t removeSignal(const SignalRemovalArgs& args, uint8_t flags)
+    static currency32_t removeSignal(const SignalRemovalArgs& args, Flags flags)
     {
         setExpenditureType(ExpenditureType::Construction);
         setPosition(args.pos + World::Pos3{ 16, 16, 0 });
 
-        auto* elTrack = getElTrackAt(args, args.pos, args.index);
+        auto [trackEntry, elTrack] = getElTrackAt(args, args.pos, args.index);
 
-        if (elTrack == nullptr)
+        if (trackEntry == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if (!sub_431E6A(elTrack->owner(), reinterpret_cast<World::TileElement*>(elTrack)))
+        if (!checkCompanyCompatibility(elTrack->owner(), *elTrack))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         const auto trackPieces = World::TrackData::getTrackPiece(args.trackId);
@@ -105,21 +111,21 @@ namespace OpenLoco::GameCommands
 
         currency32_t cost = signalRemoveCost(args, trackPieces[0], trackStart);
 
-        if (static_cast<uint32_t>(cost) == FAILURE)
+        if (static_cast<uint32_t>(cost) == kFailure)
         {
-            return FAILURE;
+            return kFailure;
         }
 
         for (auto& piece : trackPieces)
         {
             const auto trackLoc = trackStart + World::Pos3{ Math::Vector::rotate(World::Pos2{ piece.x, piece.y }, args.rotation), piece.z };
-            auto* pieceElTrack = getElTrackAt(args, trackLoc, piece.index);
-            if (pieceElTrack == nullptr)
+            auto [pieceEntry, pieceElTrack] = getElTrackAt(args, trackLoc, piece.index);
+            if (pieceEntry == nullptr)
             {
-                return FAILURE;
+                return kFailure;
             }
 
-            if (!(flags & Flags::apply))
+            if (!hasFlags(flags, Flags::apply))
             {
                 continue;
             }
@@ -129,15 +135,16 @@ namespace OpenLoco::GameCommands
                 return 0;
             }
 
-            auto* elSignal = pieceElTrack->next()->as<World::SignalElement>();
+            auto* signalEntry = pieceEntry->next();
+            auto* elSignal = signalEntry->as<World::SignalElement>();
             if (elSignal == nullptr)
             {
-                return FAILURE;
+                return kFailure;
             }
 
             if (args.flags & (1U << 15))
             {
-                if (!(flags & Flags::ghost) || elSignal->isLeftGhost())
+                if (!hasFlags(flags, Flags::ghost) || elSignal->isLeftGhost())
                 {
                     auto& left = elSignal->getLeft();
                     left.setHasSignal(false);
@@ -148,7 +155,7 @@ namespace OpenLoco::GameCommands
             }
             if (args.flags & (1U << 14))
             {
-                if (!(flags & Flags::ghost) || elSignal->isRightGhost())
+                if (!hasFlags(flags, Flags::ghost) || elSignal->isRightGhost())
                 {
                     auto& right = elSignal->getRight();
                     right.setHasSignal(false);
@@ -165,13 +172,13 @@ namespace OpenLoco::GameCommands
             if (!elSignal->getLeft().hasSignal() && !elSignal->getRight().hasSignal())
             {
                 pieceElTrack->setHasSignal(false);
-                World::TileManager::removeElement(*reinterpret_cast<World::TileElement*>(elSignal));
+                World::TileManager::removeElement(*signalEntry);
             }
         }
 
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
-            if (!(flags & (Flags::aiAllocated | Flags::ghost)))
+            if (!hasFlags(flags, Flags::aiAllocated | Flags::ghost))
             {
                 const Vehicles::TrackAndDirection::_TrackAndDirection tad(args.trackId, args.rotation);
 
@@ -181,8 +188,8 @@ namespace OpenLoco::GameCommands
         return cost;
     }
 
-    void removeSignal(registers& regs)
+    void removeSignal(registers& regs, const Flags flags)
     {
-        regs.ebx = removeSignal(SignalRemovalArgs(regs), regs.bl);
+        regs.ebx = removeSignal(SignalRemovalArgs(regs), flags);
     }
 }

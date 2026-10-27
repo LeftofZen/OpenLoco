@@ -1,4 +1,4 @@
-#include "RemoveTown.h"
+#include "GameCommands/Town/RemoveTown.h"
 #include "Audio/Audio.h"
 #include "Economy/Expenditures.h"
 #include "GameCommands/Buildings/RemoveBuilding.h"
@@ -26,18 +26,18 @@ using namespace OpenLoco::World;
 namespace OpenLoco::GameCommands
 {
     // 0x0049711F
-    static uint32_t removeTown(const TownRemovalArgs& args, const uint8_t flags)
+    static uint32_t removeTown(const TownRemovalArgs& args, const Flags flags)
     {
         for (auto& station : StationManager::stations())
         {
             if (station.town == args.townId)
             {
                 setErrorText(StringIds::all_stations_near_this_town_must_be_removed_first);
-                return FAILURE;
+                return kFailure;
             }
         }
 
-        if (!(flags & Flags::apply))
+        if (!hasFlags(flags, Flags::apply))
         {
             return 0;
         }
@@ -88,7 +88,7 @@ namespace OpenLoco::GameCommands
 
                         BuildingRemovalArgs rmArgs{};
                         rmArgs.pos = Pos3(worldPos.x, worldPos.y, buildingEl->baseHeight());
-                        if (doCommand(rmArgs, flags) != FAILURE)
+                        if (doCommand(rmArgs, flags) != kFailure)
                         {
                             resetTileLoop = true;
                             break;
@@ -122,7 +122,7 @@ namespace OpenLoco::GameCommands
                         rmArgs.roadId = roadEl->roadId();
                         rmArgs.sequenceIndex = roadEl->sequenceIndex();
                         rmArgs.objectId = roadEl->roadObjectId();
-                        if (doCommand(rmArgs, flags) != FAILURE)
+                        if (doCommand(rmArgs, flags) != kFailure)
                         {
                             resetTileLoop = true;
                             break;
@@ -165,9 +165,9 @@ namespace OpenLoco::GameCommands
         return 0;
     }
 
-    void removeTown(registers& regs)
+    void removeTown(registers& regs, const Flags flags)
     {
         TownRemovalArgs args(regs);
-        regs.ebx = removeTown(args, regs.bl);
+        regs.ebx = removeTown(args, flags);
     }
 }

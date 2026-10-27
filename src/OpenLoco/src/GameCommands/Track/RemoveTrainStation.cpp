@@ -1,4 +1,4 @@
-#include "RemoveTrainStation.h"
+#include "GameCommands/Track/RemoveTrainStation.h"
 #include "Economy/Economy.h"
 #include "Map/StationElement.h"
 #include "Map/TileElement.h"
@@ -50,7 +50,7 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x0048C402
-    static currency32_t removeTrainStation(const TrainStationRemovalArgs& args, const uint8_t flags)
+    static currency32_t removeTrainStation(const TrainStationRemovalArgs& args, const Flags flags)
     {
         setExpenditureType(ExpenditureType::Construction);
         setPosition(args.pos + World::Pos3(16, 16, 0));
@@ -59,12 +59,12 @@ namespace OpenLoco::GameCommands
         auto* initialElTrack = getElTrack(args.pos, args.rotation, args.type, args.trackId, args.index);
         if (initialElTrack == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if (!sub_431E6A(initialElTrack->owner(), reinterpret_cast<const World::TileElement*>(initialElTrack)))
+        if (!checkCompanyCompatibility(initialElTrack->owner(), *initialElTrack))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         const auto& trackPieces = World::TrackData::getTrackPiece(args.trackId);
@@ -78,17 +78,37 @@ namespace OpenLoco::GameCommands
         {
             const auto trackLoc = trackStart + World::Pos3{ Math::Vector::rotate(World::Pos2{ piece.x, piece.y }, args.rotation), piece.z };
 
-            auto* elTrack = getElTrack(trackLoc, args.rotation, args.type, args.trackId, piece.index);
-            if (elTrack == nullptr)
+            World::TileElementEntry* trackEntry = nullptr;
+            World::TrackElement* elTrack = nullptr;
             {
-                return FAILURE;
+                auto tile = World::TileManager::get(trackLoc);
+                for (auto& el : tile)
+                {
+                    auto* candidate = el.as<World::TrackElement>();
+                    if (candidate == nullptr
+                        || candidate->baseHeight() != trackLoc.z
+                        || candidate->rotation() != args.rotation
+                        || candidate->sequenceIndex() != piece.index
+                        || candidate->trackId() != args.trackId
+                        || candidate->trackObjectId() != args.type)
+                    {
+                        continue;
+                    }
+                    trackEntry = &el;
+                    elTrack = candidate;
+                    break;
+                }
+            }
+            if (trackEntry == nullptr)
+            {
+                return kFailure;
             }
 
-            auto* nextEl = elTrack->next();
-            auto* stationEl = nextEl->as<World::StationElement>();
+            auto* nextEntry = trackEntry->next();
+            auto* stationEl = nextEntry->as<World::StationElement>();
             if (stationEl == nullptr)
             {
-                return FAILURE;
+                return kFailure;
             }
 
             if (stationEl->isGhost())
@@ -105,16 +125,16 @@ namespace OpenLoco::GameCommands
                 totalCost += (removeCostBase * World::TrackData::getTrackMiscData(args.trackId).costFactor) / 256;
             }
 
-            if ((flags & Flags::apply) != 0)
+            if (hasFlags(flags, Flags::apply))
             {
                 elTrack->setClearZ(elTrack->clearZ() - stationObj->height);
                 Ui::ViewportManager::invalidate(World::Pos2(trackLoc), stationEl->baseHeight(), stationEl->clearHeight(), ZoomLevel::eighth);
                 elTrack->setHasStationElement(false);
-                World::TileManager::removeElement(*nextEl);
+                World::TileManager::removeElement(*nextEntry);
             }
         }
 
-        if (updateStationTileRegistration && (flags & Flags::apply) != 0)
+        if (updateStationTileRegistration && hasFlags(flags, Flags::apply))
         {
             auto* station = StationManager::get(foundStationId);
             removeTileFromStationAndRecalcCargo(foundStationId, trackStart, args.rotation);
@@ -131,8 +151,8 @@ namespace OpenLoco::GameCommands
         return totalCost;
     }
 
-    void removeTrainStation(registers& regs)
+    void removeTrainStation(registers& regs, const Flags flags)
     {
-        regs.ebx = removeTrainStation(TrainStationRemovalArgs(regs), regs.bl);
+        regs.ebx = removeTrainStation(TrainStationRemovalArgs(regs), flags);
     }
 }

@@ -1,4 +1,4 @@
-#include "PaintTile.h"
+#include "Paint/PaintTile.h"
 #include "Graphics/Colour.h"
 #include "Graphics/ImageIds.h"
 #include "Graphics/RenderTarget.h"
@@ -16,17 +16,17 @@
 #include "Map/WallElement.h"
 #include "Objects/BridgeObject.h"
 #include "Objects/ObjectManager.h"
-#include "Paint.h"
-#include "PaintBridge.h"
-#include "PaintBuilding.h"
-#include "PaintIndustry.h"
-#include "PaintRoad.h"
-#include "PaintSignal.h"
-#include "PaintStation.h"
-#include "PaintSurface.h"
-#include "PaintTrack.h"
-#include "PaintTree.h"
-#include "PaintWall.h"
+#include "Paint/Paint.h"
+#include "Paint/PaintBridge.h"
+#include "Paint/PaintBuilding.h"
+#include "Paint/PaintIndustry.h"
+#include "Paint/PaintRoad.h"
+#include "Paint/PaintSignal.h"
+#include "Paint/PaintStation.h"
+#include "Paint/PaintSurface.h"
+#include "Paint/PaintTrack.h"
+#include "Paint/PaintTree.h"
+#include "Paint/PaintWall.h"
 #include "Ui.h"
 #include "Ui/ViewportInteraction.h"
 #include "World/Station.h"
@@ -48,11 +48,11 @@ namespace OpenLoco::Paint
 
         const auto loc2 = loc + kUnkOffsets[session.getRotation()];
         const auto vpPos = World::gameToScreen(World::Pos3(loc2.x, loc2.y, 16), session.getRotation());
-        if (vpPos.y + 32 <= session.getRenderTarget()->y)
+        if (vpPos.y + 32 <= session.getWorldY())
         {
             return;
         }
-        if (vpPos.y - 20 >= session.getRenderTarget()->height + session.getRenderTarget()->y)
+        if (vpPos.y - 20 >= session.getWorldHeight() + session.getWorldY())
         {
             return;
         }
@@ -239,11 +239,11 @@ namespace OpenLoco::Paint
         const auto vpPos = World::gameToScreen(World::Pos3(loc2.x, loc2.y, 0), session.getRotation());
         paintConstructionArrow(session, loc2);
 
-        if (vpPos.y + 52 <= session.getRenderTarget()->y)
+        if (vpPos.y + 52 <= session.getWorldY())
         {
             return std::nullopt;
         }
-        if (vpPos.y - session.getMaxHeight() > session.getRenderTarget()->y + session.getRenderTarget()->height)
+        if (vpPos.y - session.getMaxHeight() > session.getWorldY() + session.getWorldHeight())
         {
             return std::nullopt;
         }
@@ -253,9 +253,9 @@ namespace OpenLoco::Paint
         return { vpPos };
     }
 
-    static void paintTileElementsEndLoop(PaintSession& session, const World::TileElement& el)
+    static void paintTileElementsEndLoop(PaintSession& session, const World::TileElementEntry& el)
     {
-        if (el.isLast() || el.baseZ() != ((&el) + 1)->baseZ())
+        if (el.isLast() || el.baseZ() != (&el + 1)->baseZ())
         {
             if (session.getRoadExits() != 0)
             {
@@ -327,14 +327,12 @@ namespace OpenLoco::Paint
                 }
                 case World::ElementType::station:
                 {
-                    auto& elStation = el.get<World::StationElement>();
-                    paintStation(session, elStation);
+                    paintStation(session, el);
                     break;
                 }
                 case World::ElementType::signal:
                 {
-                    auto& elSignal = el.get<World::SignalElement>();
-                    paintSignal(session, elSignal);
+                    paintSignal(session, el);
                     break;
                 }
                 case World::ElementType::building:
@@ -408,7 +406,7 @@ namespace OpenLoco::Paint
                     {
                         case StationType::airport:
                         case StationType::docks:
-                            paintStation(session, elStation);
+                            paintStation(session, el);
                             break;
                         default:
                         case StationType::roadStation:

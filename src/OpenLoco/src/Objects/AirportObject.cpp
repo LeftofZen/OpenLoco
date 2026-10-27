@@ -1,10 +1,10 @@
-#include "AirportObject.h"
+#include "Objects/AirportObject.h"
 #include "Graphics/Colour.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
-#include "ObjectImageTable.h"
-#include "ObjectManager.h"
-#include "ObjectStringTable.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectManager.h"
+#include "Objects/ObjectStringTable.h"
 
 namespace OpenLoco
 {
@@ -12,7 +12,7 @@ namespace OpenLoco
     void AirportObject::drawPreviewImage(Gfx::DrawingContext& drawingCtx, const int16_t x, const int16_t y) const
     {
         auto colourImage = Gfx::recolour(image, Colour::mutedDarkRed);
-        drawingCtx.drawImage(x - 34, y - 34, colourImage);
+        drawingCtx.drawImage(ZoomLevel::full, x - 34, y - 34, colourImage);
     }
 
     // 0x00490DE7

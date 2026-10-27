@@ -1,4 +1,4 @@
-#include "VehicleOrderInsert.h"
+#include "GameCommands/Vehicles/VehicleOrderInsert.h"
 #include "Entities/EntityManager.h"
 #include "GameCommands/GameCommands.h"
 #include "Objects/VehicleObject.h"
@@ -14,12 +14,12 @@ using namespace OpenLoco::Vehicles;
 namespace OpenLoco::GameCommands
 {
     // 0x0047036E
-    static uint32_t vehicleOrderInsert(const VehicleOrderInsertArgs& args, uint8_t flags)
+    static uint32_t vehicleOrderInsert(const VehicleOrderInsertArgs& args, Flags flags)
     {
         auto* head = EntityManager::get<VehicleHead>(args.head);
         if (head == nullptr)
         {
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
 
         GameCommands::setPosition(head->position);
@@ -36,7 +36,7 @@ namespace OpenLoco::GameCommands
                 if (station->owner != head->owner)
                 {
                     setErrorText(StringIds::stationOwnedByAnotherCompany);
-                    return FAILURE;
+                    return kFailure;
                 }
             }
         }
@@ -48,13 +48,13 @@ namespace OpenLoco::GameCommands
             if (head->mode == TransportMode::water && order->is<OrderRouteThrough>())
             {
                 setErrorText(StringIds::orderTypeNotValidForShips);
-                return FAILURE;
+                return kFailure;
             }
             // Aircraft can't have either order
             else if (head->mode == TransportMode::air)
             {
                 setErrorText(StringIds::orderTypeNotValidForAircraft);
-                return FAILURE;
+                return kFailure;
             }
         }
 
@@ -62,20 +62,20 @@ namespace OpenLoco::GameCommands
         if (!OrderManager::spaceLeftInGlobalOrderTableForOrder(order))
         {
             setErrorText(StringIds::no_space_for_more_vehicle_orders);
-            return FAILURE;
+            return kFailure;
         }
         if (!OrderManager::spaceLeftInVehicleOrderTable(head))
         {
             setErrorText(StringIds::tooManyOrdersForThisVehicle);
-            return FAILURE;
+            return kFailure;
         }
 
         if (args.orderOffset > head->sizeOfOrderTable)
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if (!(flags & GameCommands::Flags::apply))
+        if (!hasFlags(flags, GameCommands::Flags::apply))
         {
             return 0;
         }
@@ -119,8 +119,8 @@ namespace OpenLoco::GameCommands
         return 0;
     }
 
-    void vehicleOrderInsert(registers& regs)
+    void vehicleOrderInsert(registers& regs, const Flags flags)
     {
-        regs.ebx = vehicleOrderInsert(VehicleOrderInsertArgs(regs), regs.bl);
+        regs.ebx = vehicleOrderInsert(VehicleOrderInsertArgs(regs), flags);
     }
 }

@@ -1,10 +1,10 @@
-#include "RoadExtraObject.h"
+#include "Objects/RoadExtraObject.h"
 #include "Graphics/Colour.h"
+#include "Graphics/DrawingContext.h"
 #include "Graphics/Gfx.h"
-#include "Graphics/SoftwareDrawingEngine.h"
-#include "ObjectImageTable.h"
-#include "ObjectManager.h"
-#include "ObjectStringTable.h"
+#include "Objects/ObjectImageTable.h"
+#include "Objects/ObjectManager.h"
+#include "Objects/ObjectStringTable.h"
 
 #include <cassert>
 
@@ -15,11 +15,11 @@ namespace OpenLoco
     {
         auto colourImage = Gfx::recolour(image, Colour::mutedDarkRed);
 
-        drawingCtx.drawImage(x, y, colourImage + 36);
-        drawingCtx.drawImage(x, y, colourImage + 37);
-        drawingCtx.drawImage(x, y, colourImage);
-        drawingCtx.drawImage(x, y, colourImage + 33);
-        drawingCtx.drawImage(x, y, colourImage + 32);
+        drawingCtx.drawImage(ZoomLevel::full, x, y, colourImage + 36);
+        drawingCtx.drawImage(ZoomLevel::full, x, y, colourImage + 37);
+        drawingCtx.drawImage(ZoomLevel::full, x, y, colourImage);
+        drawingCtx.drawImage(ZoomLevel::full, x, y, colourImage + 33);
+        drawingCtx.drawImage(ZoomLevel::full, x, y, colourImage + 32);
     }
 
     // 0x00477E92

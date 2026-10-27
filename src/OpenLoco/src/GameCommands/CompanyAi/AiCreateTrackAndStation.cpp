@@ -1,4 +1,4 @@
-#include "AiCreateTrackAndStation.h"
+#include "GameCommands/CompanyAi/AiCreateTrackAndStation.h"
 #include "Economy/Expenditures.h"
 #include "GameCommands/Track/CreateTrack.h"
 #include "GameCommands/Track/CreateTrainStation.h"
@@ -11,15 +11,15 @@
 namespace OpenLoco::GameCommands
 {
     // 0x004A7328
-    static World::TileClearance::ClearFuncResult clearNearbyArea(World::TileElement& el)
+    static World::TileClearance::ClearFuncResult clearNearbyArea(World::TileElementEntry& entry)
     {
-        if (el.type() == World::ElementType::tree)
+        if (entry.type() == World::ElementType::tree)
         {
             return World::TileClearance::ClearFuncResult::noCollision;
         }
-        if (el.type() == World::ElementType::building)
+        if (entry.type() == World::ElementType::building)
         {
-            auto* elBuilding = el.as<World::BuildingElement>();
+            auto* elBuilding = entry.as<World::BuildingElement>();
             if (elBuilding == nullptr)
             {
                 return World::TileClearance::ClearFuncResult::noCollision;
@@ -34,19 +34,19 @@ namespace OpenLoco::GameCommands
         return World::TileClearance::ClearFuncResult::collision;
     }
 
-    static currency32_t aiCreateTrackAndStation(const AiTrackAndStationPlacementArgs& args, uint8_t flags)
+    static currency32_t aiCreateTrackAndStation(const AiTrackAndStationPlacementArgs& args, Flags flags)
     {
         GameCommands::setExpenditureType(ExpenditureType::Construction);
         if (!World::TileManager::checkFreeElementsAndReorganise())
         {
-            return GameCommands::FAILURE;
+            return GameCommands::kFailure;
         }
         currency32_t totalCost = 0;
         int32_t numTilesTrackOrRoadUnderneath = 0;
         auto trackPos = args.pos;
         for (auto i = 0U; i < args.stationLength; ++i, trackPos += World::Pos3(World::kRotationOffset[args.rotation], 0))
         {
-            if (!(flags & Flags::apply))
+            if (!hasFlags(flags, Flags::apply))
             {
                 if (World::TileManager::validCoords(trackPos))
                 {
@@ -88,20 +88,19 @@ namespace OpenLoco::GameCommands
                 trackArgs.unk = false;
 
                 auto trackRegs = static_cast<registers>(trackArgs);
-                trackRegs.bl = flags;
-                createTrack(trackRegs);
+                createTrack(trackRegs, flags);
                 const auto trackRes = static_cast<currency32_t>(trackRegs.ebx);
-                if (!(flags & GameCommands::Flags::apply))
+                if (!hasFlags(flags, GameCommands::Flags::apply))
                 {
-                    if (static_cast<uint32_t>(trackRes) == GameCommands::FAILURE)
+                    if (static_cast<uint32_t>(trackRes) == GameCommands::kFailure)
                     {
-                        return GameCommands::FAILURE;
+                        return GameCommands::kFailure;
                     }
 
                     // There is a level crossing or track overlay so we can't place a station
                     if (getLegacyReturnState().flags_1136073 & ((1U << 2) | (1U << 3)))
                     {
-                        return GameCommands::FAILURE;
+                        return GameCommands::kFailure;
                     }
                 }
                 totalCost += trackRes;
@@ -116,14 +115,13 @@ namespace OpenLoco::GameCommands
                 stationArgs.index = 0;   // Always index 0 for straight track
 
                 auto stationRegs = static_cast<registers>(stationArgs);
-                stationRegs.bl = flags;
-                createTrainStation(stationRegs);
+                createTrainStation(stationRegs, flags);
                 const auto stationRes = static_cast<currency32_t>(stationRegs.ebx);
-                if (!(flags & GameCommands::Flags::apply))
+                if (!hasFlags(flags, GameCommands::Flags::apply))
                 {
-                    if (static_cast<uint32_t>(stationRes) == GameCommands::FAILURE)
+                    if (static_cast<uint32_t>(stationRes) == GameCommands::kFailure)
                     {
-                        return GameCommands::FAILURE;
+                        return GameCommands::kFailure;
                     }
                 }
                 totalCost += stationRes;
@@ -139,7 +137,7 @@ namespace OpenLoco::GameCommands
                 const auto baseZ = args.pos.z / World::kSmallZStep;
                 if (!World::TileClearance::applyClearAtStandardHeight(pos, baseZ, baseZ + 12, World::QuarterTile{ 0xF, 0 }, clearNearbyArea))
                 {
-                    return GameCommands::FAILURE;
+                    return GameCommands::kFailure;
                 }
                 pos -= World::kRotationOffset[args.rotation];
             }
@@ -153,24 +151,24 @@ namespace OpenLoco::GameCommands
                 const auto baseZ = args.pos.z / World::kSmallZStep;
                 if (!World::TileClearance::applyClearAtStandardHeight(pos, baseZ, baseZ + 12, World::QuarterTile{ 0xF, 0 }, clearNearbyArea))
                 {
-                    return GameCommands::FAILURE;
+                    return GameCommands::kFailure;
                 }
                 pos += World::kRotationOffset[args.rotation];
             }
         }
-        if (!(flags & Flags::apply))
+        if (!hasFlags(flags, Flags::apply))
         {
             if (numTilesTrackOrRoadUnderneath >= args.stationLength - 2)
             {
-                return GameCommands::FAILURE;
+                return GameCommands::kFailure;
             }
         }
         return totalCost;
     }
 
     // 0x004A6FDC
-    void aiCreateTrackAndStation(registers& regs)
+    void aiCreateTrackAndStation(registers& regs, const Flags flags)
     {
-        regs.ebx = aiCreateTrackAndStation(AiTrackAndStationPlacementArgs(regs), regs.bl);
+        regs.ebx = aiCreateTrackAndStation(AiTrackAndStationPlacementArgs(regs), flags);
     }
 }

@@ -5,7 +5,6 @@
 #include "Graphics/Colour.h"
 #include "Graphics/ImageIds.h"
 #include "Graphics/RenderTarget.h"
-#include "Graphics/SoftwareDrawingEngine.h"
 #include "Graphics/TextRenderer.h"
 #include "Input.h"
 #include "Localisation/FormatArguments.hpp"
@@ -48,14 +47,22 @@ namespace OpenLoco::Ui::Windows::CompanyFaceSelection
         face_frame
     };
 
+    namespace Widx
+    {
+        constexpr WidgetId kCaption{ "caption" };
+        constexpr WidgetId kCloseButton{ "close_button" };
+        constexpr WidgetId kScrollview{ "scrollview" };
+        constexpr WidgetId kFaceFrame{ "face_frame" };
+    }
+
     // 0x509680
     static constexpr auto widgets = makeWidgets(
         Widgets::Frame({ 0, 0 }, kWindowSize, WindowColour::primary),
-        Widgets::Caption({ 1, 1 }, { 398, 13 }, Widgets::Caption::Style::colourText, WindowColour::primary, StringIds::company_face_selection_title),
-        Widgets::ImageButton({ 385, 2 }, { 13, 13 }, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
+        Widgets::Caption(Widx::kCaption, { 1, 1 }, { 398, 13 }, Widgets::Caption::Style::colourText, WindowColour::primary, StringIds::company_face_selection_title),
+        Widgets::ImageButton(Widx::kCloseButton, { 385, 2 }, { 13, 13 }, WindowColour::primary, ImageIds::close_button, StringIds::tooltip_close_window),
         Widgets::Panel({ 0, 15 }, { 400, 257 }, WindowColour::secondary),
-        Widgets::ScrollView({ 4, 19 }, { 188, 248 }, WindowColour::secondary, Scrollbars::vertical, StringIds::tooltip_company_face_selection),
-        Widgets::Tab({ 265, 23 }, { 66, 66 }, WindowColour::secondary)
+        Widgets::ScrollView(Widx::kScrollview, { 4, 19 }, { 188, 248 }, WindowColour::secondary, Scrollbars::vertical, StringIds::tooltip_company_face_selection),
+        Widgets::Tab(Widx::kFaceFrame, { 265, 23 }, { 66, 66 }, WindowColour::secondary)
 
     );
 
@@ -131,11 +138,11 @@ namespace OpenLoco::Ui::Windows::CompanyFaceSelection
     }
 
     // 0x435299
-    static void onMouseUp(Window& self, const WidgetIndex_t widgetIndex, [[maybe_unused]] const WidgetId id)
+    static void onMouseUp(Window& self, [[maybe_unused]] const WidgetIndex_t widgetIndex, const WidgetId id)
     {
-        switch (widgetIndex)
+        switch (id)
         {
-            case widx::close_button:
+            case Widx::kCloseButton:
                 WindowManager::close(&self);
                 break;
         }
@@ -181,7 +188,7 @@ namespace OpenLoco::Ui::Windows::CompanyFaceSelection
         self.invalidate();
 
         auto mousePos = Input::getMouseLocation();
-        Audio::playSound(Audio::SoundId::clickDown, mousePos.x);
+        Audio::playSound(Audio::SoundId::clickDown, Audio::ChannelId::ui, mousePos.x);
 
         if (_callingWindowType == WindowType::company)
         {
@@ -191,7 +198,7 @@ namespace OpenLoco::Ui::Windows::CompanyFaceSelection
             args.companyId = self.owner;
             args.objHeader = objRow.object._header;
 
-            const auto result = GameCommands::doCommand(args, GameCommands::Flags::apply) != GameCommands::FAILURE;
+            const auto result = GameCommands::doCommand(args, GameCommands::Flags::apply) != GameCommands::kFailure;
             if (result)
             {
                 WindowManager::close(&self);
@@ -268,22 +275,22 @@ namespace OpenLoco::Ui::Windows::CompanyFaceSelection
 
         {
             const auto colour = Colours::getShade(self.getColour(WindowColour::secondary).c(), 0);
-            const auto l = self.x + 1 + self.widgets[widx::face_frame].left;
-            const auto t = self.y + 1 + self.widgets[widx::face_frame].top;
-            const auto r = self.x - 1 + self.widgets[widx::face_frame].right;
-            const auto b = self.y - 1 + self.widgets[widx::face_frame].bottom;
+            const auto l = 1 + self.widgets[widx::face_frame].left;
+            const auto t = 1 + self.widgets[widx::face_frame].top;
+            const auto r = self.widgets[widx::face_frame].right - 1;
+            const auto b = self.widgets[widx::face_frame].bottom - 1;
             drawingCtx.fillRect(l, t, r, b, colour, Gfx::RectFlags::none);
 
             const CompetitorObject* competitor = reinterpret_cast<CompetitorObject*>(ObjectManager::getTemporaryObject());
             uint32_t img = Gfx::recolour(competitor->images[0] + 1, Colour::black);
-            drawingCtx.drawImage(l, t, img);
+            drawingCtx.drawImage(ZoomLevel::full, l, t, img);
         }
 
         {
-            const auto x = self.x + self.widgets[widx::face_frame].midX();
-            const auto y = self.y + self.widgets[widx::face_frame].bottom + 3;
+            const auto x = self.widgets[widx::face_frame].midX();
+            const auto y = self.widgets[widx::face_frame].bottom + 3;
             const auto width = self.width - self.widgets[widx::scrollview].right - 6;
-            auto str = const_cast<char*>(StringManager::getString(StringIds::buffer_2039));
+            auto str = StringManager::getBufferString(StringIds::buffer_2039);
             *str++ = ControlCodes::windowColour2;
             strcpy(str, ObjectManager::getObjectInIndex(self.rowHover)._name.c_str());
 
@@ -300,7 +307,7 @@ namespace OpenLoco::Ui::Windows::CompanyFaceSelection
         const auto& rt = drawingCtx.currentRenderTarget();
         auto tr = Gfx::TextRenderer(drawingCtx);
 
-        drawingCtx.clearSingle(Colours::getShade(self.getColour(WindowColour::secondary).c(), 4));
+        drawingCtx.clear(Colours::getShade(self.getColour(WindowColour::secondary).c(), 4));
 
         auto index = 0;
         for (const auto& object : _competitorList)

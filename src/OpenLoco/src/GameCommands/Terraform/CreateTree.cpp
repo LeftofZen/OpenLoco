@@ -1,4 +1,4 @@
-#include "CreateTree.h"
+#include "GameCommands/Terraform/CreateTree.h"
 #include "Economy/Economy.h"
 #include "Economy/Expenditures.h"
 #include "GameCommands/GameCommands.h"
@@ -34,7 +34,7 @@ namespace OpenLoco::GameCommands
      * This is called when you activate the Plant Trees from the construction menu and you move the cursor over the terrain.
      *
      */
-    static uint32_t createTree(const TreePlacementArgs& args, const uint8_t flags)
+    static uint32_t createTree(const TreePlacementArgs& args, const Flags flags)
     {
         setExpenditureType(ExpenditureType::Construction);
 
@@ -44,12 +44,12 @@ namespace OpenLoco::GameCommands
         if (!World::TileManager::checkFreeElementsAndReorganise())
         {
             // Error message set in checkFreeElementsAndReorganise
-            return FAILURE;
+            return kFailure;
         }
 
         if (!World::TileManager::validCoords(args.pos))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         const auto* treeObj = ObjectManager::get<TreeObject>(args.type);
@@ -58,7 +58,7 @@ namespace OpenLoco::GameCommands
         auto* elSurface = World::TileManager::get(args.pos).surface();
         if (elSurface == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
         if (elSurface->water())
@@ -66,7 +66,7 @@ namespace OpenLoco::GameCommands
             if (elSurface->waterHeight() - 1 > quadrantHeight.landHeight)
             {
                 setErrorText(StringIds::cant_build_this_underwater);
-                return FAILURE;
+                return kFailure;
             }
         }
 
@@ -74,7 +74,7 @@ namespace OpenLoco::GameCommands
         if (landObj->hasFlags(LandObjectFlags::noTrees))
         {
             setErrorText(StringIds::land_type_not_suitable);
-            return FAILURE;
+            return kFailure;
         }
 
         const auto baseZ = quadrantHeight.landHeight / World::kSmallZStep;
@@ -88,55 +88,56 @@ namespace OpenLoco::GameCommands
         if (!World::TileClearance::canConstructAt(args.pos, baseZ, clearanceZ, qt))
         {
             // Error message set in canConstructAt
-            return FAILURE;
+            return kFailure;
         }
 
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
-            auto* elTree = World::TileManager::insertElement<World::TreeElement>(args.pos, baseZ, qt.getBaseQuarterOccupied());
-            if (elTree == nullptr)
+            auto* treeEntry = World::TileManager::insertElement<World::TreeElement>(args.pos, baseZ, qt.getBaseQuarterOccupied());
+            if (treeEntry == nullptr)
             {
-                return FAILURE;
+                return kFailure;
             }
-            Ui::Windows::Terraform::setLastPlacedTree(elTree);
-            elTree->setRotation(args.rotation);
-            elTree->setQuadrant(args.quadrant);
-            elTree->setTreeObjectId(args.type);
-            elTree->setGrowth(0);
-            elTree->setUnk5h(0);
-            elTree->setColour(args.colour);
-            elTree->setIsDying(false);
-            elTree->setSnow(false);
-            elTree->setSeason(treeObj->currentSeason);
-            elTree->setUnk7l(7);
-            elTree->setClearZ(treeObj->initialHeight / World::kSmallZStep + elTree->baseZ());
+            auto& elTree = treeEntry->get<World::TreeElement>();
+            Ui::Windows::Terraform::setLastPlacedTree(&elTree);
+            elTree.setRotation(args.rotation);
+            elTree.setQuadrant(args.quadrant);
+            elTree.setTreeObjectId(args.type);
+            elTree.setGrowth(0);
+            elTree.setUnk5h(0);
+            elTree.setColour(args.colour);
+            elTree.setIsDying(false);
+            elTree.setSnow(false);
+            elTree.setSeason(treeObj->currentSeason);
+            elTree.setUnk7l(7);
+            elTree.setClearZ(treeObj->initialHeight / World::kSmallZStep + elTree.baseZ());
             Scenario::getOptions().madeAnyChanges = 1;
             if (args.buildImmediately)
             {
-                elTree->setGrowth(treeObj->growth - 1);
-                elTree->setClearZ(treeObj->height / World::kSmallZStep + elTree->baseZ());
-                if (elTree->baseZ() - 4 > Scenario::getCurrentSnowLine() && treeObj->hasFlags(TreeObjectFlags::hasSnowVariation))
+                elTree.setGrowth(treeObj->growth - 1);
+                elTree.setClearZ(treeObj->height / World::kSmallZStep + elTree.baseZ());
+                if (elTree.baseZ() - 4 > Scenario::getCurrentSnowLine() && treeObj->hasFlags(TreeObjectFlags::hasSnowVariation))
                 {
-                    elTree->setSnow(true);
+                    elTree.setSnow(true);
                 }
             }
-            if (flags & Flags::ghost)
+            if (hasFlags(flags, Flags::ghost))
             {
-                elTree->setGhost(true);
+                elTree.setGhost(true);
             }
             else
             {
                 TownManager::updateTownInfo(args.pos, 0, 0, treeObj->rating, 0);
             }
-            Ui::ViewportManager::invalidate(args.pos, elTree->baseHeight(), elTree->clearHeight(), ZoomLevel::eighth, 56);
+            Ui::ViewportManager::invalidate(args.pos, elTree.baseHeight(), elTree.clearHeight(), ZoomLevel::eighth, 56);
         }
 
         return Economy::getInflationAdjustedCost(treeObj->buildCostFactor, treeObj->costIndex, 12);
     }
 
-    void createTree(registers& regs)
+    void createTree(registers& regs, const Flags flags)
     {
         TreePlacementArgs args(regs);
-        regs.ebx = createTree(args, regs.bl);
+        regs.ebx = createTree(args, flags);
     }
 }

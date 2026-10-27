@@ -1,4 +1,4 @@
-#include "VehiclePlace.h"
+#include "GameCommands/Vehicles/VehiclePlace.h"
 #include "Economy/Expenditures.h"
 #include "GameState.h"
 #include "Map/RoadElement.h"
@@ -63,7 +63,7 @@ namespace OpenLoco::GameCommands
                     {
                         continue;
                     }
-                    if (!(getGameState().roadObjectIdIsNotTram & (1 << elRoad->roadObjectId())))
+                    if (!(getGameState().roadObjectIdIsAnyRoadTypeCompatible & (1 << elRoad->roadObjectId())))
                     {
                         continue;
                     }
@@ -96,9 +96,9 @@ namespace OpenLoco::GameCommands
             return false;
         }
 
-        if (!(getGameState().roadObjectIdIsFlag7 & (1 << elRoad->roadObjectId())))
+        if (!(getGameState().roadObjectIdIsUsableByAllCompanies & (1 << elRoad->roadObjectId())))
         {
-            if (!sub_431E6A(elRoad->owner(), reinterpret_cast<const World::TileElement*>(elRoad)))
+            if (!checkCompanyCompatibility(elRoad->owner(), *elRoad))
             {
                 return false;
             }
@@ -177,7 +177,7 @@ namespace OpenLoco::GameCommands
             return false;
         }
 
-        if (!sub_431E6A(elTrack->owner(), reinterpret_cast<const World::TileElement*>(elTrack)))
+        if (!checkCompanyCompatibility(elTrack->owner(), *elTrack))
         {
             return false;
         }
@@ -196,11 +196,11 @@ namespace OpenLoco::GameCommands
     }
 
     // 0x004B01B6
-    static currency32_t vehiclePlace(const VehiclePlacementArgs& args, const uint8_t flags)
+    static currency32_t vehiclePlace(const VehiclePlacementArgs& args, const Flags flags)
     {
         if (args.head == EntityId::null)
         {
-            return FAILURE;
+            return kFailure;
         }
 
         try
@@ -218,25 +218,25 @@ namespace OpenLoco::GameCommands
             setExpenditureType(vehTypeToCost[enumValue(train.head->vehicleType)]);
             setPosition(args.pos);
 
-            if (!sub_431E6A(train.head->owner))
+            if (!checkCompanyCompatibility(train.head->owner))
             {
-                return FAILURE;
+                return kFailure;
             }
             if (!args.convertGhost)
             {
                 if (train.head->tileX != -1)
                 {
                     setErrorText(StringIds::empty);
-                    return FAILURE;
+                    return kFailure;
                 }
                 if (train.cars.empty())
                 {
                     setErrorText(StringIds::empty);
-                    return FAILURE;
+                    return kFailure;
                 }
             }
 
-            if (!(flags & Flags::apply))
+            if (!hasFlags(flags, Flags::apply))
             {
                 return 0;
             }
@@ -256,14 +256,14 @@ namespace OpenLoco::GameCommands
                 {
                     if (!validateRoadPlacement(pos, args.trackAndDirection, *train.head))
                     {
-                        return FAILURE;
+                        return kFailure;
                     }
                 }
                 else
                 {
                     if (!validateTrackPlacement(pos, args.trackAndDirection, *train.head))
                     {
-                        return FAILURE;
+                        return kFailure;
                     }
                 }
                 Vehicles::TrackAndDirection tad(0, 0);
@@ -275,12 +275,12 @@ namespace OpenLoco::GameCommands
                         res == VehicleManager::PlaceDownResult::Unk0
                             ? StringIds::not_enough_space_or_vehicle_in_the_way
                             : StringIds::vehicle_approaching_or_in_the_way);
-                    return FAILURE;
+                    return kFailure;
                 }
 
                 train.head->vehicleFlags |= Vehicles::VehicleFlags::commandStop;
                 train.head->manualPower = -40;
-                if (flags & Flags::ghost)
+                if (hasFlags(flags, Flags::ghost))
                 {
                     train.applyToComponents([](auto& component) {
                         component.var_38 |= Vehicles::Flags38::isGhost;
@@ -290,17 +290,17 @@ namespace OpenLoco::GameCommands
         }
         catch (Exception::RuntimeError&)
         {
-            return FAILURE;
+            return kFailure;
         }
-        if ((flags & Flags::apply) && !(flags & Flags::ghost))
+        if (hasFlags(flags, Flags::apply) && !hasFlags(flags, Flags::ghost))
         {
             Vehicles::playPlacedownSound(args.pos);
         }
         return 0;
     }
 
-    void vehiclePlace(registers& regs)
+    void vehiclePlace(registers& regs, const Flags flags)
     {
-        regs.ebx = vehiclePlace(VehiclePlacementArgs(regs), regs.bl);
+        regs.ebx = vehiclePlace(VehiclePlacementArgs(regs), flags);
     }
 }

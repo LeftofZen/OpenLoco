@@ -1,7 +1,6 @@
-#include "ChangeCompanyColour.h"
+#include "GameCommands/Company/ChangeCompanyColour.h"
 #include "Audio/Audio.h"
 #include "GameCommands/GameCommands.h"
-#include "GameException.hpp"
 #include "Localisation/StringIds.h"
 #include "OpenLoco.h"
 #include "Ui/WindowManager.h"
@@ -11,14 +10,14 @@
 namespace OpenLoco::GameCommands
 {
     // 0x0043483D
-    static uint32_t changeCompanyColour(const ChangeCompanyColourSchemeArgs& args, uint8_t flags)
+    static uint32_t changeCompanyColour(const ChangeCompanyColourSchemeArgs& args, Flags flags)
     {
         GameCommands::setExpenditureType(ExpenditureType::Miscellaneous);
         GameCommands::setPosition({ static_cast<int16_t>(0x8000), 0, 0 });
 
         auto* company = CompanyManager::get(args.companyId);
 
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
             // Toggling vehicle palette
             if (args.setColourMode)
@@ -63,9 +62,9 @@ namespace OpenLoco::GameCommands
         }
         else
         {
-            if (!sub_431E6A(args.companyId, nullptr))
+            if (!checkCompanyCompatibility(args.companyId))
             {
-                return GameCommands::FAILURE;
+                return GameCommands::kFailure;
             }
 
             if (args.setColourMode || args.colourType > 0 || !args.isPrimary)
@@ -78,15 +77,15 @@ namespace OpenLoco::GameCommands
             if (unavailableColours & (1 << args.value))
             {
                 setErrorText(StringIds::empty);
-                return GameCommands::FAILURE;
+                return GameCommands::kFailure;
             }
         }
 
         return 0;
     }
 
-    void changeCompanyColour(registers& regs)
+    void changeCompanyColour(registers& regs, const Flags flags)
     {
-        regs.ebx = changeCompanyColour(ChangeCompanyColourSchemeArgs(regs), regs.bl);
+        regs.ebx = changeCompanyColour(ChangeCompanyColourSchemeArgs(regs), flags);
     }
 }

@@ -1,6 +1,8 @@
-#include "RemoveTrack.h"
+#include "GameCommands/Track/RemoveTrack.h"
 #include "Audio/Audio.h"
 #include "Economy/Economy.h"
+#include "GameCommands/Track/RemoveSignal.h"
+#include "GameCommands/Track/RemoveTrainStation.h"
 #include "Map/RoadElement.h"
 #include "Map/SignalElement.h"
 #include "Map/TileManager.h"
@@ -11,14 +13,18 @@
 #include "Objects/TrackExtraObject.h"
 #include "Objects/TrackObject.h"
 #include "Random.h"
-#include "RemoveSignal.h"
-#include "RemoveTrainStation.h"
 #include "Vehicles/Vehicle.h"
 #include "ViewportManager.h"
 
 namespace OpenLoco::GameCommands
 {
-    static World::TrackElement* getElTrackAt(const TrackRemovalArgs& args, const uint8_t flags, const World::Pos3 pos, const uint8_t sequenceIndex)
+    struct TrackLookup
+    {
+        World::TileElementEntry* entry;
+        World::TrackElement* element;
+    };
+
+    static TrackLookup getElTrackAt(const TrackRemovalArgs& args, const Flags flags, const World::Pos3 pos, const uint8_t sequenceIndex)
     {
         auto tile = World::TileManager::get(pos);
         for (auto& el : tile)
@@ -48,31 +54,31 @@ namespace OpenLoco::GameCommands
             {
                 continue;
             }
-            if (elTrack->isGhost() != ((flags & Flags::ghost) != 0))
+            if (elTrack->isGhost() != hasFlags(flags, Flags::ghost))
             {
                 continue;
             }
-            if (elTrack->isAiAllocated() != ((flags & Flags::aiAllocated) != 0))
+            if (elTrack->isAiAllocated() != hasFlags(flags, Flags::aiAllocated))
             {
                 continue;
             }
             // Ghost only as this is checked elsewhere for non-ghost so that
             // neutral company is always allowed
-            if (elTrack->owner() != getUpdatingCompanyId() && ((flags & Flags::ghost) != 0))
+            if (elTrack->owner() != getUpdatingCompanyId() && hasFlags(flags, Flags::ghost))
             {
                 continue;
             }
-            return elTrack;
+            return { &el, elTrack };
         }
-        return nullptr;
+        return { nullptr, nullptr };
     };
 
     // 0x0049CC23
-    static currency32_t trackRemoveCost(const TrackRemovalArgs& args, const World::TrackData::PreviewTrack trackPiece0, const World::Pos3 trackStart, const uint8_t flags)
+    static currency32_t trackRemoveCost(const TrackRemovalArgs& args, const World::TrackData::PreviewTrack trackPiece0, const World::Pos3 trackStart, const Flags flags)
     {
         const auto trackLoc = trackStart + World::Pos3{ Math::Vector::rotate(World::Pos2{ trackPiece0.x, trackPiece0.y }, args.rotation), trackPiece0.z };
-        auto* pieceElTrack = getElTrackAt(args, flags, trackLoc, trackPiece0.index);
-        if (pieceElTrack == nullptr)
+        auto [trackEntry, pieceElTrack] = getElTrackAt(args, flags, trackLoc, trackPiece0.index);
+        if (trackEntry == nullptr)
         {
             return 0;
         }
@@ -105,26 +111,26 @@ namespace OpenLoco::GameCommands
     static void playTrackRemovalSound(const World::Pos3 pos)
     {
         const auto frequency = gPrng2().randNext(17955, 26146);
-        Audio::playSound(Audio::SoundId::demolish, pos, 0, frequency);
+        Audio::playSound(Audio::SoundId::demolish, Audio::ChannelId::effects, pos, 0, frequency);
     }
 
     // 0x0049C7F2
-    static currency32_t removeTrack(const TrackRemovalArgs& args, const uint8_t flags)
+    static currency32_t removeTrack(const TrackRemovalArgs& args, const Flags flags)
     {
         setExpenditureType(ExpenditureType::Construction);
         setPosition(args.pos + World::Pos3{ 16, 16, 0 });
 
         currency32_t totalRemovalCost = 0;
 
-        auto* elTrack = getElTrackAt(args, flags, args.pos, args.index);
-        if (elTrack == nullptr)
+        auto [trackEntry, elTrack] = getElTrackAt(args, flags, args.pos, args.index);
+        if (trackEntry == nullptr)
         {
-            return FAILURE;
+            return kFailure;
         }
 
-        if ((flags & Flags::ghost) == 0 && !sub_431E6A(elTrack->owner(), reinterpret_cast<World::TileElement*>(elTrack)))
+        if (!hasFlags(flags, Flags::ghost) && !checkCompanyCompatibility(elTrack->owner(), *elTrack))
         {
-            return FAILURE;
+            return kFailure;
         }
 
         if (elTrack->hasSignal())
@@ -137,7 +143,7 @@ namespace OpenLoco::GameCommands
             srArgs.trackObjType = args.trackObjectId;
             srArgs.flags = 0;
 
-            auto* elSignal = elTrack->next()->as<World::SignalElement>();
+            auto* elSignal = trackEntry->next()->as<World::SignalElement>();
             if (elSignal != nullptr)
             {
                 if (elSignal->getLeft().hasSignal())
@@ -150,18 +156,22 @@ namespace OpenLoco::GameCommands
                 }
             }
 
-            if (auto cost = GameCommands::doCommand(srArgs, flags); cost != FAILURE)
+            if (auto cost = GameCommands::doCommand(srArgs, flags); cost != kFailure)
             {
                 totalRemovalCost += cost;
             }
             else
             {
-                return FAILURE;
+                return kFailure;
             }
         }
 
         // Fetch track element again; signal removal above might have invalidated the pointer.
-        elTrack = getElTrackAt(args, flags, args.pos, args.index);
+        {
+            auto refreshed = getElTrackAt(args, flags, args.pos, args.index);
+            trackEntry = refreshed.entry;
+            elTrack = refreshed.element;
+        }
 
         if (elTrack->hasStationElement())
         {
@@ -172,18 +182,22 @@ namespace OpenLoco::GameCommands
             tsArgs.index = args.index;
             tsArgs.type = args.trackObjectId;
 
-            if (auto cost = GameCommands::doCommand(tsArgs, flags); cost != FAILURE)
+            if (auto cost = GameCommands::doCommand(tsArgs, flags); cost != kFailure)
             {
                 totalRemovalCost += cost;
             }
             else
             {
-                return FAILURE;
+                return kFailure;
             }
         }
 
         // Fetch track element again; station removal above might have invalidated the pointer.
-        elTrack = getElTrackAt(args, flags, args.pos, args.index);
+        {
+            auto refreshed = getElTrackAt(args, flags, args.pos, args.index);
+            trackEntry = refreshed.entry;
+            elTrack = refreshed.element;
+        }
 
         const auto trackPieces = World::TrackData::getTrackPiece(args.trackId);
         auto& trackPiece = trackPieces[args.index];
@@ -205,10 +219,10 @@ namespace OpenLoco::GameCommands
                 World::TileManager::mapInvalidateTileFull(trackLoc);
             }
 
-            auto* pieceElTrack = getElTrackAt(args, flags, trackLoc, piece.index);
-            if (pieceElTrack == nullptr)
+            auto [pieceEntry, pieceElTrack] = getElTrackAt(args, flags, trackLoc, piece.index);
+            if (pieceEntry == nullptr)
             {
-                return FAILURE;
+                return kFailure;
             }
 
             if (pieceElTrack->hasBridge())
@@ -217,12 +231,12 @@ namespace OpenLoco::GameCommands
                 trackBridgeId = pieceElTrack->bridge();
             }
 
-            if (!(flags & Flags::apply))
+            if (!hasFlags(flags, Flags::apply))
             {
                 continue;
             }
 
-            World::TileManager::removeElement(*reinterpret_cast<World::TileElement*>(pieceElTrack));
+            World::TileManager::removeElement(*pieceEntry);
             World::TileManager::setLevelCrossingFlags(trackLoc);
         }
 
@@ -235,9 +249,9 @@ namespace OpenLoco::GameCommands
             totalRemovalCost += (bridgeBaseCost * World::TrackData::getTrackMiscData(args.trackId).costFactor) / 256;
         }
 
-        if (flags & Flags::apply)
+        if (hasFlags(flags, Flags::apply))
         {
-            if (!(flags & (Flags::aiAllocated | Flags::ghost)))
+            if (!hasFlags(flags, Flags::aiAllocated | Flags::ghost))
             {
                 playTrackRemovalSound(args.pos);
             }
@@ -246,8 +260,8 @@ namespace OpenLoco::GameCommands
         return totalRemovalCost;
     }
 
-    void removeTrack(registers& regs)
+    void removeTrack(registers& regs, const Flags flags)
     {
-        regs.ebx = removeTrack(TrackRemovalArgs(regs), regs.bl);
+        regs.ebx = removeTrack(TrackRemovalArgs(regs), flags);
     }
 }

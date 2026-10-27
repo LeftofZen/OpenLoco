@@ -1,4 +1,4 @@
-#include "CompanyAiPlaceVehicle.h"
+#include "World/CompanyAi/CompanyAiPlaceVehicle.h"
 #include "Date.h"
 #include "GameCommands/Vehicles/VehicleChangeRunningMode.h"
 #include "GameCommands/Vehicles/VehiclePlace.h"
@@ -29,13 +29,13 @@ namespace OpenLoco::CompanyAi
     // 0x00431295
     static void beginPlacement(Company& company)
     {
-        company.var_4A6 = AiPlaceVehicleState::resetList;
+        company.aiPlaceVehicleState = AiPlaceVehicleState::resetList;
     }
 
     // 0x0043129D
     static void resetPlacementList(Company& company)
     {
-        company.var_4A6 = AiPlaceVehicleState::place;
+        company.aiPlaceVehicleState = AiPlaceVehicleState::place;
         company.aiPlaceVehicleIndex = 0;
     }
 
@@ -58,7 +58,7 @@ namespace OpenLoco::CompanyAi
         }
         auto& thought = company.aiThoughts[head.aiThoughtId];
         removeEntityFromThought(thought, head.id);
-        thought.var_43--;
+        thought.numVehiclesTarget--;
         thought.purchaseFlags |= AiPurchaseFlags::unk4;
 
         GameCommands::VehicleSellArgs args{};
@@ -114,7 +114,7 @@ namespace OpenLoco::CompanyAi
             }
             if (roadObjectId == 0xFFU)
             {
-                if (!(getGameState().roadObjectIdIsNotTram & (1U << elRoad->roadObjectId())))
+                if (!(getGameState().roadObjectIdIsAnyRoadTypeCompatible & (1U << elRoad->roadObjectId())))
                 {
                     continue;
                 }
@@ -193,7 +193,7 @@ namespace OpenLoco::CompanyAi
                     }
                     if (elRoad->roadObjectId() != roadObjectId)
                     {
-                        if (!(getGameState().roadObjectIdIsNotTram & (1U << elRoad->roadObjectId())))
+                        if (!(getGameState().roadObjectIdIsAnyRoadTypeCompatible & (1U << elRoad->roadObjectId())))
                         {
                             continue;
                         }
@@ -335,7 +335,7 @@ namespace OpenLoco::CompanyAi
         const auto res = GameCommands::doCommand(args, GameCommands::Flags::apply);
 
         GameCommands::setUpdatingCompanyId(oldUpdatingCompanyId);
-        if (res == GameCommands::FAILURE)
+        if (res == GameCommands::kFailure)
         {
             tryPlaceVehicleFailure(company, head);
             return;
@@ -396,7 +396,7 @@ namespace OpenLoco::CompanyAi
         const auto res = GameCommands::doCommand(args, GameCommands::Flags::apply);
 
         GameCommands::setUpdatingCompanyId(oldUpdatingCompanyId);
-        if (res == GameCommands::FAILURE)
+        if (res == GameCommands::kFailure)
         {
             tryPlaceVehicleFailure(company, head);
             return;
@@ -482,7 +482,7 @@ namespace OpenLoco::CompanyAi
             const auto res = GameCommands::doCommand(args, GameCommands::Flags::apply);
 
             GameCommands::setUpdatingCompanyId(oldUpdatingCompanyId);
-            if (res == GameCommands::FAILURE)
+            if (res == GameCommands::kFailure)
             {
                 tryPlaceVehicleFailure(company, head);
             }
@@ -621,14 +621,14 @@ namespace OpenLoco::CompanyAi
     {
         if (tryPlaceVehicles(company))
         {
-            company.var_4A6 = AiPlaceVehicleState::restart;
+            company.aiPlaceVehicleState = AiPlaceVehicleState::restart;
         }
     }
 
     // 0x004312BF
     static void restartPlacement(Company& company)
     {
-        company.var_4A6 = AiPlaceVehicleState::begin;
+        company.aiPlaceVehicleState = AiPlaceVehicleState::begin;
     }
 
     void processVehiclePlaceStateMachine(Company& company)
@@ -637,7 +637,7 @@ namespace OpenLoco::CompanyAi
         // this FSM down into just two states
         // a reset and a placement state
         using enum AiPlaceVehicleState;
-        switch (company.var_4A6)
+        switch (company.aiPlaceVehicleState)
         {
             case begin:
                 beginPlacement(company);
