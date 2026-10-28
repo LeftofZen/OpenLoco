@@ -3,6 +3,7 @@
 #include "Economy/Economy.h"
 #include "Effects/Effect.h"
 #include "Effects/ExplosionSmokeEffect.h"
+#include "Entities/EntityManager.h"
 #include "Game.h"
 #include "GameCommands/GameCommands.h"
 #include "GameState.h"
@@ -60,6 +61,9 @@ namespace OpenLoco::World::TileManager
         // resize map
         allocateMapElements();
         initialise();
+
+        // The entity spatial index is sized from the map pitch so it has to be remade as well
+        EntityManager::resetSpatialIndex();
     }
 
     coord_t getMapRows()
@@ -72,12 +76,17 @@ namespace OpenLoco::World::TileManager
         return mapColumns;
     }
 
-    coord_t getMapHeight()
+    coord_t getMapPitch()
+    {
+        return std::max(mapColumns, mapRows);
+    }
+
+    int32_t getMapHeight()
     {
         return getMapRows() * World::kTileSize;
     }
 
-    coord_t getMapWidth()
+    int32_t getMapWidth()
     {
         return getMapColumns() * World::kTileSize;
     }
@@ -89,7 +98,7 @@ namespace OpenLoco::World::TileManager
 
     int32_t getNumTiles()
     {
-        return kMapPitch * getMapRows();
+        return getMapPitch() * getMapRows();
     }
 
     uint32_t getMaxElements()
@@ -412,9 +421,9 @@ namespace OpenLoco::World::TileManager
         return _F00158 == nullptr;
     }
 
-    static constexpr size_t getTileIndex(const TilePos2& pos)
+    static size_t getTileIndex(const TilePos2& pos)
     {
-        return (pos.y * World::kMapPitch) + pos.x;
+        return (static_cast<size_t>(pos.y) * getMapPitch()) + pos.x;
     }
 
     Tile get(TilePos2 pos)
@@ -471,6 +480,12 @@ namespace OpenLoco::World::TileManager
     static void set(TilePos2 pos, TileElementEntry* entries)
     {
         const auto index = getTileIndex(pos);
+        if (index >= tileState().tiles.size())
+        {
+            Logging::error("Attempted to set tile out of bounds! ({0}, {1})", pos.x, pos.y);
+            return;
+        }
+
         tileState().tiles[index] = entries;
     }
 

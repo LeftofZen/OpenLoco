@@ -192,7 +192,7 @@ namespace OpenLoco::Ui
         return prepareSaveScreenshot(rt);
     }
 
-    static Ui::Viewport createGiantViewport(const uint16_t resolutionWidth, const uint16_t resolutionHeight, const ZoomLevel zoomLevel)
+    static Ui::Viewport createGiantViewport(const int32_t resolutionWidth, const int32_t resolutionHeight, const ZoomLevel zoomLevel)
     {
         Ui::Viewport viewport{};
         viewport.width = resolutionWidth;
@@ -205,8 +205,8 @@ namespace OpenLoco::Ui
         viewport.pad_11 = 0;
         viewport.flags = ViewportFlags::none;
 
-        const coord_t centreX = (World::TileManager::getMapWidth() / 2) + (World::kTileSize / 2);
-        const coord_t centreY = (World::TileManager::getMapHeight() / 2) + (World::kTileSize / 2);
+        const coord_t centreX = static_cast<coord_t>((World::TileManager::getMapWidth() / 2) + (World::kTileSize / 2));
+        const coord_t centreY = static_cast<coord_t>((World::TileManager::getMapHeight() / 2) + (World::kTileSize / 2));
         const coord_t z = World::TileManager::getHeight({ centreX, centreY }).landHeight;
 
         auto pos = viewport.centre2dCoordinates({ centreX, centreY, z });
@@ -222,8 +222,8 @@ namespace OpenLoco::Ui
 
         const auto zoomLevel = ZoomLevel{ std::max<int8_t>(static_cast<int8_t>(main->viewports[0]->zoom), ZoomLevel::full) };
 
-        const uint16_t resolutionWidth = zoomLevel.applyInversedTo(World::TileManager::getMapWidth() * 2) + 8;
-        const uint16_t resolutionHeight = zoomLevel.applyInversedTo(World::TileManager::getMapHeight() * 1) + 8;
+        const int32_t resolutionWidth = zoomLevel.applyInversedTo<int32_t>(World::TileManager::getMapWidth() * 2) + 8;
+        const int32_t resolutionHeight = zoomLevel.applyInversedTo<int32_t>(World::TileManager::getMapHeight() * 1) + 8;
 
         Ui::Viewport viewport = createGiantViewport(resolutionWidth, resolutionHeight, zoomLevel);
 
@@ -231,9 +231,10 @@ namespace OpenLoco::Ui
         EntityManager::resetSpatialIndex();
 
         Gfx::RenderTarget rt{};
-        rt.bits = static_cast<uint8_t*>(malloc(resolutionWidth * resolutionHeight));
+        rt.bits = static_cast<uint8_t*>(malloc(static_cast<size_t>(resolutionWidth) * static_cast<size_t>(resolutionHeight)));
         if (rt.bits == nullptr)
         {
+            OpenLoco::Diagnostics::Logging::error("Unable to allocate {} MB for a {}x{} giant screenshot", (static_cast<uint64_t>(resolutionWidth) * resolutionHeight) / (1024 * 1024), resolutionWidth, resolutionHeight);
             return {};
         }
 

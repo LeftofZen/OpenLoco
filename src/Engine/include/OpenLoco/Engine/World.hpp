@@ -8,8 +8,6 @@ namespace OpenLoco::World
 {
     constexpr coord_t kTileSize = 32;
 
-    constexpr coord_t kMapPitch = 512; // must be 512 until NSF
-
     constexpr int16_t kMinTileHeightSmallZ = 4;
     constexpr int16_t kMaxTileHeightSmallZ = 160;
 

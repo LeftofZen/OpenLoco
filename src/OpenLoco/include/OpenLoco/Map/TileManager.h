@@ -34,7 +34,9 @@ namespace OpenLoco::World::TileManager
 
     const uint16_t kMinMapDimension = 32;
     const uint16_t kDefaultMapDimension = 384;
-    const uint16_t kMaxMapDimension = World::kMapPitch;
+    // The largest map that can be created. World coordinates are 16 bit (see Engine/Types.hpp) so
+    // a map of 1024 tiles is 32768 units wide, which is the limit until coordinates are widened.
+    const uint16_t kMaxMapDimension = 1024;
 
     enum class ElementPositionFlags : uint8_t
     {
@@ -139,8 +141,11 @@ namespace OpenLoco::World::TileManager
     void setMapSize(coord_t cols, coord_t rows);
     coord_t getMapRows();
     coord_t getMapColumns();
-    coord_t getMapHeight();
-    coord_t getMapWidth();
+    // Number of slots per row of the tile pointer array. Always >= max(columns, rows) so that
+    // tiles of different rows never share a slot (see getTileIndex).
+    coord_t getMapPitch();
+    int32_t getMapHeight();
+    int32_t getMapWidth();
     uint32_t getMapSize();
     uint32_t getMaxElements();
 

@@ -1,4 +1,5 @@
 #include <OpenLoco/Engine/World.hpp>
+#include <OpenLoco/Entities/EntityManager.h>
 #include <OpenLoco/Map/RoadElement.h>
 #include <OpenLoco/Map/StationElement.h>
 #include <OpenLoco/Map/SurfaceElement.h>
@@ -395,8 +396,10 @@ TEST_F(TileManagerTest, DefragmentTilePeriodicCompactsTilePointerBackward)
     ASSERT_EQ(tileBefore.size(), 2u);
     auto* entryAddrBefore = &*tileBefore.begin();
 
-    constexpr size_t kNumTiles = static_cast<size_t>(kMapPitch) * static_cast<size_t>(TileManager::kDefaultMapDimension);
-    for (size_t i = 0; i < kNumTiles + 1; ++i)
+    // The periodic defrag moves a single tile per call so the map has to be walked more than once
+    // before a tile which follows the gap left by the insert is compacted
+    const size_t kNumTiles = static_cast<size_t>(TileManager::getMapPitch()) * static_cast<size_t>(TileManager::kDefaultMapDimension);
+    for (size_t i = 0; i < (kNumTiles * 2) + 1; ++i)
     {
         TileManager::defragmentTilePeriodic();
     }
@@ -418,7 +421,7 @@ TEST_F(TileManagerTest, DefragmentTilePeriodicReducesElementsEnd)
     }
     const auto liveBefore = TileManager::getEntries().size();
 
-    constexpr size_t kNumTiles = static_cast<size_t>(kMapPitch) * static_cast<size_t>(TileManager::kDefaultMapDimension);
+    const size_t kNumTiles = static_cast<size_t>(TileManager::getMapPitch()) * static_cast<size_t>(TileManager::kDefaultMapDimension);
     for (size_t i = 0; i < kNumTiles + 1; ++i)
     {
         TileManager::defragmentTilePeriodic();
@@ -458,7 +461,7 @@ TEST_F(TileManagerTest, DefragmentTilePeriodicPreservesByteContentAfterChurn)
         before.push_back(snapshotBytes(TileManager::get(t)));
     }
 
-    constexpr size_t kNumTiles = static_cast<size_t>(kMapPitch) * static_cast<size_t>(TileManager::kDefaultMapDimension);
+    const size_t kNumTiles = static_cast<size_t>(TileManager::getMapPitch()) * static_cast<size_t>(TileManager::kDefaultMapDimension);
     for (size_t i = 0; i < 2 * kNumTiles; ++i)
     {
         TileManager::defragmentTilePeriodic();
@@ -475,7 +478,7 @@ TEST_F(TileManagerTest, DisablePeriodicDefragSkipsNextCall)
 {
     TileManager::insertElement(ElementType::track, toWorldSpace(kTestTile), 8, 0);
 
-    constexpr size_t kNumTiles = static_cast<size_t>(kMapPitch) * static_cast<size_t>(TileManager::kDefaultMapDimension);
+    const size_t kNumTiles = static_cast<size_t>(TileManager::getMapPitch()) * static_cast<size_t>(TileManager::kDefaultMapDimension);
     for (size_t i = 0; i < kNumTiles + 1; ++i)
     {
         TileManager::defragmentTilePeriodic();
@@ -974,4 +977,100 @@ TEST_F(TileManagerTest, ReorganiseAfterChurnMatchesByteShadow)
         EXPECT_EQ(before[i], snapshotBytes(TileManager::get(tilesOfInterest[i])))
             << "tile (" << tilesOfInterest[i].x << "," << tilesOfInterest[i].y << ") diverged after reorganise";
     }
+}
+
+TEST_F(TileManagerTest, MapPitchCoversBothDimensions)
+{
+    const std::vector<std::pair<int16_t, int16_t>> mapSizes{
+        { 512, 512 },
+        { 1024, 1024 },
+        { 1024, 384 },
+        { 384, 1024 },
+    };
+
+    for (const auto& [columns, rows] : mapSizes)
+    {
+        TileManager::setMapSize(columns, rows);
+
+        EXPECT_EQ(TileManager::getMapColumns(), columns);
+        EXPECT_EQ(TileManager::getMapRows(), rows);
+        // The tile pointer array needs a stride that covers both dimensions, otherwise tiles of
+        // different rows share a slot
+        EXPECT_GE(TileManager::getMapPitch(), std::max(columns, rows));
+        // The world space extents must not be truncated for large maps
+        EXPECT_EQ(TileManager::getMapWidth(), static_cast<int32_t>(columns) * kTileSize);
+        EXPECT_EQ(TileManager::getMapHeight(), static_cast<int32_t>(rows) * kTileSize);
+    }
+
+    TileManager::setMapSize(TileManager::kDefaultMapDimension, TileManager::kDefaultMapDimension);
+}
+
+TEST_F(TileManagerTest, TilesDoNotAliasOnLargeOrNonSquareMaps)
+{
+    // With the old fixed 512 tile stride, maps wider than 512 tiles wrote past the end of the tile
+    // pointer array and tiles of different rows shared the same slot
+    const std::vector<std::pair<int16_t, int16_t>> mapSizes{
+        { 1024, 1024 },
+        { 1024, 384 },
+        { 384, 1024 },
+    };
+
+    for (const auto& [columns, rows] : mapSizes)
+    {
+        TileManager::setMapSize(columns, rows);
+
+        const TilePos2 corner{ static_cast<int16_t>(columns - 1), static_cast<int16_t>(rows - 1) };
+        const TilePos2 otherCorner{ static_cast<int16_t>(columns - 1), 0 };
+
+        EXPECT_EQ(TileManager::get(TilePos2{ 0, 0 }).size(), 1u);
+        EXPECT_EQ(TileManager::get(kTestTile).size(), 1u);
+
+        ASSERT_NE(TileManager::insertElement(ElementType::track, toWorldSpace(corner), 8, 0), nullptr);
+        EXPECT_EQ(TileManager::get(corner).size(), 2u);
+
+        ASSERT_NE(TileManager::insertElement(ElementType::tree, toWorldSpace(otherCorner), 16, 0), nullptr);
+        EXPECT_EQ(TileManager::get(otherCorner).size(), 2u);
+
+        if (columns > 512)
+        {
+            // This tile shared its slot with otherCorner when the stride was fixed at 512
+            EXPECT_EQ(TileManager::get(TilePos2{ static_cast<int16_t>(columns - 1 - 512), 1 }).size(), 1u);
+        }
+        EXPECT_EQ(TileManager::get(TilePos2{ 0, 0 }).size(), 1u);
+
+        // Rebuilding all tile pointers and the periodic defrag iterate every tile of the map
+        TileManager::reorganise();
+        EXPECT_EQ(TileManager::get(corner).size(), 2u);
+        EXPECT_EQ(TileManager::get(otherCorner).size(), 2u);
+        EXPECT_EQ(TileManager::get(TilePos2{ 0, 0 }).size(), 1u);
+    }
+
+    TileManager::setMapSize(TileManager::kDefaultMapDimension, TileManager::kDefaultMapDimension);
+}
+
+TEST_F(TileManagerTest, SpatialIndexCoversLargeMaps)
+{
+    // The entity spatial index is sized from the map pitch; entities on the outer tiles of a large
+    // map used to be filed in the "not on the map" bucket along with off-map entities
+    TileManager::setMapSize(1024, 1024);
+    OpenLoco::EntityManager::reset();
+
+    auto* farEntity = OpenLoco::EntityManager::createEntityMisc();
+    ASSERT_NE(farEntity, nullptr);
+    auto* otherFarEntity = OpenLoco::EntityManager::createEntityMisc();
+    ASSERT_NE(otherFarEntity, nullptr);
+
+    constexpr int16_t kFarTile = 1023;
+    constexpr int16_t kOtherFarTile = 700;
+    const Pos2 farPos{ kFarTile * kTileSize, kFarTile * kTileSize };
+    const Pos2 otherFarPos{ kOtherFarTile * kTileSize, kOtherFarTile * kTileSize };
+
+    farEntity->moveTo(Pos3{ farPos.x, farPos.y, 0 });
+    otherFarEntity->moveTo(Pos3{ otherFarPos.x, otherFarPos.y, 0 });
+
+    EXPECT_EQ(OpenLoco::EntityManager::firstQuadrantId(farPos), farEntity->id);
+    EXPECT_EQ(OpenLoco::EntityManager::firstQuadrantId(otherFarPos), otherFarEntity->id);
+
+    OpenLoco::EntityManager::reset();
+    TileManager::setMapSize(TileManager::kDefaultMapDimension, TileManager::kDefaultMapDimension);
 }
