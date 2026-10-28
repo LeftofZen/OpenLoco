@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
+#include <limits>
 #include <png.h>
 #include <string>
 
@@ -230,12 +231,23 @@ namespace OpenLoco::Ui
         // Ensure sprites appear regardless of rotation
         EntityManager::resetSpatialIndex();
 
+        // A giant screenshot captures the whole map at the current zoom level, so it can be far
+        // larger than the screen (a 4096 tile map at full zoom is over 30 GB). Refuse to attempt
+        // such an allocation rather than slowing the machine down to a crawl.
+        constexpr uint64_t kMaxGiantScreenshotBytes = 1ULL << 30;
+        const auto numPixels = static_cast<uint64_t>(resolutionWidth) * static_cast<uint64_t>(resolutionHeight);
+        if (numPixels > kMaxGiantScreenshotBytes || numPixels > std::numeric_limits<size_t>::max())
+        {
+            OpenLoco::Diagnostics::Logging::error("A giant screenshot of the map at this zoom level needs {} MB ({}x{} pixels); zoom out to take a smaller screenshot", numPixels / (1024 * 1024), resolutionWidth, resolutionHeight);
+            throw Exception::RuntimeError("Giant screenshot is too large");
+        }
+
         Gfx::RenderTarget rt{};
-        rt.bits = static_cast<uint8_t*>(malloc(static_cast<size_t>(resolutionWidth) * static_cast<size_t>(resolutionHeight)));
+        rt.bits = static_cast<uint8_t*>(malloc(static_cast<size_t>(numPixels)));
         if (rt.bits == nullptr)
         {
-            OpenLoco::Diagnostics::Logging::error("Unable to allocate {} MB for a {}x{} giant screenshot", (static_cast<uint64_t>(resolutionWidth) * resolutionHeight) / (1024 * 1024), resolutionWidth, resolutionHeight);
-            return {};
+            OpenLoco::Diagnostics::Logging::error("Unable to allocate {} MB for a {}x{} giant screenshot", numPixels / (1024 * 1024), resolutionWidth, resolutionHeight);
+            throw Exception::RuntimeError("Unable to allocate memory for a giant screenshot");
         }
 
         rt.x = 0;

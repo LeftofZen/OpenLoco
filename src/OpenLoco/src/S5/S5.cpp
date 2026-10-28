@@ -418,10 +418,13 @@ namespace OpenLoco::S5
         // Copy the source gamestate contents to the S5 gamestate, field by field
         auto& dst = file->gameState;
         dst = *exportGameState(src);
-        dst.general.savedViewX = savedView.viewX;
-        dst.general.savedViewY = savedView.viewY;
+        dst.general.savedViewX = toSaveCoord(savedView.viewX);
+        dst.general.savedViewY = toSaveCoord(savedView.viewY);
         dst.general.savedViewZoom = static_cast<uint8_t>(static_cast<int8_t>(savedView.zoomLevel));
         dst.general.savedViewRotation = savedView.rotation;
+
+        // Coordinates outside the 16 bit range of the save format are stored separately
+        file->widePositions = collectWidePositions(src);
 
         // Copy tile elements; remove any ghosts before saving
         const auto entries = TileManager::getEntries();
@@ -453,14 +456,6 @@ namespace OpenLoco::S5
 
     bool exportGameStateToFile(Stream& stream, SaveFlags flags)
     {
-        // The save format stores world coordinates as 16 bit values, so maps larger than
-        // kMaxSaveCoordDimension tiles cannot be saved without losing the positions of towns,
-        // stations, industries, companies and vehicles
-        if (World::TileManager::getMapColumns() > kMaxSaveCoordDimension || World::TileManager::getMapRows() > kMaxSaveCoordDimension)
-        {
-            Logging::error("Saving a {}x{} tile map is not supported yet: the save format stores coordinates as 16 bit values so anything beyond {} tiles will be clamped", World::TileManager::getMapColumns(), World::TileManager::getMapRows(), kMaxSaveCoordDimension);
-        }
-
         if ((flags & SaveFlags::isAutosave) == SaveFlags::none)
         {
             Ui::ProgressBar::begin(StringIds::please_wait);
@@ -573,6 +568,12 @@ namespace OpenLoco::S5
                 fs.writeChunk(SawyerEncoding::runLengthMulti, file.tileElements.data(), file.tileElements.size() * sizeof(TileElement));
             }
 
+            // The coordinates that the 16 bit fields of the vanilla chunks cannot hold are stored in
+            // an extra chunk (see S5WidePositions.h). It is written for all maps, regardless of
+            // their size, and is empty for maps that do not need it.
+            const auto widePositions = encodeWidePositions(file.widePositions);
+            fs.writeChunk(SawyerEncoding::uncompressed, widePositions.data(), widePositions.size());
+
             fs.writeChecksum();
             return true;
         }
@@ -624,6 +625,8 @@ namespace OpenLoco::S5
             // 0x004420B2
         }
 
+        bool readTileElements = false;
+
         if (file->header.type == S5Type::scenario)
         {
             // Load required objects
@@ -645,6 +648,7 @@ namespace OpenLoco::S5
                 auto numTileElements = tileElements.size() / sizeof(TileElement);
                 file->tileElements.resize(numTileElements);
                 std::memcpy(file->tileElements.data(), tileElements.data(), numTileElements * sizeof(TileElement));
+                readTileElements = true;
             }
         }
         else
@@ -673,6 +677,17 @@ namespace OpenLoco::S5
             auto numTileElements = tileElements.size() / sizeof(TileElement);
             file->tileElements.resize(numTileElements);
             std::memcpy(file->tileElements.data(), tileElements.data(), numTileElements * sizeof(TileElement));
+            readTileElements = true;
+        }
+
+        // The coordinates that do not fit in the 16 bit fields of the vanilla chunks are stored in
+        // an extra chunk at the end of the file (the last 4 bytes are the checksum). Save files
+        // written before large maps were supported do not have this chunk, so it is only read when
+        // there is data left after the chunks above.
+        if (readTileElements && stream.getLength() - stream.getPosition() > sizeof(uint32_t))
+        {
+            const auto widePositions = fs.readChunk();
+            file->widePositions = decodeWidePositions(widePositions);
         }
 
         // Reset fields that don't affect the simulation, but would cause issues when comparing game states.
@@ -888,6 +903,9 @@ namespace OpenLoco::S5
             auto& src = file->gameState;
             dst = *importGameState(src);
 
+            // Restore the coordinates that the 16 bit fields of the vanilla save format could not hold
+            applyWidePositions(dst, file->widePositions);
+
             // Copy scenario options
             auto mapWidth = World::TileManager::kDefaultMapDimension;
             auto mapHeight = World::TileManager::kDefaultMapDimension;
@@ -989,8 +1007,8 @@ namespace OpenLoco::S5
             if (mainWindow != nullptr)
             {
                 SavedViewSimple savedView;
-                savedView.viewX = file->gameState.general.savedViewX;
-                savedView.viewY = file->gameState.general.savedViewY;
+                savedView.viewX = dst.savedViewX;
+                savedView.viewY = dst.savedViewY;
                 savedView.zoomLevel = ZoomLevel{ std::clamp<int8_t>(file->gameState.general.savedViewZoom, ZoomLevel::min, ZoomLevel::max) };
                 savedView.rotation = file->gameState.general.savedViewRotation;
                 mainWindow->viewportFromSavedView(savedView);

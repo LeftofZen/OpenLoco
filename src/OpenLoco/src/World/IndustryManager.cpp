@@ -266,8 +266,8 @@ namespace OpenLoco::IndustryManager
         for (auto i = 0; i < kFindRandomNewIndustryAttempts; ++i)
         {
             // Replace the below with this after validating the function
-            // Map::Pos2 randomPos{
-            //     Map::TilePos2(gPrng1().randNext(Map::World::TileManager::getMapRows()), gPrng1().randNext(Map::World::TileManager::getMapColumns()))
+            // World::Pos2 randomPos{
+            //     World::TilePos2(gPrng1().randNext(World::TileManager::getMapRows()), gPrng1().randNext(World::TileManager::getMapColumns()))
             // };
             const auto randomNum = gPrng1().randNext();
 

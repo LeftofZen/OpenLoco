@@ -2,6 +2,7 @@
 
 #include "Graphics/ImageId.h"
 #include "Localisation/FormatArguments.hpp"
+#include "Map/TileManager.h"
 #include "Types.hpp"
 #include "Viewport.hpp"
 #include <OpenLoco/Core/EnumFlags.hpp>
@@ -54,6 +55,16 @@ namespace OpenLoco::Paint
 
     // Handy array for converting a bit index to the flag
     constexpr std::array<SegmentFlags, 9> kSegmentOffsets = { SegmentFlags::x0y0, SegmentFlags::x2y0, SegmentFlags::x0y2, SegmentFlags::x2y2, SegmentFlags::x1y1, SegmentFlags::x1y0, SegmentFlags::x0y1, SegmentFlags::x2y1, SegmentFlags::x1y2 };
+
+    // At the furthest zoom out levels a single tile (32 world units) is smaller than a screen
+    // pixel. The paint session generates and draws its tiles in steps of the number of tiles that
+    // fit in a pixel, so that it does not create paint structs for tiles that would be clipped
+    // away again as they map onto the same screen pixel.
+    constexpr int32_t tileStrideForZoom(const ZoomLevel zoom)
+    {
+        const auto worldUnitsPerPixel = zoom.applyTo<int32_t>(1);
+        return std::max(1, worldUnitsPerPixel / World::kTileSize);
+    }
 
     namespace
     {
@@ -229,7 +240,11 @@ namespace OpenLoco::Paint
         }
     };
 
-    static constexpr auto kMaxPaintQuadrants = 1024;
+    // The number of paint quadrants, which are used as a sort key for the paint structs. The index
+    // is derived from the rotated map coordinates, so it has to cover the whole diagonal of the
+    // largest map (its width plus its height in tiles). Indices beyond this are clamped, which
+    // would draw sprites in the wrong order.
+    static constexpr auto kMaxPaintQuadrants = World::TileManager::kMaxMapDimension * 2;
 
     struct PaintSession
     {

@@ -18,10 +18,6 @@ namespace OpenLoco::S5
     };
     static_assert(sizeof(Pos2) == 4);
 
-    // The largest map whose coordinates all fit in the format (a map of this many tiles is
-    // 32768 units wide, so the highest coordinate is 32736)
-    constexpr uint16_t kMaxSaveCoordDimension = (std::numeric_limits<int16_t>::max() / World::kTileSize) + 1;
-
     struct Pos3
     {
         int16_t x;
@@ -30,9 +26,10 @@ namespace OpenLoco::S5
     };
     static_assert(sizeof(Pos3) == 6);
 
-    // The save format cannot represent coordinates outside the 16 bit range, so maps larger than
-    // 1024 tiles cannot be saved without losing positions. Values are clamped here to keep the file
-    // valid; saving such a map is reported as an error by the save code.
+    // The save format cannot represent coordinates outside the 16 bit range. Values are clamped
+    // when they are written to the vanilla save chunks; the values that cannot be represented are
+    // stored separately so that they can be restored when the save file is loaded again
+    // (see S5WidePositions.h).
     inline int16_t toSaveCoord(const coord_t value)
     {
         return static_cast<int16_t>(std::clamp<coord_t>(value, std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max()));

@@ -18,6 +18,8 @@ namespace OpenLoco::World
         {
         }
         Pos2 current() const { return _pos; }
+        // Mutable access to the loop position (used when restoring saved games with large maps)
+        Pos2& currentPos() { return _pos; }
         Pos2 next()
         {
             _pos.x += kTileSize;

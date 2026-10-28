@@ -523,8 +523,13 @@ namespace OpenLoco::Paint
         const auto worldY = zoom.applyTo(static_cast<int32_t>(rt->y));
         const auto worldHeight = screenToWorldCeil(zoom, rt->y + rt->height) - worldY;
 
+        // Tiles are generated in steps of the number of tiles that fit in a screen pixel; the
+        // additional locations cover the neighbouring tiles so that every pixel row of the column
+        // is filled in by the tiles that map onto it.
+        const auto tileStride = tileStrideForZoom(zoom);
+
         // TODO: Work out what these constants represent
-        uint16_t numVerticalQuadrants = (worldHeight + (rotation == 0 ? 1040 : 1056)) >> 5;
+        uint16_t numVerticalQuadrants = static_cast<uint16_t>(((worldHeight / tileStride) + (rotation == 0 ? 1040 : 1056)) >> 5);
 
         auto mapLoc = Ui::viewportCoordToMapCoord(
             Numerics::floor2(worldX, 32),
@@ -539,14 +544,14 @@ namespace OpenLoco::Paint
         mapLoc.y = Numerics::floor2(mapLoc.y, 32);
 
         constexpr auto direction = directionFlipXAxis(rotation);
-        constexpr std::array<World::Pos2, 5> additionalQuadrants = {
-            Math::Vector::rotate(World::Pos2{ -32, 32 }, direction),
-            Math::Vector::rotate(World::Pos2{ 0, 32 }, direction),
-            Math::Vector::rotate(World::Pos2{ 32, 0 }, direction),
-            Math::Vector::rotate(World::Pos2{ 32, -32 }, direction),
-            Math::Vector::rotate(World::Pos2{ -32, 64 }, direction),
+        const std::array<World::Pos2, 5> additionalQuadrants = {
+            Math::Vector::rotate(World::Pos2{ -32, 32 }, direction) * tileStride,
+            Math::Vector::rotate(World::Pos2{ 0, 32 }, direction) * tileStride,
+            Math::Vector::rotate(World::Pos2{ 32, 0 }, direction) * tileStride,
+            Math::Vector::rotate(World::Pos2{ 32, -32 }, direction) * tileStride,
+            Math::Vector::rotate(World::Pos2{ -32, 64 }, direction) * tileStride,
         };
-        constexpr auto nextVerticalQuadrant = Math::Vector::rotate(World::Pos2{ 32, 32 }, direction);
+        const auto nextVerticalQuadrant = Math::Vector::rotate(World::Pos2{ 32, 32 }, direction) * tileStride;
 
         return { mapLoc, numVerticalQuadrants, additionalQuadrants, nextVerticalQuadrant };
     }

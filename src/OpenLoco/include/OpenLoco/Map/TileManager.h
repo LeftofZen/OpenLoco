@@ -32,7 +32,7 @@ namespace OpenLoco::World::TileManager
 
     constexpr size_t kMaxElementsOnOneTile = 1024; // If you exceed this then the game may buffer overflow in certain situations
 
-    const uint16_t kMinMapDimension = 32;
+    const uint16_t kMinMapDimension = 16;
     const uint16_t kDefaultMapDimension = 384;
     // The largest map that can be created. World coordinates are 32 bit so the map extents are
     // limited by the tile pointer array and the entity spatial index (which are both sized from

@@ -262,8 +262,8 @@ namespace OpenLoco
         ObservationStatus observationStatus;                   // 0x8BB9;
         TownId observationTownId;                              // 0x8BBA;
         EntityId observationEntity;                            // 0x8BBC;
-        int16_t observationX;                                  // 0x8BBE;
-        int16_t observationY;                                  // 0x8BC0;
+        coord_t observationX;                                  // 0x8BBE;
+        coord_t observationY;                                  // 0x8BC0;
         uint16_t observationObject;                            // 0x8BC2;
         uint16_t observationTimeout;                           // 0x8BC4
         OwnerStatus ownerStatus;                               // 0x8BC6

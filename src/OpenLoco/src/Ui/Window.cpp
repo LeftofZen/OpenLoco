@@ -286,8 +286,9 @@ namespace OpenLoco::Ui
             }
             else
             {
-                int16_t midX = config->savedViewX + (viewport->viewWidth / 2);
-                int16_t midY = config->savedViewY + (viewport->viewHeight / 2);
+                // Note: these must be 32 bit, world coordinates can be far outside the 16 bit range on large maps
+                const int32_t midX = config->savedViewX + (viewport->viewWidth / 2);
+                const int32_t midY = config->savedViewY + (viewport->viewHeight / 2);
 
                 World::Pos2 mapCoord = viewportCoordToMapCoord(midX, midY, 128, viewport->getRotation());
                 viewportSetUndergroundFlag(false, viewport);

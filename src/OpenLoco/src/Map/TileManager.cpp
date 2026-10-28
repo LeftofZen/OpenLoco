@@ -150,12 +150,13 @@ namespace OpenLoco::World::TileManager
             && coords.y < (getMapHeight() - World::kTileSize - 1);
     }
 
+    // Drawing coordinates are in tile space here, so the map is one tile in from each edge
     bool drawableTileCoords(const TilePos2& coords)
     {
-        return coords.x >= World::kTileSize
-            && coords.x < (getMapColumns() - World::kTileSize - 1)
-            && coords.y >= World::kTileSize
-            && coords.y < (getMapRows() - World::kTileSize - 1);
+        return coords.x >= 1
+            && coords.x < (getMapColumns() - 1)
+            && coords.y >= 1
+            && coords.y < (getMapRows() - 1);
     }
 
     static TileState& tileState()

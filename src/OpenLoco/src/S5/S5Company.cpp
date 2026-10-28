@@ -163,8 +163,8 @@ namespace OpenLoco::S5
         dst.observationStatus = src.observationStatus;
         dst.observationTownId = enumValue(src.observationTownId);
         dst.observationEntity = enumValue(src.observationEntity);
-        dst.observationX = src.observationX;
-        dst.observationY = src.observationY;
+        dst.observationX = toSaveCoord(src.observationX);
+        dst.observationY = toSaveCoord(src.observationY);
         dst.observationObject = src.observationObject;
         dst.observationTimeout = src.observationTimeout;
         dst.ownerStatus[0] = toSaveUCoord(src.ownerStatus.data[0]);
@@ -450,8 +450,8 @@ namespace OpenLoco::S5
         dst.observationStatus = static_cast<ObservationStatus>(src.observationStatus);
         dst.observationTownId = static_cast<TownId>(src.observationTownId);
         dst.observationEntity = static_cast<EntityId>(src.observationEntity);
-        dst.observationX = src.observationX;
-        dst.observationY = src.observationY;
+        dst.observationX = fromSaveCoord(src.observationX);
+        dst.observationY = fromSaveCoord(src.observationY);
         dst.observationObject = src.observationObject;
         dst.observationTimeout = src.observationTimeout;
         dst.ownerStatus.data[0] = fromSaveUCoord(src.ownerStatus[0]);

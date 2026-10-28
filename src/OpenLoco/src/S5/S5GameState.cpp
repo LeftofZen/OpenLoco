@@ -31,8 +31,8 @@ namespace OpenLoco::S5
         dst.currentYear = src.currentYear;
         dst.currentMonth = src.currentMonth;
         dst.currentDayOfMonth = src.currentDayOfMonth;
-        dst.savedViewX = src.savedViewX;
-        dst.savedViewY = src.savedViewY;
+        dst.savedViewX = toSaveCoord(src.savedViewX);
+        dst.savedViewY = toSaveCoord(src.savedViewY);
         dst.savedViewZoom = src.savedViewZoom;
         dst.savedViewRotation = src.savedViewRotation;
         dst.playerCompanies[0] = enumValue(src.playerCompanies[0]);
@@ -234,8 +234,8 @@ namespace OpenLoco::S5
         dst.currentYear = src.currentYear;
         dst.currentMonth = src.currentMonth;
         dst.currentDayOfMonth = src.currentDayOfMonth;
-        dst.savedViewX = src.savedViewX;
-        dst.savedViewY = src.savedViewY;
+        dst.savedViewX = fromSaveCoord(src.savedViewX);
+        dst.savedViewY = fromSaveCoord(src.savedViewY);
         dst.savedViewZoom = src.savedViewZoom;
         dst.savedViewRotation = src.savedViewRotation;
         for (auto i = 0U; i < std::size(dst.playerCompanies); ++i)

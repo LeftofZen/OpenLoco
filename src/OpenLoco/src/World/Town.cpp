@@ -84,6 +84,10 @@ namespace OpenLoco
         Gfx::Font::medium_bold,
         Gfx::Font::medium_normal,
         Gfx::Font::medium_normal,
+        Gfx::Font::medium_normal,
+        Gfx::Font::medium_normal,
+        Gfx::Font::medium_normal,
+        Gfx::Font::medium_normal,
     };
 
     void Town::drawLabel(Gfx::DrawingContext& drawingCtx, ZoomLevel zoom)

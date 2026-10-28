@@ -1113,3 +1113,30 @@ TEST_F(TileManagerTest, MapsLargerThan16BitCoordinates)
 
     TileManager::setMapSize(TileManager::kDefaultMapDimension, TileManager::kDefaultMapDimension);
 }
+TEST_F(TileManagerTest, SmallestMapDimensions)
+{
+    // Maps are supported from kMinMapDimension up to kMaxMapDimension by the same code, so the
+    // smallest map must behave like any other
+    constexpr OpenLoco::coord_t kDimension = TileManager::kMinMapDimension;
+    TileManager::setMapSize(kDimension, kDimension);
+
+    EXPECT_EQ(TileManager::getMapColumns(), kDimension);
+    EXPECT_EQ(TileManager::getMapRows(), kDimension);
+    EXPECT_EQ(TileManager::getMapWidth(), static_cast<int32_t>(kDimension) * kTileSize);
+    EXPECT_EQ(TileManager::getMapHeight(), static_cast<int32_t>(kDimension) * kTileSize);
+    EXPECT_GE(TileManager::getMapPitch(), kDimension);
+
+    const TilePos2 corner{ kDimension - 1, kDimension - 1 };
+    const auto cornerPos = toWorldSpace(corner);
+    EXPECT_TRUE(TileManager::validCoords(cornerPos));
+
+    ASSERT_NE(TileManager::insertElement(ElementType::track, cornerPos, 8, 0), nullptr);
+    auto tile = TileManager::get(corner);
+    ASSERT_EQ(tile.size(), 2u);
+    EXPECT_EQ(tile[1]->baseZ(), 8);
+
+    TileManager::reorganise();
+    EXPECT_EQ(TileManager::get(corner).size(), 2u);
+
+    TileManager::setMapSize(TileManager::kDefaultMapDimension, TileManager::kDefaultMapDimension);
+}

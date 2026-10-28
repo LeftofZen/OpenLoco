@@ -64,6 +64,11 @@ namespace OpenLoco::Gfx
         const int32_t width = args.size.width;
         int32_t height = args.size.height;
         constexpr auto zoom = 1 << TZoomLevel;
+
+        // Take the sample of each block of source pixels from the middle of the block (see
+        // zoomOutSampleOffset); the corners of the diamond shaped map sprites are transparent
+        const auto sampleOffsetX = zoomOutSampleOffset(zoom, width);
+        const auto sampleOffsetY = zoomOutSampleOffset(zoom, height);
         auto dstLineWidth = static_cast<size_t>(rt.width) + rt.pitch;
         auto* dst0 = rt.bits;
         // Move the pointer to the start point of the destination
@@ -80,7 +85,7 @@ namespace OpenLoco::Gfx
         // For every line in the image
         for (int32_t i = 0; i < height; i += zoom)
         {
-            int32_t y = srcY + i;
+            int32_t y = srcY + sampleOffsetY + i;
 
             // The first part of the source pointer is a list of offsets to different lines
             // This will move the pointer to the correct source line.
@@ -122,6 +127,14 @@ namespace OpenLoco::Gfx
                     src += -x;
                     numPixels += x;
                     x = 0;
+                }
+
+                // Take the sample from the middle of the block of source pixels
+                if (sampleOffsetX > 0)
+                {
+                    x += sampleOffsetX;
+                    src += sampleOffsetX;
+                    numPixels -= sampleOffsetX;
                 }
 
                 // If the end position is further out than the whole image
