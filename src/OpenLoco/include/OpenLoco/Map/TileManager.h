@@ -34,9 +34,10 @@ namespace OpenLoco::World::TileManager
 
     const uint16_t kMinMapDimension = 32;
     const uint16_t kDefaultMapDimension = 384;
-    // The largest map that can be created. World coordinates are 16 bit (see Engine/Types.hpp) so
-    // a map of 1024 tiles is 32768 units wide, which is the limit until coordinates are widened.
-    const uint16_t kMaxMapDimension = 1024;
+    // The largest map that can be created. World coordinates are 32 bit so the map extents are
+    // limited by the tile pointer array and the entity spatial index (which are both sized from
+    // the map pitch) rather than by the coordinate type.
+    const uint16_t kMaxMapDimension = 4096;
 
     enum class ElementPositionFlags : uint8_t
     {

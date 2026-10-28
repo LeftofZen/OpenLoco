@@ -3726,7 +3726,7 @@ namespace OpenLoco::Vehicles
             }
 
             const auto* dockObj = ObjectManager::get<DockObject>(elStation->objectId());
-            const auto boatPos = Math::Vector::rotate(dockObj->boatPosition, elStation->rotation()) + pos;
+            const auto boatPos = Math::Vector::rotate(dockObj->getBoatPosition(), elStation->rotation()) + pos;
             auto dockTarget = WaterPathingResult(
                 boatPos + World::Pos2{ 32, 32 },
                 stationId,

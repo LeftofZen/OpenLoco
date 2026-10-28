@@ -1074,3 +1074,42 @@ TEST_F(TileManagerTest, SpatialIndexCoversLargeMaps)
     OpenLoco::EntityManager::reset();
     TileManager::setMapSize(TileManager::kDefaultMapDimension, TileManager::kDefaultMapDimension);
 }
+
+TEST_F(TileManagerTest, MapsLargerThan16BitCoordinates)
+{
+    // A map larger than 1024 tiles has world coordinates beyond the 16 bit range, which used to be
+    // the limit for the coordinate type
+    constexpr int16_t kDimension = 2048;
+    TileManager::setMapSize(kDimension, kDimension);
+
+    EXPECT_EQ(TileManager::getMapColumns(), kDimension);
+    EXPECT_EQ(TileManager::getMapRows(), kDimension);
+    EXPECT_EQ(TileManager::getMapWidth(), static_cast<int32_t>(kDimension) * kTileSize);
+    EXPECT_EQ(TileManager::getMapHeight(), static_cast<int32_t>(kDimension) * kTileSize);
+    EXPECT_GE(TileManager::getMapPitch(), kDimension);
+
+    const TilePos2 corner{ kDimension - 1, kDimension - 1 };
+    const auto cornerPos = toWorldSpace(corner);
+    EXPECT_GT(cornerPos.x, std::numeric_limits<int16_t>::max());
+    EXPECT_TRUE(TileManager::validCoords(cornerPos));
+
+    ASSERT_NE(TileManager::insertElement(ElementType::track, cornerPos, 8, 0), nullptr);
+    auto tile = TileManager::get(corner);
+    ASSERT_EQ(tile.size(), 2u);
+    EXPECT_EQ(tile[1]->baseZ(), 8);
+
+    // Rebuilding all tile pointers iterates every tile of the map which is where an undersized tile
+    // pointer array used to corrupt memory
+    TileManager::reorganise();
+    EXPECT_EQ(TileManager::get(corner).size(), 2u);
+
+    // The entity spatial index is sized from the map pitch as well
+    OpenLoco::EntityManager::reset();
+    auto* entity = OpenLoco::EntityManager::createEntityMisc();
+    ASSERT_NE(entity, nullptr);
+    entity->moveTo(Pos3{ cornerPos.x, cornerPos.y, 0 });
+    EXPECT_EQ(OpenLoco::EntityManager::firstQuadrantId(cornerPos), entity->id);
+    OpenLoco::EntityManager::reset();
+
+    TileManager::setMapSize(TileManager::kDefaultMapDimension, TileManager::kDefaultMapDimension);
+}

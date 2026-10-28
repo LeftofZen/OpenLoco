@@ -44,9 +44,9 @@ namespace OpenLoco::World
     using TilePos2 = Math::Vector::TVector2<tile_coord_t, TileSpaceTag>;
     static_assert(std::is_trivially_copyable_v<TilePos2>, "Pos2 must be POD");
 
-    // Until interop is removed this is a requirement.
-    static_assert(sizeof(Pos2) == 4);
-    static_assert(sizeof(Pos3) == 6);
+    // World coordinates are 32 bit and tile coordinates are 16 bit
+    static_assert(sizeof(Pos2) == 8);
+    static_assert(sizeof(Pos3) == 12);
     static_assert(sizeof(TilePos2) == 4);
 
     constexpr TilePos2 toTileSpace(const Pos2& coords)

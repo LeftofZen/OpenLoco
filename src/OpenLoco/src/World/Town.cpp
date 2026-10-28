@@ -662,7 +662,7 @@ namespace OpenLoco
                 return 0;
             }
             const auto elSurface = World::TileManager::get(loc).surface();
-            const auto minZ = std::min(elSurface->baseHeight(), pos.z) / World::kSmallZStep;
+            const auto minZ = static_cast<uint8_t>(std::min<int32_t>(elSurface->baseHeight(), pos.z) / World::kSmallZStep);
             World::QuarterTile qt(0xF, 0xF);
             auto clearFunc = [baseZ = pos.z / World::kSmallZStep, &minClear, allowBuildingUpdate](World::TileElementEntry& el) {
                 return getBuildingMaxHeightClearFunc(el, baseZ, minClear, allowBuildingUpdate);

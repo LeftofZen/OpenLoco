@@ -1051,10 +1051,10 @@ namespace OpenLoco
     // 0x00491EDC
     static void setStationCatchmentRegion(TilePos2 minPos, TilePos2 maxPos, const CatchmentFlags flag)
     {
-        minPos.x = std::max(minPos.x, static_cast<coord_t>(0));
-        minPos.y = std::max(minPos.y, static_cast<coord_t>(0));
-        maxPos.x = std::min(maxPos.x, static_cast<coord_t>(World::TileManager::getMapColumns() - 1));
-        maxPos.y = std::min(maxPos.y, static_cast<coord_t>(World::TileManager::getMapRows() - 1));
+        minPos.x = std::max(minPos.x, static_cast<tile_coord_t>(0));
+        minPos.y = std::max(minPos.y, static_cast<tile_coord_t>(0));
+        maxPos.x = std::min(maxPos.x, static_cast<tile_coord_t>(World::TileManager::getMapColumns() - 1));
+        maxPos.y = std::min(maxPos.y, static_cast<tile_coord_t>(World::TileManager::getMapRows() - 1));
 
         maxPos.x -= minPos.x;
         maxPos.y -= minPos.y;

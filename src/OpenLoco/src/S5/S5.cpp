@@ -453,6 +453,14 @@ namespace OpenLoco::S5
 
     bool exportGameStateToFile(Stream& stream, SaveFlags flags)
     {
+        // The save format stores world coordinates as 16 bit values, so maps larger than
+        // kMaxSaveCoordDimension tiles cannot be saved without losing the positions of towns,
+        // stations, industries, companies and vehicles
+        if (World::TileManager::getMapColumns() > kMaxSaveCoordDimension || World::TileManager::getMapRows() > kMaxSaveCoordDimension)
+        {
+            Logging::error("Saving a {}x{} tile map is not supported yet: the save format stores coordinates as 16 bit values so anything beyond {} tiles will be clamped", World::TileManager::getMapColumns(), World::TileManager::getMapRows(), kMaxSaveCoordDimension);
+        }
+
         if ((flags & SaveFlags::isAutosave) == SaveFlags::none)
         {
             Ui::ProgressBar::begin(StringIds::please_wait);

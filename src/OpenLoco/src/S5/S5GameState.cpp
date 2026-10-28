@@ -50,7 +50,7 @@ namespace OpenLoco::S5
         dst.scenarioTicks2 = src.scenarioTicks2;
         dst.magicNumber = kMagicNumber; // Match implementation at 0x004437FC
         dst.numMapAnimations = src.numMapAnimations;
-        dst.tileUpdateStartLocation = src.tileUpdateStartLocation;
+        dst.tileUpdateStartLocation = toSavePos(src.tileUpdateStartLocation);
         dst.scenarioConstruction = exportConstruction(src.scenarioConstruction);
         dst.defaultRailroadObjectId = src.defaultRailroadObjectId;
         dst.defaultRoadObjectId = src.defaultRoadObjectId;
@@ -254,7 +254,7 @@ namespace OpenLoco::S5
         dst.scenarioTicks2 = src.scenarioTicks2;
         dst.magicNumber = src.magicNumber;
         dst.numMapAnimations = src.numMapAnimations;
-        dst.tileUpdateStartLocation = src.tileUpdateStartLocation;
+        dst.tileUpdateStartLocation = fromSavePos(src.tileUpdateStartLocation);
         dst.scenarioConstruction = importConstruction(src.scenarioConstruction);
         dst.defaultRailroadObjectId = src.defaultRailroadObjectId;
         dst.defaultRoadObjectId = src.defaultRoadObjectId;

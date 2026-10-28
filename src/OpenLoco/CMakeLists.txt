@@ -651,6 +651,7 @@ set(OLOCO_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/OpenLoco/S5/S5Industry.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/OpenLoco/S5/S5LabelFrame.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/OpenLoco/S5/S5Station.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/OpenLoco/S5/S5Types.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/OpenLoco/S5/S5Message.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/OpenLoco/S5/S5Options.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/OpenLoco/S5/S5TileElement.h"
@@ -772,6 +773,7 @@ set(private_compile_definitions
 )
 
 set(test_files
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/GameCommandArgsTests.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/TileManagerTests.cpp"
 )
 
