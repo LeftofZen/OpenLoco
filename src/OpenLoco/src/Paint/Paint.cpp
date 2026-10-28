@@ -633,6 +633,7 @@ namespace OpenLoco::Paint
         ps->bounds.mins = rotBoundBoxOffset + World::Pos3{ spritePos.x, spritePos.y, 0 };
         ps->bounds.maxs = rotBoundBoxOffset + rotBoundBoxSize + World::Pos3{ spritePos.x, spritePos.y, 0 };
         ps->flags = PaintStructFlags::none;
+        ps->solidColour = PaletteIndex::transparent;
         ps->attachedPS = nullptr;
         ps->children = nullptr;
         ps->type = _itemType;
@@ -1009,6 +1010,20 @@ namespace OpenLoco::Paint
     static void drawStruct(ZoomLevel zoom, Gfx::DrawingContext& drawingCtx, const PaintStruct& ps, const bool shouldCull)
     {
         auto imageId = ps.imageId;
+
+        if ((ps.flags & PaintStructFlags::solidColour) != PaintStructFlags::none)
+        {
+            // Draw the tile as a filled rectangle in one colour. Water uses this at the zoom levels where
+            // a whole tile is only a pixel or two and its sprite (which selects a shade of the water
+            // palette map for each of its pixels and is blended with the terrain below it) can no longer
+            // be drawn, as those levels are past the ones the game was designed for. The rectangle is
+            // anchored at the top left of the tile's bounding box, so it covers the whole tile.
+            const auto size = solidTileSizeForZoom(zoom);
+            const auto left = zoom.applyInversedTo(ps.vpPos.x - (World::kTileSize / 2));
+            const auto top = zoom.applyInversedTo(ps.vpPos.y + (World::kTileSize / 4));
+            drawingCtx.fillRect(left, top, left + size.x - 1, top + size.y - 1, ps.solidColour, Gfx::RectFlags::none);
+            return;
+        }
 
         if (shouldCull)
         {

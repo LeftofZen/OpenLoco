@@ -776,6 +776,7 @@ set(private_compile_definitions
 
 set(test_files
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/GameCommandArgsTests.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/MapGeneratorTests.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/PaintTests.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/S5WidePositionsTests.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/TileManagerTests.cpp"

@@ -130,6 +130,7 @@ namespace OpenLoco::Gfx
                 }
 
                 // Take the sample from the middle of the block of source pixels
+                const auto* runStart = src;
                 if (sampleOffsetX > 0)
                 {
                     x += sampleOffsetX;
@@ -155,7 +156,7 @@ namespace OpenLoco::Gfx
                     auto& paletteMap = args.palMap;
                     while (numPixels > 0)
                     {
-                        blitPixel<TBlendOp>(*src, *dst, paletteMap, 0xFF);
+                        blitSampledPixel<TBlendOp>(*src, *dst, paletteMap, 0xFF, runStart, 1);
                         numPixels -= zoom;
                         src += zoom;
                         dst++;

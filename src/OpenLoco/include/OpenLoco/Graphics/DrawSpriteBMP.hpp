@@ -76,7 +76,7 @@ namespace OpenLoco::Gfx
                 auto* nextNoiseMask = noiseMask + srcLineWidth;
                 for (int32_t widthRemaining = width; widthRemaining > 0; widthRemaining -= zoom, src += zoom, noiseMask += zoom, dst++)
                 {
-                    blitPixel<TBlendOp>(*src, *dst, paletteMap, *noiseMask);
+                    blitSampledPixel<TBlendOp>(*src, *dst, paletteMap, *noiseMask, src - sampleOffsetX, std::min<int32_t>(zoom, widthRemaining));
                 }
                 src = nextSrc;
                 dst = nextDst;
@@ -91,7 +91,7 @@ namespace OpenLoco::Gfx
                 auto* nextDst = dst + dstLineWidth;
                 for (int32_t widthRemaining = width; widthRemaining > 0; widthRemaining -= zoom, src += zoom, dst++)
                 {
-                    blitPixel<TBlendOp>(*src, *dst, paletteMap, 0xFF);
+                    blitSampledPixel<TBlendOp>(*src, *dst, paletteMap, 0xFF, src - sampleOffsetX, std::min<int32_t>(zoom, widthRemaining));
                 }
                 src = nextSrc;
                 dst = nextDst;

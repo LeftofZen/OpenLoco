@@ -4,6 +4,7 @@
 #include "Graphics/Gfx.h"
 #include "Graphics/TextRenderer.h"
 #include "Localisation/Formatting.h"
+#include "Map/TileManager.h"
 #include "Ui.h"
 #include "Ui/Window.h"
 #include "Ui/WindowManager.h"
@@ -84,11 +85,11 @@ namespace OpenLoco::Gfx
         buffer[1] = ControlCodes::Font::outline;
         buffer[2] = ControlCodes::Colour::white;
 
-        // Show the zoom level of the main viewport next to the frame rate
+        // Show the zoom level and the map size of the main viewport next to the frame rate
         const auto zoom = getMainViewportZoom();
         if (zoom.has_value())
         {
-            snprintf(&buffer[3], std::size(buffer) - 3, "%s  zoom %d, %s", fpsText, static_cast<int32_t>(static_cast<int8_t>(*zoom)), zoomScaleName(*zoom));
+            snprintf(&buffer[3], std::size(buffer) - 3, "%s  zoom %d, %s  map %dx%d", fpsText, static_cast<int32_t>(static_cast<int8_t>(*zoom)), zoomScaleName(*zoom), World::TileManager::getMapColumns(), World::TileManager::getMapRows());
         }
         else
         {

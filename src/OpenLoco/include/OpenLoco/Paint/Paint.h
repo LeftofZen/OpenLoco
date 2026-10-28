@@ -66,6 +66,17 @@ namespace OpenLoco::Paint
         return std::max(1, worldUnitsPerPixel / World::kTileSize);
     }
 
+    // At the furthest zoom out levels a whole tile is drawn as a solid rectangle instead of its
+    // image (see PaintSurface). The rectangle covers the tile's bounding box: a tile is a diamond
+    // that is twice as wide as it is tall, so filling the box overlaps the neighbouring tiles a
+    // little. Once a tile is only a single pixel a single pixel is filled instead, which keeps the
+    // water exactly within the tile.
+    constexpr Ui::Point solidTileSizeForZoom(const ZoomLevel zoom)
+    {
+        const auto tilePixels = std::max<int32_t>(1, zoom.applyInversedTo<int32_t>(World::kTileSize));
+        return Ui::Point{ tilePixels > 1 ? tilePixels * 2 : 1, tilePixels };
+    }
+
     namespace
     {
         constexpr std::array<std::array<uint8_t, 4>, 4> kSegMap1 = {
@@ -111,6 +122,8 @@ namespace OpenLoco::Paint
     {
         none = 0U,
         hasMaskedImage = 1U << 0,
+        // Draw a filled rectangle of the size of a tile (in solidColour) instead of the image
+        solidColour = 1U << 1,
     };
     OPENLOCO_ENABLE_ENUM_OPERATORS(PaintStructFlags);
 
@@ -166,6 +179,8 @@ namespace OpenLoco::Paint
         uint16_t quadrantIndex;
         uint8_t modId; // used for track mods and signal sides
         PaintStructFlags flags;
+        // Only used when the solidColour flag is set
+        PaletteIndex_t solidColour;
         QuadrantFlags quadrantFlags;
         Ui::ViewportInteraction::InteractionItem type;
 

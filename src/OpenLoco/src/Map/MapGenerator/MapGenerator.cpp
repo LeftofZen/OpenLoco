@@ -6,6 +6,7 @@
 #include "GameState.h"
 #include "Input.h"
 #include "Localisation/StringIds.h"
+#include "Logging.h"
 #include "Map/MapGenerator/OriginalTerrainGenerator.h"
 #include "Map/MapGenerator/PngTerrainGenerator.h"
 #include "Map/MapGenerator/SimplexTerrainGenerator.h"
@@ -26,6 +27,8 @@
 #include "Ui/ProgressBar.h"
 #include "Ui/WindowManager.h"
 #include "World/TownManager.h"
+#include <OpenLoco/Core/Exception.hpp>
+#include <OpenLoco/Gfx/PngImage.h>
 #include <cassert>
 #include <cstdint>
 #include <random>
@@ -50,10 +53,30 @@ namespace OpenLoco::World::MapGenerator
     }
 
     // 0x004624F0
-    static HeightMap generateHeightMap(const Scenario::Options& options)
+    static HeightMap generateHeightMap(Scenario::Options& options)
     {
-        World::TileManager::setMapSize(options.mapSizeX, options.mapSizeY);
-        HeightMap heightMap(options.mapSizeX, options.mapSizeY);
+        auto mapSize = TilePos2{ static_cast<coord_t>(options.mapSizeX), static_cast<coord_t>(options.mapSizeY) };
+
+        // Load the heightmap image before the map is sized: an image that is a valid map size itself is
+        // used at its native resolution rather than being scaled to the size the map already has.
+        std::unique_ptr<Gfx::PngImage> heightmapImage;
+        if (options.generator == Scenario::LandGeneratorType::PngHeightMap)
+        {
+            heightmapImage = Gfx::PngImage::loadFromFile(_pngHeightmapPath);
+            if (heightmapImage != nullptr)
+            {
+                mapSize = PngTerrainGenerator::getMapSizeForImage(*heightmapImage, mapSize);
+                options.mapSizeX = static_cast<uint16_t>(mapSize.x);
+                options.mapSizeY = static_cast<uint16_t>(mapSize.y);
+            }
+            else
+            {
+                Diagnostics::Logging::error("Can't load heightmap file ({})", _pngHeightmapPath);
+            }
+        }
+
+        World::TileManager::setMapSize(mapSize.x, mapSize.y);
+        HeightMap heightMap(mapSize.x, mapSize.y);
 
         if (options.generator == Scenario::LandGeneratorType::Original)
         {
@@ -68,7 +91,7 @@ namespace OpenLoco::World::MapGenerator
         else
         {
             PngTerrainGenerator generator;
-            generator.generate(options, _pngHeightmapPath, heightMap);
+            generator.generate(options, heightmapImage.get(), heightMap);
         }
 
         return heightMap;
